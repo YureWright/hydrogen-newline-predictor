@@ -1,7 +1,18 @@
+# Node
 node_modules/
 dist/
+*.log
+
+# 环境与密钥
 .env
 .env.*
-*.log
+!.env.example
+
+# 系统
 .DS_Store
-!*.example
+Thumbs.db
+
+# Python（如后续引入分析脚本）
+__pycache__/
+*.pyc
+.venv/

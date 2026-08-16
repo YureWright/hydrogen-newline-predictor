@@ -1,0 +1,8 @@
+# 本仓库为 Node.js / TypeScript 项目，运行时依赖见 package.json（package-lock.json 锁定版本）。
+# 安装：npm install
+#
+# 如运行数据分析/图表脚本（h2-station-crawler 仓库），Python 依赖如下：
+# matplotlib>=3.7
+# numpy>=1.24
+# shapely>=2.0
+# Pillow>=10.0
