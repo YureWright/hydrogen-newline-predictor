@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "verify:route": "tsx scripts/verify-route.ts"
+    "verify:route": "tsx scripts/verify-route.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
