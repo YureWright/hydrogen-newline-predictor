@@ -1,11 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync as fsRead } from 'node:fs'
+import { existsSync as fsExists } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { fetchRoutePlan } from './src/route/amapRoute'
 import { loadStations } from './src/route/stationLayer'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/** 加载 .env（系统环境变量优先，不覆盖已有值） */
+try {
+  const envPath = join(__dirname, '.env')
+  if (fsExists(envPath)) {
+    for (const line of fsRead(envPath, 'utf8').split(/\r?\n/)) {
+      const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/)
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim()
+    }
+  }
+} catch {}
+
 
 function send(res: any, code: number, obj: unknown) {
   res.statusCode = code

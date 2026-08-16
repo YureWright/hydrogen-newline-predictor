@@ -29,18 +29,64 @@
 - Node.js 18+（开发环境 v24）
 - 高德开放平台 Web 服务 Key（https://lbs.amap.com 免费注册）
 
-### 安装与配置
+### 安装
 
 ```bash
 cd hydrogen-newline-predictor
 npm install
-
-# 配置高德 Key（二选一）
-# 方式一：设置环境变量
-#   PowerShell: $env:AMAP_KEY='你的key'
-#   macOS/Linux: export AMAP_KEY='你的key'
-# 方式二：复制 .env.example 为 .env 并在启动前加载
 ```
+
+### 配置高德 API Key（必须）
+
+本项目依赖高德开放平台 Web 服务 API，**需要你申请一个 Key 并配置到环境变量或 .env 文件**。
+
+#### 第 1 步：申请高德 Key（免费）
+
+1. 打开 https://lbs.amap.com 注册/登录；
+2. 控制台 → 应用管理 → 我的应用 → **创建新应用**；
+3. 在应用下 **添加 Key**，服务平台选 **「Web服务」**；
+4. **勾选服务权限**（关键）：
+   - ✅ **驾车路线规划**（必选，路线/路况数据来源）
+   - ✅ **地理编码**（推荐，任意地址→坐标）
+   - ✅ **输入提示**（推荐，地址自动补全）
+   - ✅ **交通态势 / 交通事件**（可选，后续安全权重用）
+5. 创建后得到 Key（形如 `693cd1...` 的 32 位串）。
+
+#### 第 2 步：配置 Key（二选一）
+
+**方式 A：系统环境变量（推荐，不落盘）**
+
+```bash
+# PowerShell（当前会话）
+$env:AMAP_KEY='你的key'
+
+# PowerShell（永久，写入用户环境）
+setx AMAP_KEY "你的key"
+
+# macOS / Linux
+export AMAP_KEY='你的key'        # 当前会话
+echo 'export AMAP_KEY="你的key"' >> ~/.zshrc   # 永久
+```
+
+**方式 B：.env 文件**
+
+```bash
+# 复制示例并填入你的 Key（.env 已被 .gitignore 忽略，不会提交）
+cp .env.example .env
+# 编辑 .env：AMAP_KEY=你的key
+```
+
+> 优先级：系统环境变量 > .env 文件（已存在环境变量时 .env 不会覆盖）。
+> ⚠️ 请勿把 Key 写进任何会被提交的文件（如 README、代码、.env.example）。
+
+#### 第 3 步：验证
+
+```bash
+npm run dev        # 打开 http://localhost:5174，输入起终点查询
+npm run verify:route   # 命令行自测 + 真实线路验证
+```
+
+若地理编码未开通权限，输入城市名仍可用内置城市表（44 个主要城市）解析；开通后支持任意地址。
 
 ### 运行
 
