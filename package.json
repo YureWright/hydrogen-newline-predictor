@@ -1,0 +1,27 @@
+{
+  "name": "hydrogen-newline-predictor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "T05 新线路氢耗预测工具（命题二）：路线路况 + 氢耗物理模型 + 成本测算",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "verify:route": "tsx scripts/verify-route.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
