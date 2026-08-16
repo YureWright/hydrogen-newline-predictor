@@ -5,6 +5,9 @@
  */
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
+
+/** 当前是否为交互式终端（非管道/重定向） */
+const isTTY = input.isTTY === true
 import { fetchRoutePlan } from '../src/route/amapRoute'
 import { loadStations, findNearbyStations } from '../src/route/stationLayer'
 
@@ -51,22 +54,30 @@ async function main() {
     await query(args[0], args[1], args[0] + ' → ' + args[1])
     return
   }
-  const rl = readline.createInterface({ input, output })
-  console.log('=== 路线路况模块 Demo ===')
-  console.log('请选择示例线路（输入序号 1-4），或输入 0 自定义起终点：')
-  EXAMPLES.forEach(([, , label], i) => console.log(`  ${i + 1}. ${label}`))
-  const ans = (await rl.question('> ')).trim()
-  if (ans === '0') {
-    const o = (await rl.question('起点（lng,lat，如 116.407,39.904）: ')).trim()
-    const d = (await rl.question('终点（lng,lat）: ')).trim()
-    rl.close()
-    await query(o, d, o + ' → ' + d)
+  // 非交互环境（管道/重定向/CI）：自动使用示例 1，避免 readline 卡住
+  if (!isTTY) {
+    console.log('（非交互模式，自动使用示例 1：乌兰察布 → 天津）')
+    const [o, d, label] = EXAMPLES[0]
+    await query(o, d, label)
     return
   }
+  const rl = readline.createInterface({ input, output })
+  console.log('=== 路线路况模块 Demo ===')
+  console.log('直接输入起终点坐标即可查询；示例线路如下（输入序号 1-4 快速体验）：')
+  EXAMPLES.forEach(([, , label], i) => console.log(`  示例${i + 1}: ${label}`))
+  console.log('')
+  const oAns = (await rl.question('起点（lng,lat，如 116.407,39.904；输入 1-4 选示例；回车用示例1）: ')).trim()
+  let o: string, d: string, label: string
+  if (/^[1-4]$/.test(oAns)) {
+    const ex = EXAMPLES[Number(oAns) - 1]
+    ;[o, d, label] = ex
+  } else {
+    o = oAns || EXAMPLES[0][0]
+    const dAns = (await rl.question('终点（lng,lat）: ')).trim()
+    d = dAns || EXAMPLES[0][1]
+    label = o + ' → ' + d
+  }
   rl.close()
-  const idx = Number(ans) - 1
-  if (!EXAMPLES[idx]) { console.log('无效输入'); return }
-  const [o, d, label] = EXAMPLES[idx]
   await query(o, d, label)
 }
 
