@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import type { H2Station, NearbyStation } from './types'
 import { pointToPolylineDist, round1 } from './parse'
+import { decodePolyline } from './coords'
 
 /** 从 GeoJSON 加载加氢站 */
 export function loadStations(path: string): H2Station[] {
@@ -30,20 +31,9 @@ export function loadStations(path: string): H2Station[] {
   }))
 }
 
-/** polyline 字符串 → [lng, lat][] */
-export function polylineToCoords(polyline: string): Array<[number, number]> {
-  return polyline
-    .split(';')
-    .filter(Boolean)
-    .map((pt) => {
-      const [lng, lat] = pt.split(',').map(Number)
-      return [lng, lat] as [number, number]
-    })
-}
-
 /**
  * 查找路线沿线半径内的加氢站
- * @param polyline 路线坐标字符串
+ * @param polyline 路线坐标字符串（GCJ-02，与加氢站图层一致）
  * @param stations 加氢站列表
  * @param radiusKm 搜索半径（km）
  * @param max 最多返回数量
@@ -54,7 +44,7 @@ export function findNearbyStations(
   radiusKm = 20,
   max = 20,
 ): NearbyStation[] {
-  const coords = polylineToCoords(polyline)
+  const coords = decodePolyline(polyline)
   if (coords.length < 2) return []
   const hits: NearbyStation[] = []
   for (const st of stations) {

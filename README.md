@@ -21,6 +21,8 @@
 | 主要道路 | 从导航指令提取道路名并按里程排序 |
 | 沿线加氢站 | 571 座本地图层，路线 20km 内加氢站（距离/价格/压力/枪数） |
 | 前端展示 | 路线卡片 + Leaflet 地图（路线分色、加氢站分色高亮） |
+| 分段切片（A1） | 路线切成路段序列（SegmentData 契约）：道路名/等级/均速/实时路况/停车密度/坐标(WGS-84)，供物理模型直接消费 |
+| DEM 数据源验证 | SRTM 坡度/海拔数据源可行性（terrarium 瓦片 z14 ≈76m/px，opentopodata 免 Key 兜底） |
 
 ## 快速开始
 
@@ -84,6 +86,8 @@ cp .env.example .env
 ```bash
 npm run dev        # 打开 http://localhost:5174，输入起终点查询
 npm run verify:route   # 命令行自测 + 真实线路验证
+npm run verify:segment # A1 分段切片自测（32 项纯函数 + 真实线路分段）
+npm run verify:dem     # DEM 数据源验证（需联网）
 ```
 
 若地理编码未开通权限，输入城市名仍可用内置城市表（44 个主要城市）解析；开通后支持任意地址。
@@ -95,6 +99,8 @@ npm run dev          # 前端展示 → http://localhost:5174
 npm run demo         # 命令行路线路况 Demo（交互输入起终点）
 npm run demo -- 113.13,40.99 117.19,39.13   # 指定坐标
 npm run verify:route # 纯函数自测 + 3 条真实线路验证
+npm run verify:segment # A1 分段切片自测 + 真实线路分段
+npm run verify:dem     # DEM 数据源验证（opentopodata vs terrarium 瓦片）
 ```
 
 ## API（Vite dev server 内置中间件，同源免 CORS）
@@ -112,18 +118,25 @@ npm run verify:route # 纯函数自测 + 3 条真实线路验证
 hydrogen-newline-predictor/
 ├── src/
 │   ├── route/               # 路线路况核心模块（纯函数可测）
-│   │   ├── types.ts         #   类型定义
+│   │   ├── types.ts         #   类型定义（含 SegmentData 契约）
 │   │   ├── parse.ts         #   解析层（路况/高速占比/道路/距离）
-│   │   ├── amapRoute.ts     #   高德驾车路线规划调用
+│   │   ├── coords.ts        #   坐标系 GCJ-02 ↔ WGS-84 + polyline 解析
+│   │   ├── segment.ts       #   A1 分段切片（steps+tmcs+polyline → SegmentData）
+│   │   ├── dem.ts           #   DEM 高程瓦片解码与采样（Node 侧）
+│   │   ├── amapRoute.ts     #   高德驾车路线规划调用（含 fetchRouteWithSegments）
 │   │   └── stationLayer.ts  #   加氢站图层 + 沿线搜索
 │   ├── components/          # MapView（Leaflet 地图）/ RouteCard（路线卡片）
 │   ├── App.tsx              # 主页面
 │   └── styles.css
 ├── scripts/
 │   ├── demo.ts              # 命令行交互 Demo
-│   └── verify-route.ts      # 自测 + 真实线路验证
+│   ├── verify-route.ts      # 自测 + 真实线路验证
+│   ├── verify-segment.ts    # A1 分段切片自测（32 项 + 真实线路）
+│   └── verify-dem.ts        # DEM 数据源验证
 ├── data/stations.geojson    # 加氢站数据（571 座，GCJ-02）
-├── docs/prototype-spec.md   # 产品原型设计规格（Figma 用）
+├── docs/
+│   ├── prototype-spec.md    # 产品原型设计规格（Figma 用）
+│   └── segment-contract.md  # SegmentData 输入契约（A1）
 ├── vite.config.ts           # Vite + API 中间件
 └── package.json             # 依赖与脚本
 ```
@@ -138,6 +151,9 @@ hydrogen-newline-predictor/
 ## 路线图
 
 - [x] 路线路况模块（候选路线 + 实时路况 + 加氢站）
+- [x] 分段切片 + SegmentData 输入契约（A1，见 docs/segment-contract.md）
+- [x] DEM 数据源验证（terrarium 瓦片 / opentopodata 兜底）
+- [ ] 坡度/海拔提取（A2：对路线逐段采样 DEM，填充 gradePercent/elevationM）
 - [ ] 高德地理编码/输入提示权限接入（任意地址 + 自动补全）
 - [ ] 氢耗物理模型（纵向动力学 + 工况合成 + 效率折算 + 基准校准）
 - [ ] 成本引擎（燃料/路桥/人工/维保 + 柴油对比）

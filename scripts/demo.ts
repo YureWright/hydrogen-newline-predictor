@@ -18,10 +18,6 @@ const EXAMPLES: Array<[string, string, string]> = [
   ['114.058,22.543', '113.13,40.99', '深圳 → 乌兰察布（反向长途）'],
 ]
 
-const TRAFFIC_LABEL: Record<string, string> = {
-  smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重拥堵', unknown: '未知',
-}
-
 async function query(origin: string, destination: string, label: string) {
   console.log('\n==========================================')
   console.log('  路线查询:', label)

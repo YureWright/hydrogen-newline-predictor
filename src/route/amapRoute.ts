@@ -1,6 +1,10 @@
-/** 高德驾车路线规划调用层：一次调用返回候选路线 + 逐段实时路况（tmcs） */
-import type { RouteCandidate, RoutePlan } from './types'
+/** 高德驾车路线规划调用层：一次调用返回候选路线 + 逐段实时路况（tmcs）+ 可选分段切片 */
+import type {
+  AmapRawPath, AmapRawStep, AmapRawTmcs,
+  RouteCandidate, RoutePlan, SegmentData,
+} from './types'
 import { avgSpeedKmh, extractRoadsFromSteps, highwayRatio, round1, round2, sumTraffic } from './parse'
+import { buildSegments } from './segment'
 
 /** 读取高德 Key（从环境变量，不硬编码） */
 export function getAmapKey(): string {
@@ -9,46 +13,23 @@ export function getAmapKey(): string {
   return k
 }
 
-interface AmapTmcs {
-  status?: string | number
-  distance?: string | number
-  polyline?: string
-}
-
-interface AmapStep {
-  instruction?: string
-  distance?: string | number
-  tolls?: string | number
-  toll_road?: string[]
-  polyline?: string
-  tmcs?: AmapTmcs[]
-}
-
-interface AmapPath {
-  distance?: string | number
-  duration?: string | number
-  tolls?: string | number
-  toll_distance?: string | number
-  steps?: AmapStep[]
-}
-
 interface AmapResponse {
   status?: string
   info?: string
-  route?: { paths?: AmapPath[] }
+  route?: { paths?: AmapRawPath[] }
 }
 
 /**
- * 调用高德 v3 驾车路线规划
+ * 调用高德 v3 驾车路线规划，返回原始 paths（含 steps/tmcs/polyline）
  * @param origin 起点 "lng,lat"
  * @param destination 终点 "lng,lat"
- * @param opts.strategy 算路策略（默认 10：速度优先+实时路况；11 避拥堵；2 距离最短）
+ * @param opts.strategy 算路策略（默认 10：速度优先+实时路况；1 避拥堵；2 距离最短）
  */
-export async function fetchRoutePlan(
+export async function fetchRawPaths(
   origin: string,
   destination: string,
   opts: { strategy?: number } = {},
-): Promise<RoutePlan> {
+): Promise<AmapRawPath[]> {
   const key = getAmapKey()
   const strategy = opts.strategy ?? 10
   const url =
@@ -64,29 +45,59 @@ export async function fetchRoutePlan(
   if (data.status !== '1') {
     throw new Error('高德接口错误: ' + (data.info || JSON.stringify(data)))
   }
+  return data.route?.paths ?? []
+}
 
-  const paths = data.route?.paths ?? []
-  const routes: RouteCandidate[] = paths.map((p) => {
-    const distanceM = Number(p.distance) || 0
-    const durationS = Number(p.duration) || 0
-    const tollDistanceM = Number(p.toll_distance) || 0
-    const steps = p.steps ?? []
-    const tmcsAll: AmapTmcs[] = []
-    for (const s of steps) if (s.tmcs?.length) tmcsAll.push(...s.tmcs)
-    const traffic = sumTraffic(tmcsAll, distanceM / 1000)
-    return {
-      distanceKm: round1(distanceM / 1000),
-      durationH: round2(durationS / 3600),
-      tollsYuan: Number(p.tolls) || 0,
-      tollDistanceKm: round1(tollDistanceM / 1000),
-      highwayRatio: highwayRatio(tollDistanceM, distanceM),
-      avgSpeedKmh: avgSpeedKmh(distanceM, durationS),
-      traffic,
-      polyline: steps.map((s) => s.polyline ?? '').filter(Boolean).join(';'),
-      topRoads: extractRoadsFromSteps(steps),
-      stepsCount: steps.length,
-    }
-  })
+/** 原始 path → 候选路线（路线级指标） */
+export function pathToCandidate(path: AmapRawPath): RouteCandidate {
+  const distanceM = Number(path.distance) || 0
+  const durationS = Number(path.duration) || 0
+  const tollDistanceM = Number(path.toll_distance) || 0
+  const steps: AmapRawStep[] = path.steps ?? []
+  const tmcsAll: AmapRawTmcs[] = []
+  for (const s of steps) if (s.tmcs?.length) tmcsAll.push(...s.tmcs)
+  const traffic = sumTraffic(tmcsAll, distanceM / 1000)
+  return {
+    distanceKm: round1(distanceM / 1000),
+    durationH: round2(durationS / 3600),
+    tollsYuan: Number(path.tolls) || 0,
+    tollDistanceKm: round1(tollDistanceM / 1000),
+    highwayRatio: highwayRatio(tollDistanceM, distanceM),
+    avgSpeedKmh: avgSpeedKmh(distanceM, durationS),
+    traffic,
+    polyline: steps.map((s) => s.polyline ?? '').filter(Boolean).join(';'),
+    topRoads: extractRoadsFromSteps(steps),
+    stepsCount: steps.length,
+  }
+}
 
-  return { from: origin, to: destination, requestTime: new Date().toISOString(), routes }
+/** 候选路线列表（原 fetchRoutePlan 行为） */
+export async function fetchRoutePlan(
+  origin: string,
+  destination: string,
+  opts: { strategy?: number } = {},
+): Promise<RoutePlan> {
+  const paths = await fetchRawPaths(origin, destination, opts)
+  return {
+    from: origin,
+    to: destination,
+    requestTime: new Date().toISOString(),
+    routes: paths.map(pathToCandidate),
+  }
+}
+
+/**
+ * 一次请求同时拿到：候选路线指标 + 分段切片（SegmentData[]，物理模型输入契约）。
+ * @param routeIndex 取第几条候选路线做分段（默认 0）
+ */
+export async function fetchRouteWithSegments(
+  origin: string,
+  destination: string,
+  routeIndex = 0,
+  opts: { strategy?: number } = {},
+): Promise<{ candidate: RouteCandidate; segments: SegmentData[] }> {
+  const paths = await fetchRawPaths(origin, destination, opts)
+  const idx = Math.min(Math.max(routeIndex, 0), Math.max(paths.length - 1, 0))
+  const path = paths[idx]
+  return { candidate: pathToCandidate(path), segments: buildSegments(path) }
 }

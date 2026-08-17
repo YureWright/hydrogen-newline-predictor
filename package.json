@@ -9,7 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "verify:route": "tsx scripts/verify-route.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "verify:segment": "tsx scripts/verify-segment.ts",
+    "verify:dem": "tsx scripts/verify-dem.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
