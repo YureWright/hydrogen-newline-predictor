@@ -6,6 +6,13 @@
  * 兜底：opentopodata SRTM90m API（免 Key，单请求 ≤100 点）
  *
  * 缓存：瓦片写入 data/dem-cache/z_x_y.png（已 gitignore），同一走廊一次下载后复用。
+ *
+ * —— 路段自适应细分（创新点）——
+ * 高德按"导航动作"切 step：高速上连续 90km 不拐弯只给 1 段、城区几米也给 1 段，
+ * 直接用于氢耗仿真会"平均掉坡度"。本模块在高程填充前做两件事：
+ *   ① 合并碎段：<0.3km 的段并入前一段（清掉起终点几米的垃圾行）；
+ *   ② 细分长段：>10km 的段沿 DEM 高程剖面在"坡度变号点（峰/谷）"切开，
+ *      每子段 2~10km，继承父段的路名/等级/路况，重新计算各自坡度/海拔/爬升下降。
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -54,6 +61,14 @@ export interface EnrichResult {
   z: number
   source: 'terrarium' | 'opentopodata'
 }
+
+/* ===== 路段自适应细分参数 ===== */
+/** 长段细分阈值：超过 10km 就按坡度变号切开 */
+export const MAX_SEGMENT_KM = 10
+/** 子段最小长度：避免切出过碎的小段 */
+export const MIN_SUB_KM = 2
+/** 碎段合并阈值：小于 0.3km 并入前一段 */
+export const MERGE_TINY_KM = 0.3
 
 const DEFAULT_TERRARIUM = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium'
 
@@ -164,18 +179,83 @@ export async function loadDemTiles(
   return tiles
 }
 
-/** 用已解码瓦片填充单段：海拔均值 + 距离加权坡度 + 爬升/下降 + 剖面 */
-function enrichOneWithTiles(s: SegmentData, tiles: Map<string, DemTile>, z: number): void {
-  const pts = resampleCoords(s.coordsWgs84, 200)
-  if (pts.length < 2) return
-  const elevs = pts.map((p) => {
-    const [tx, ty] = tileXY(p.lng, p.lat, z)
-    const tile = tiles.get(tx + ',' + ty)
-    return tile ? sampleElevationInTile(tile, p.lng, p.lat) : NaN
-  })
+/* ================= 路段自适应细分（合并碎段 + 坡度变号切长段） ================= */
+
+/** 一段剖面子集（pts 的 cumM 已相对子段起点归零） */
+interface ProfileSlice {
+  pts: ProfilePoint[]
+  elevs: number[]
+}
+
+/** ① 合并碎段：<MERGE_TINY_KM 的段并入前一段（首段无法并入则保留） */
+function mergeTinySegments(segments: SegmentData[]): SegmentData[] {
+  const out: SegmentData[] = []
+  for (const s of segments) {
+    const last = out[out.length - 1]
+    if (s.distanceKm < MERGE_TINY_KM && last) {
+      last.distanceKm = round2(last.distanceKm + s.distanceKm)
+      last.durationH = round2(last.durationH + s.durationH)
+      last.coordsWgs84 = last.coordsWgs84.concat(s.coordsWgs84)
+      last.avgSpeedKmh = last.durationH > 0 ? round1v(last.distanceKm / last.durationH) : last.avgSpeedKmh
+    } else {
+      out.push({ ...s, coordsWgs84: [...s.coordsWgs84] })
+    }
+  }
+  return out
+}
+
+function round1v(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
+/** ② 长段按"坡度变号点"切开：子段长度控制在 MIN_SUB_KM~MAX_SEGMENT_KM */
+function splitLongProfile(pts: ProfilePoint[], elevs: number[]): ProfileSlice[] {
+  const maxM = MAX_SEGMENT_KM * 1000
+  const minM = MIN_SUB_KM * 1000
+  const slices: ProfileSlice[] = []
+  let start = 0
+  let lastSign = 0
+  let i = 1
+  while (i < pts.length) {
+    const d = pts[i].cumM - pts[start].cumM
+    if (d >= maxM) {
+      slices.push(rebaseSlice(pts, elevs, start, i))
+      start = i
+      lastSign = 0
+    } else if (d >= minM) {
+      const dh = elevs[i] - elevs[i - 1]
+      const sign = dh > 0 ? 1 : dh < 0 ? -1 : 0
+      if (sign !== 0) {
+        if (lastSign !== 0 && sign !== lastSign) {
+          // 坡度变号（上坡→下坡 或 下坡→上坡，即山峰/山谷）→ 在此切开
+          slices.push(rebaseSlice(pts, elevs, start, i))
+          start = i
+          lastSign = 0
+        } else {
+          lastSign = sign
+        }
+      }
+    }
+    i++
+  }
+  if (start < pts.length - 1) slices.push(rebaseSlice(pts, elevs, start, pts.length - 1))
+  return slices
+}
+
+function rebaseSlice(pts: ProfilePoint[], elevs: number[], a: number, b: number): ProfileSlice {
+  const base = pts[a].cumM
+  return {
+    pts: pts.slice(a, b + 1).map((p) => ({ lng: p.lng, lat: p.lat, cumM: p.cumM - base })),
+    elevs: elevs.slice(a, b + 1),
+  }
+}
+
+/** ③ 由父段 + 剖面子集生成一个子段（含坡度/海拔/爬升下降/剖面） */
+function finalizeSub(parent: SegmentData, slice: ProfileSlice): SegmentData {
+  const { pts, elevs } = slice
+  const totalM = pts.length ? pts[pts.length - 1].cumM : 0
   const valid = elevs.filter((v) => Number.isFinite(v))
-  if (valid.length < 2) return
-  s.elevationM = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
+  const elevationM = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null
   let gradeW = 0
   let distW = 0
   let gain = 0
@@ -189,13 +269,64 @@ function enrichOneWithTiles(s: SegmentData, tiles: Map<string, DemTile>, z: numb
     if (dh > 0) gain += dh
     else loss += -dh
   }
-  s.gradePercent = distW > 0 ? round2(gradeW / distW) : 0
-  s.elevationGainM = Math.round(gain)
-  s.elevationLossM = Math.round(loss)
-  s.profile = {
-    distKm: pts.map((p) => round2(p.cumM / 1000)),
-    elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : 0)),
+  const distanceKm = round2(totalM / 1000)
+  const avgSpeedKmh = parent.avgSpeedKmh || 50
+  return {
+    index: 0, // 最后统一重排
+    roadName: parent.roadName,
+    roadLevel: parent.roadLevel,
+    distanceKm,
+    avgSpeedKmh: parent.avgSpeedKmh,
+    gradePercent: distW > 0 ? round2(gradeW / distW) : 0,
+    elevationM,
+    trafficStatus: parent.trafficStatus,
+    stopDensity: parent.stopDensity,
+    temperatureC: parent.temperatureC,
+    coordsWgs84: pts.map((p) => [p.lng, p.lat] as [number, number]),
+    durationH: round2(distanceKm / (avgSpeedKmh || 1)),
+    elevationGainM: Math.round(gain),
+    elevationLossM: Math.round(loss),
+    profile: {
+      distKm: pts.map((p) => round2(p.cumM / 1000)),
+      elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : 0)),
+    },
   }
+}
+
+
+/** 里程校正：子段几何合计与父段 step 里程有 ~1% 偏差，按比例缩放保持一致 */
+function scaleSubs(parent: SegmentData, subs: SegmentData[]): SegmentData[] {
+  const raw = subs.reduce((a, s) => a + s.distanceKm, 0)
+  if (raw <= 0 || Math.abs(raw - parent.distanceKm) < 0.05) return subs
+  const f = parent.distanceKm / raw
+  return subs.map((s) => ({
+    ...s,
+    distanceKm: round2(s.distanceKm * f),
+    durationH: round2(s.durationH * f),
+    profile: s.profile
+      ? { distKm: s.profile.distKm.map((d) => round2(d * f)), elevM: s.profile.elevM }
+      : undefined,
+  }))
+}
+
+/** terrarium 路径：合并碎段 → 采样剖面 → 细分长段 → 生成子段 */
+function enrichWithTiles(segments: SegmentData[], tiles: Map<string, DemTile>, z: number): SegmentData[] {
+  const merged = mergeTinySegments(segments)
+  const out: SegmentData[] = []
+  for (const s of merged) {
+    const pts = resampleCoords(s.coordsWgs84, 200)
+    if (pts.length < 2) continue
+    const elevs = pts.map((p) => {
+      const [tx, ty] = tileXY(p.lng, p.lat, z)
+      const tile = tiles.get(tx + ',' + ty)
+      return tile ? sampleElevationInTile(tile, p.lng, p.lat) : NaN
+    })
+    const slices = s.distanceKm > MAX_SEGMENT_KM ? splitLongProfile(pts, elevs) : [{ pts, elevs }]
+    const subs = slices.map((sl) => finalizeSub(s, sl))
+    out.push(...scaleSubs(s, subs))
+  }
+  out.forEach((x, i) => { x.index = i })
+  return out
 }
 
 /** 主入口：terrarium 优先，失败时 opentopodata 兜底 */
@@ -207,17 +338,18 @@ export async function enrichSegmentsWithDem(
   try {
     const tiles = await loadDemTiles(segments, opts)
     opts.onProgress?.({ phase: 'compute', done: 1, total: 1, cached: tiles.size })
-    for (const s of segments) enrichOneWithTiles(s, tiles, z)
-    return { segments, tilesUsed: tiles.size, z, source: 'terrarium' }
+    const refined = enrichWithTiles(segments, tiles, z)
+    return { segments: refined, tilesUsed: tiles.size, z, source: 'terrarium' }
   } catch (e) {
     console.warn('[dem] terrarium 失败，改用 opentopodata 兜底:', (e as Error).message)
     return enrichViaOpentopodata(segments)
   }
 }
 
-/** opentopodata 兜底：按段 500m 重采样，批量请求（≤90 点/次） */
+/** opentopodata 兜底：500m 重采样 + 同样的细分逻辑 */
 async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichResult> {
-  const perSeg: ProfilePoint[][] = segments.map((s) => resampleCoords(s.coordsWgs84, 500))
+  const merged = mergeTinySegments(segments)
+  const perSeg: ProfilePoint[][] = merged.map((s) => resampleCoords(s.coordsWgs84, 500))
   const all = perSeg.flat()
   const elevs: number[] = []
   for (let i = 0; i < all.length; i += 90) {
@@ -231,36 +363,18 @@ async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichRes
     elevs.push(...j.results.map((x: any) => (x.elevation == null ? NaN : x.elevation)))
     await sleep(1200) // 免费 API 限流：每秒 ≤1 请求
   }
+  const out: SegmentData[] = []
   let k = 0
-  for (let si = 0; si < segments.length; si++) {
-    const s = segments[si]
+  for (let si = 0; si < merged.length; si++) {
+    const s = merged[si]
     const pts = perSeg[si]
     if (pts.length < 2) continue
     const segElevs: number[] = []
     for (let i = 0; i < pts.length; i++) segElevs.push(elevs[k++])
-    const valid = segElevs.filter((v) => Number.isFinite(v))
-    if (valid.length < 2) continue
-    s.elevationM = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
-    let gradeW = 0
-    let distW = 0
-    let gain = 0
-    let loss = 0
-    for (let i = 1; i < pts.length; i++) {
-      const d = pts[i].cumM - pts[i - 1].cumM
-      if (d < 1 || !Number.isFinite(segElevs[i]) || !Number.isFinite(segElevs[i - 1])) continue
-      const dh = segElevs[i] - segElevs[i - 1]
-      gradeW += (dh / d) * 100 * d
-      distW += d
-      if (dh > 0) gain += dh
-      else loss += -dh
-    }
-    s.gradePercent = distW > 0 ? round2(gradeW / distW) : 0
-    s.elevationGainM = Math.round(gain)
-    s.elevationLossM = Math.round(loss)
-    s.profile = {
-      distKm: pts.map((p) => round2(p.cumM / 1000)),
-      elevM: segElevs.map((v) => (Number.isFinite(v) ? Math.round(v) : 0)),
-    }
+    const slices = s.distanceKm > MAX_SEGMENT_KM ? splitLongProfile(pts, segElevs) : [{ pts, elevs: segElevs }]
+    const subs = slices.map((sl) => finalizeSub(s, sl))
+    out.push(...scaleSubs(s, subs))
   }
-  return { segments, tilesUsed: 0, z: 0, source: 'opentopodata' }
+  out.forEach((x, i) => { x.index = i })
+  return { segments: out, tilesUsed: 0, z: 0, source: 'opentopodata' }
 }

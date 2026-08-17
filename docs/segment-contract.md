@@ -54,7 +54,7 @@
 5. `avgSpeedKmh` = distance / duration（含路况影响；无 duration 时用等级巡航速度兜底）；
 6. `coordsWgs84` = polyline 逐点 `gcj02ToWgs84` 逆转换（高德 GCJ-02 → 国际 WGS-84，供 DEM/天气匹配）。
 
-验证：`npm run verify:segment`（32 项纯函数自测 + 真实线路 491km/43 段）。
+验证：`npm run verify:segment`（32 项纯函数自测 + 真实线路）。细分逻辑见 demFetch.ts（合并碎段 + 坡度变号切分）。
 
 ## 4. 企业模型 adapter 示例
 

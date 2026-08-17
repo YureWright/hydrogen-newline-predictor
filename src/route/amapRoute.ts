@@ -24,14 +24,26 @@ interface AmapResponse {
  * @param origin 起点 "lng,lat"
  * @param destination 终点 "lng,lat"
  * @param opts.strategy 算路策略（默认 10：速度优先+实时路况；1 避拥堵；2 距离最短）
+ *
+ * 说明：路线结果按 (origin|destination|strategy) 缓存 10 分钟——
+ * 高德在实时路况下多次调用返回的候选路线**顺序可能变化**，若不缓存，
+ * "路线列表展示"与"分段测算"两次调用可能选中不同的物理路线。
  */
+interface CachedPlan { time: number; paths: AmapRawPath[] }
+const planCache = new Map<string, CachedPlan>()
+const PLAN_TTL_MS = 10 * 60 * 1000
+
 export async function fetchRawPaths(
   origin: string,
   destination: string,
   opts: { strategy?: number } = {},
 ): Promise<AmapRawPath[]> {
-  const key = getAmapKey()
   const strategy = opts.strategy ?? 10
+  const cacheKey = origin + '|' + destination + '|' + strategy
+  const hit = planCache.get(cacheKey)
+  if (hit && Date.now() - hit.time < PLAN_TTL_MS) return hit.paths
+
+  const key = getAmapKey()
   const url =
     'https://restapi.amap.com/v3/direction/driving?key=' + encodeURIComponent(key) +
     '&origin=' + encodeURIComponent(origin) +
@@ -45,7 +57,9 @@ export async function fetchRawPaths(
   if (data.status !== '1') {
     throw new Error('高德接口错误: ' + (data.info || JSON.stringify(data)))
   }
-  return data.route?.paths ?? []
+  const paths = data.route?.paths ?? []
+  planCache.set(cacheKey, { time: Date.now(), paths })
+  return paths
 }
 
 /** 原始 path → 候选路线（路线级指标） */
