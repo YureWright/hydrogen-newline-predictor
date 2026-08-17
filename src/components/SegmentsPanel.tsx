@@ -1,5 +1,5 @@
-/** 路段数据分析面板：点击候选路线后展示 路段数据表 + 可视化 + AI 评估 */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+/** 路段数据分析面板：选路 → 点「开始测算」→ 真实进度条 → 表格/可视化/AI 评估 */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types'
 import { DistributionBars, LineAreaChart, StackedBar } from './Charts'
 import MarkdownLight from './MarkdownLight'
@@ -13,6 +13,7 @@ interface SegmentsResponse {
   dem?: DemInfo
   msg?: string
 }
+interface JobStatus { ok: boolean; status?: string; phase?: string; done?: number; total?: number; cached?: number; error?: string; msg?: string }
 interface AiResponse { ok: boolean; text?: string; model?: string; msg?: string }
 
 const ROAD_LEVEL_LABEL: Record<string, string> = {
@@ -29,6 +30,13 @@ const TRAFFIC_COLOR: Record<string, string> = {
 }
 
 type SortKey = 'index' | 'distanceKm' | 'gradePercent' | 'elevationM' | 'avgSpeedKmh'
+type Stage = 'idle' | 'running' | 'done' | 'error'
+
+const PHASE_TEXT: Record<string, string> = {
+  route: '获取路线分段…',
+  dem: '下载高程瓦片…',
+  compute: '计算坡度与海拔…',
+}
 
 export default function SegmentsPanel({ origin, destination, routeIndex, candidate }: {
   origin: string
@@ -36,34 +44,102 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   routeIndex: number
   candidate: RouteCandidate
 }) {
+  const [stage, setStage] = useState<Stage>('idle')
   const [data, setData] = useState<SegmentsResponse | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [progress, setProgress] = useState<{ phase: string; done: number; total: number; cached: number } | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('distanceKm')
   const [sortDesc, setSortDesc] = useState(true)
   const [aiText, setAiText] = useState('')
   const [aiModel, setAiModel] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
+  const jobIdRef = useRef('')
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const clearTimer = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null } }
+
+  // 卸载/换路线时取消任务
   useEffect(() => {
-    let alive = true
-    setLoading(true)
+    return () => {
+      clearTimer()
+      if (jobIdRef.current) {
+        fetch('/api/segments/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: jobIdRef.current }),
+        }).catch(() => {})
+      }
+    }
+  }, [])
+
+  const backToSelect = useCallback(() => {
+    clearTimer()
+    if (jobIdRef.current) {
+      fetch('/api/segments/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: jobIdRef.current }),
+      }).catch(() => {})
+      jobIdRef.current = ''
+    }
+    setStage('idle')
+    setData(null)
     setError('')
+    setProgress(null)
     setAiText('')
     setAiModel('')
     setAiError('')
-    fetch(
-      '/api/segments?origin=' + encodeURIComponent(origin) +
-      '&destination=' + encodeURIComponent(destination) +
-      '&index=' + routeIndex,
-    )
-      .then((r) => r.json())
-      .then((j: SegmentsResponse) => { if (alive) { setData(j); if (!j.ok) setError(j.msg || '路段数据加载失败') } })
-      .catch((e: any) => { if (alive) setError('路段数据加载失败：' + (e.message || e)) })
-      .finally(() => { if (alive) setLoading(false) })
-    return () => { alive = false }
+  }, [])
+
+  const start = useCallback(async () => {
+    setStage('running')
+    setError('')
+    setProgress({ phase: 'route', done: 0, total: 0, cached: 0 })
+    try {
+      const r = await fetch('/api/segments/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination, index: routeIndex }),
+      })
+      const j = await r.json()
+      if (!j.ok || !j.jobId) { setError(j.msg || '启动测算失败'); setStage('error'); return }
+      jobIdRef.current = j.jobId
+      poll(j.jobId)
+    } catch (e: any) {
+      setError('启动测算失败：' + (e.message || e))
+      setStage('error')
+    }
   }, [origin, destination, routeIndex])
+
+  const poll = useCallback((jobId: string) => {
+    clearTimer()
+    timerRef.current = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/segments/status?jobId=' + encodeURIComponent(jobId))
+        const j = (await r.json()) as JobStatus
+        if (jobIdRef.current !== jobId) return
+        if (j.status === 'running') {
+          setProgress({ phase: j.phase || 'dem', done: j.done || 0, total: j.total || 0, cached: j.cached || 0 })
+          poll(jobId)
+          return
+        }
+        if (j.status === 'done') {
+          const rr = await fetch('/api/segments/result?jobId=' + encodeURIComponent(jobId))
+          const jj = (await rr.json()) as SegmentsResponse
+          if (!jj.ok) { setError(jj.msg || '获取结果失败'); setStage('error'); return }
+          setData(jj)
+          setStage('done')
+          return
+        }
+        setError(j.error || j.msg || '测算失败')
+        setStage('error')
+      } catch (e: any) {
+        setError('测算失败：' + (e.message || e))
+        setStage('error')
+      }
+    }, 800)
+  }, [])
 
   const segments = data?.segments ?? []
   const summary = data?.summary
@@ -145,10 +221,65 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   }
   const sortArrow = (k: SortKey) => (sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : '')
 
-  if (loading) return <div className="panel-loading">正在提取路段数据（首次需下载高程瓦片约 1~2 分钟，之后走本地缓存）…</div>
-  if (error) return <div className="error">{error}</div>
-  if (!data || !segments.length) return <div className="note">该路线暂无分段数据</div>
+  /* ---------- 未测算：开始按钮 ---------- */
+  if (stage === 'idle') {
+    return (
+      <div className="segments-panel idle-panel">
+        <div className="idle-head">
+          <div>
+            <h3>路段数据测算</h3>
+            <p className="panel-sub">
+              已选 路线 {routeIndex + 1} · {candidate.distanceKm}km · 约 {candidate.durationH}h
+              <br />将提取 {candidate.stepsCount} 段路段的坡度/海拔/路况数据（首次约 1~2 分钟，之后走缓存秒级）
+            </p>
+          </div>
+          <button className="btn-primary" onClick={start}>开始测算</button>
+        </div>
+      </div>
+    )
+  }
 
+  /* ---------- 测算中：进度条 ---------- */
+  if (stage === 'running') {
+    const total = progress?.total || 0
+    const done = progress?.done || 0
+    const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null
+    const phaseText = progress?.phase === 'dem' && total > 0
+      ? `下载高程瓦片 ${done}/${total}（已缓存 ${progress.cached}）`
+      : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
+    return (
+      <div className="segments-panel running-panel">
+        <h3>正在测算路线 {routeIndex + 1}</h3>
+        <div className="progress-box">
+          <div className="progress-track">
+            <div
+              className={'progress-fill' + (pct == null ? ' indeterminate' : '')}
+              style={pct != null ? { width: pct + '%' } : undefined}
+            />
+          </div>
+          <div className="progress-text">{phaseText}</div>
+          <div className="progress-sub">
+            {total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在获取路线分段…'}
+          </div>
+          <button className="btn-cancel" onClick={backToSelect}>取消</button>
+        </div>
+      </div>
+    )
+  }
+
+  /* ---------- 失败 ---------- */
+  if (stage === 'error') {
+    return (
+      <div className="segments-panel">
+        <h3>路段数据测算</h3>
+        <div className="error">{error}</div>
+        <div className="ai-actions"><button className="btn-cancel" onClick={backToSelect}>← 返回重新选择</button></div>
+      </div>
+    )
+  }
+
+  /* ---------- 完成：结果面板 ---------- */
+  if (!data || !segments.length) return <div className="note">该路线暂无分段数据</div>
   const maxElev = profile.elevM.length ? Math.max(...profile.elevM) : 0
   const minElev = profile.elevM.length ? Math.min(...profile.elevM) : 0
   const totalGain = segments.reduce((a, s) => a + (s.elevationGainM ?? 0), 0)
@@ -157,6 +288,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   return (
     <div className="segments-panel">
       <div className="panel-title">
+        <button className="btn-back" onClick={backToSelect}>← 换一条路线</button>
         <h3>路段数据分析（{segments.length} 段）</h3>
         <span className="panel-sub">
           {data.dem?.source === 'terrarium'

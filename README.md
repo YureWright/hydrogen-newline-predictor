@@ -24,7 +24,7 @@
 | 分段切片（A1） | 路线切成路段序列（SegmentData 契约）：道路名/等级/均速/实时路况/停车密度/坐标(WGS-84)，供物理模型直接消费 |
 | DEM 数据源验证 | SRTM 坡度/海拔数据源可行性（terrarium 瓦片 z14 ≈76m/px，opentopodata 免 Key 兜底） |
 | 路段高程提取（A2） | 对 43 段路线逐段采样 DEM，填充坡度/海拔/累计爬升下降（terrarium 瓦片 + 本地缓存 + opentopodata 兜底） |
-| 路段数据分析面板 | 点击路线卡片查看：路段数据表（可排序）+ 海拔剖面/道路等级/路况/均速可视化 + AI 智能评估（DeepSeek） |
+| 路段数据分析面板 | 选路 → 点「开始测算」→ 真实进度条（下载瓦片 x/y，可取消）→ 路段数据表（可排序）+ 海拔剖面/道路等级/路况/均速可视化 + AI 智能评估；可「换一条路线」重新选择 |
 
 ## 快速开始
 
@@ -128,7 +128,7 @@ npm run enrich         # 路段高程提取 CLI（预热 DEM 缓存 + 打印坡�
 | `GET /api/suggest?keywords=乌兰` | 地名输入提示（需高德"输入提示"权限） |
 | `GET /api/route?origin=lng,lat&destination=lng,lat` | 候选路线 + 逐段路况 + 沿线加氢站 |
 | `GET /api/stations` | 全国加氢站图层（571 座） |
-| `GET /api/segments?origin&destination&index` | 候选路线分段切片 + DEM 高程/坡度（terrarium 瓦片 + 缓存） |
+| `POST /api/segments/start` · `GET /api/segments/status` · `GET /api/segments/result` · `POST /api/segments/cancel` | DEM 提取任务（进度条轮询：start 建任务 → status 查进度 → result 取结果 → cancel 取消） |
 | `POST /api/ai/evaluate` | AI 智能评估（DeepSeek，需 DEEPSEEK_API_KEY） |
 
 ## 项目结构

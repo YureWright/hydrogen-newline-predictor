@@ -92,3 +92,21 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 .md-body li { margin: 2px 0; }
 .md-body p { margin: 6px 0; }
 @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+/* ================= 测算流程（选择优先 + 进度条） ================= */
+.idle-panel { background: linear-gradient(180deg, #f6faf8, #fff); }
+.idle-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.idle-head h3 { font-size: 17px; color: var(--green); }
+.running-panel { text-align: left; }
+.running-panel h3 { font-size: 16px; color: var(--green); margin-bottom: 12px; }
+.progress-box { background: #fafcfb; border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.progress-track { height: 14px; background: #e8efe9; border-radius: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #1e7a54, #2fb07a); border-radius: 8px; transition: width .4s ease; }
+.progress-fill.indeterminate { width: 40% !important; animation: progress-slide 1.2s ease-in-out infinite; }
+@keyframes progress-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+.progress-text { margin-top: 10px; font-size: 14px; color: #2b2f2e; font-weight: 600; }
+.progress-sub { margin-top: 4px; font-size: 12px; color: #889; }
+.btn-cancel { margin-top: 12px; background: #fff; border: 1px solid #cdd9d2; color: #556; border-radius: 8px; padding: 7px 16px; font-size: 13px; cursor: pointer; }
+.btn-cancel:hover { background: #f2f6f4; }
+.btn-back { background: #fff; border: 1px solid #cdd9d2; color: var(--green2); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+.btn-back:hover { background: #f2f6f4; }
+.ai-actions { margin-top: 14px; }

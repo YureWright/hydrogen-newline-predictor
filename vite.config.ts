@@ -30,6 +30,58 @@ function send(res: any, code: number, obj: unknown) {
   res.end(JSON.stringify(obj))
 }
 
+
+/* ===== DEM 提取任务管理（前端进度条用） ===== */
+interface DemJob {
+  id: string
+  status: 'running' | 'done' | 'error' | 'cancelled'
+  phase: string
+  done: number
+  total: number
+  cached: number
+  result?: unknown
+  error?: string
+  createdAt: number
+}
+const demJobs = new Map<string, DemJob>()
+let demJobSeq = 0
+
+function startDemJob(origin: string, destination: string, index: number) {
+  const id = 'dem_' + Date.now() + '_' + ++demJobSeq
+  const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
+  demJobs.set(id, job)
+  ;(async () => {
+    try {
+      const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
+      if (job.status === 'cancelled') return
+      job.phase = 'dem'
+      const enriched = await enrichSegmentsWithDem(segments, {
+        cacheDir: join(__dirname, 'data', 'dem-cache'),
+        onProgress: (p) => {
+          if (job.status === 'cancelled') return
+          job.phase = p.phase
+          job.done = p.done
+          job.total = p.total
+          job.cached = p.cached
+        },
+      })
+      if (job.status === 'cancelled') return
+      job.phase = 'compute'
+      job.result = {
+        candidate,
+        segments: enriched.segments,
+        summary: summarizeSegments(enriched.segments),
+        dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
+      }
+      job.status = 'done'
+    } catch (e: any) {
+      job.status = 'error'
+      job.error = e.message || String(e)
+    }
+  })()
+  return job
+}
+
 function readBody(req: any): Promise<string> {
   return new Promise((resolve) => {
     let data = ''
@@ -137,6 +189,39 @@ export default defineConfig({
               } catch (e: any) {
                 return send(res, 200, { ok: false, msg: e.message || String(e) })
               }
+            }
+            if (path === '/segments/start') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const origin = payload.origin || ''
+              const destination = payload.destination || ''
+              const index = Number(payload.index || 0)
+              if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
+              if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
+              const job = startDemJob(origin, destination, index)
+              return send(res, 200, { ok: true, jobId: job.id, status: job.status })
+            }
+            if (path === '/segments/status') {
+              const id = url.searchParams.get('jobId') || ''
+              const job = demJobs.get(id)
+              if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
+              return send(res, 200, { ok: true, status: job.status, phase: job.phase, done: job.done, total: job.total, cached: job.cached, error: job.error })
+            }
+            if (path === '/segments/result') {
+              const id = url.searchParams.get('jobId') || ''
+              const job = demJobs.get(id)
+              if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
+              if (job.status !== 'done') return send(res, 200, { ok: false, status: job.status, msg: '任务未完成' })
+              const result = job.result
+              demJobs.delete(id)
+              return send(res, 200, { ok: true, ...(result as object) })
+            }
+            if (path === '/segments/cancel') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const job = demJobs.get(payload.jobId || '')
+              if (job) { job.status = 'cancelled'; demJobs.delete(payload.jobId) }
+              return send(res, 200, { ok: true })
             }
             return send(res, 404, { ok: false, msg: 'unknown api: ' + path })
           } catch (e: any) {

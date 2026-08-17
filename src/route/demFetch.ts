@@ -26,6 +26,14 @@ export interface DemTile {
   data: Uint8Array
 }
 
+/** 进度信息（供前端进度条） */
+export interface DemProgress {
+  phase: 'route' | 'dem' | 'compute'
+  done: number
+  total: number
+  cached: number
+}
+
 export interface DemOptions {
   /** 瓦片级别（默认 14） */
   z?: number
@@ -35,6 +43,8 @@ export interface DemOptions {
   concurrency?: number
   /** terrarium 瓦片 URL 模板（{z}/{x}/{y}） */
   terrariumBase?: string
+  /** 进度回调（下载瓦片阶段逐张上报） */
+  onProgress?: (p: DemProgress) => void
 }
 
 export interface EnrichResult {
@@ -105,9 +115,17 @@ export async function loadDemTiles(
   mkdirSync(cacheDir, { recursive: true })
   const tiles = new Map<string, DemTile>()
   const keys = [...needed.keys()]
+  let cachedCount = 0
+  for (const k of keys) {
+    const [x, y] = needed.get(k)!
+    if (existsSync(join(cacheDir, z + '_' + x + '_' + y + '.png'))) cachedCount++
+  }
+  opts.onProgress?.({ phase: 'dem', done: 0, total: keys.length, cached: cachedCount })
 
   let next = 0
   let failures = 0
+  let doneCount = 0
+  let downloaded = 0
   async function worker() {
     while (next < keys.length) {
       const k = keys[next++]
@@ -129,11 +147,14 @@ export async function loadDemTiles(
           failures++ // 单张失败跳过，不中断整批；对应点高程留空
           continue
         }
+        downloaded++
       }
       const png = decodePng(bytes)
       const tile = { x, y, z, width: png.width, height: png.height, channels: png.channels, data: png.data }
       cachePut(z + '_' + k, tile)
       tiles.set(k, tile)
+      doneCount++
+      opts.onProgress?.({ phase: 'dem', done: doneCount, total: keys.length, cached: cachedCount + downloaded })
     }
   }
   const workers: Promise<void>[] = []
@@ -185,6 +206,7 @@ export async function enrichSegmentsWithDem(
   const z = opts.z ?? 14
   try {
     const tiles = await loadDemTiles(segments, opts)
+    opts.onProgress?.({ phase: 'compute', done: 1, total: 1, cached: tiles.size })
     for (const s of segments) enrichOneWithTiles(s, tiles, z)
     return { segments, tilesUsed: tiles.size, z, source: 'terrarium' }
   } catch (e) {

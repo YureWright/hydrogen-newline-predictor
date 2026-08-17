@@ -92,7 +92,7 @@ export default function App() {
               {routes.map((r, i) => (
                 <RouteCard key={i} route={r} index={i} selected={selected === i} onSelect={() => setSelected(i)} />
               ))}
-              <p className="legend-tip">💡 点击路线卡片查看该路线的路段数据表、可视化与 AI 评估；🟦 沿线 20km 加氢站（蓝=商用 / 橙=自用），灰点为全国 571 座加氢站</p>
+              <p className="legend-tip">💡 先点选一条路线，再点「开始测算」提取路段数据；🟦 沿线 20km 加氢站（蓝=商用 / 橙=自用），灰点为全国 571 座加氢站</p>
             </div>
             <div className="map-box">
               <MapView routes={routes} selectedIndex={selected} onSelect={setSelected} from={from} to={to} stations={stations} />
@@ -101,6 +101,7 @@ export default function App() {
         )}
         {from && to && routes.length > 0 && (
           <SegmentsPanel
+            key={selected}
             origin={from.lng + ',' + from.lat}
             destination={to.lng + ',' + to.lat}
             routeIndex={selected}
