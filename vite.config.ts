@@ -4,8 +4,11 @@ import { readFileSync as fsRead } from 'node:fs'
 import { existsSync as fsExists } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { fetchRoutePlan } from './src/route/amapRoute'
+import { fetchRoutePlan, fetchRouteWithSegments } from './src/route/amapRoute'
 import { loadStations } from './src/route/stationLayer'
+import { enrichSegmentsWithDem } from './src/route/demFetch'
+import { summarizeSegments } from './src/route/segment'
+import { evaluateRoute, getAiConfig } from './src/route/ai'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -25,6 +28,15 @@ function send(res: any, code: number, obj: unknown) {
   res.statusCode = code
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.end(JSON.stringify(obj))
+}
+
+function readBody(req: any): Promise<string> {
+  return new Promise((resolve) => {
+    let data = ''
+    req.on('data', (chunk: Buffer) => { data += chunk.toString('utf8') })
+    req.on('end', () => resolve(data))
+    req.on('error', () => resolve(''))
+  })
 }
 
 const CITY_TABLE: Record<string, string> = {
@@ -85,6 +97,39 @@ export default defineConfig({
             }
             if (path === '/stations') {
               return send(res, 200, { ok: true, stations: loadStations(join(__dirname, 'data', 'stations.geojson')) })
+            }
+            if (path === '/segments') {
+              const origin = url.searchParams.get('origin') || ''
+              const destination = url.searchParams.get('destination') || ''
+              const index = Number(url.searchParams.get('index') || 0)
+              if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
+              if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
+              const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
+              const enriched = await enrichSegmentsWithDem(segments, { cacheDir: join(__dirname, 'data', 'dem-cache') })
+              const summary = summarizeSegments(enriched.segments)
+              return send(res, 200, {
+                ok: true,
+                candidate,
+                segments: enriched.segments,
+                summary,
+                dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
+              })
+            }
+            if (path === '/ai/evaluate' && req.method === 'POST') {
+              let cfg
+              try { cfg = getAiConfig() } catch (e: any) {
+                return send(res, 200, { ok: false, msg: (e.message || e) + '。请在环境变量/.env 中配置 DEEPSEEK_API_KEY' })
+              }
+              let body: any = {}
+              try { body = JSON.parse((await readBody(req)) || '{}') } catch { /* 非法 JSON 按空处理 */ }
+              const { origin, destination, candidate, segments, summary } = body
+              if (!candidate || !segments) return send(res, 400, { ok: false, msg: '缺少候选路线/路段数据' })
+              try {
+                const r = await evaluateRoute({ origin, destination, candidate, segments, summary }, cfg)
+                return send(res, 200, { ok: true, text: r.text, model: r.model })
+              } catch (e: any) {
+                return send(res, 200, { ok: false, msg: e.message || String(e) })
+              }
             }
             return send(res, 404, { ok: false, msg: 'unknown api: ' + path })
           } catch (e: any) {

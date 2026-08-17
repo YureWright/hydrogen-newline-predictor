@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import MapView, { type MapPoint } from './components/MapView'
 import RouteCard from './components/RouteCard'
+import SegmentsPanel from './components/SegmentsPanel'
 import type { RouteCandidate, H2Station } from './route/types'
 
 interface GeoResult { ok: boolean; name?: string; location?: string; msg?: string }
@@ -91,12 +92,20 @@ export default function App() {
               {routes.map((r, i) => (
                 <RouteCard key={i} route={r} index={i} selected={selected === i} onSelect={() => setSelected(i)} />
               ))}
-              <p className="legend-tip">🟦 选中路线沿途 20km 加氢站（蓝=商用 / 橙=自用）；灰点为全国 571 座加氢站</p>
+              <p className="legend-tip">💡 点击路线卡片查看该路线的路段数据表、可视化与 AI 评估；🟦 沿线 20km 加氢站（蓝=商用 / 橙=自用），灰点为全国 571 座加氢站</p>
             </div>
             <div className="map-box">
               <MapView routes={routes} selectedIndex={selected} onSelect={setSelected} from={from} to={to} stations={stations} />
             </div>
           </div>
+        )}
+        {from && to && routes.length > 0 && (
+          <SegmentsPanel
+            origin={from.lng + ',' + from.lat}
+            destination={to.lng + ',' + to.lat}
+            routeIndex={selected}
+            candidate={routes[selected]}
+          />
         )}
       </main>
     </div>

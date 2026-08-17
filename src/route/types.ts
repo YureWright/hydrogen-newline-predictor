@@ -103,6 +103,12 @@ export interface SegmentData {
   coordsWgs84: Array<[number, number]>
   /** 本段时长 h（step duration 实测；缺失时由 distance/avgSpeed 折算） */
   durationH: number
+  /** 累计爬升 m（DEM 派生，A2 填充，仅可视化用，非模型输入） */
+  elevationGainM?: number | null
+  /** 累计下降 m（DEM 派生，A2 填充，仅可视化用，非模型输入） */
+  elevationLossM?: number | null
+  /** 剖面采样点（A2 填充，仅可视化用）：段内等距采样，distKm 为段内累计里程、elevM 为海拔 */
+  profile?: { distKm: number[]; elevM: number[] }
 }
 
 /** 路段序列的路级汇总（供工况合成与成本引擎直接使用） */

@@ -11,7 +11,8 @@
     "verify:route": "tsx scripts/verify-route.ts",
     "demo": "tsx scripts/demo.ts",
     "verify:segment": "tsx scripts/verify-segment.ts",
-    "verify:dem": "tsx scripts/verify-dem.ts"
+    "verify:dem": "tsx scripts/verify-dem.ts",
+    "enrich": "tsx scripts/enrich-route.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

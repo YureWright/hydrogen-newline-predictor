@@ -12,6 +12,8 @@ dist/
 .DS_Store
 Thumbs.db
 
+data/dem-cache/
+
 # Python（如后续引入分析脚本）
 __pycache__/
 *.pyc

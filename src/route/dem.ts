@@ -129,3 +129,52 @@ export function sampleElevationInTile(
   const i = (y * tile.width + x) * tile.channels
   return terrariumElevation(tile.data[i], tile.data[i + 1], tile.data[i + 2])
 }
+
+/* ============================ 剖面计算（A2） ============================ */
+
+/** 两点球面距离（米，haversine） */
+export function haversineM(a: [number, number], b: [number, number]): number {
+  const R = 6371000
+  const dLat = ((b[1] - a[1]) * Math.PI) / 180
+  const dLng = ((b[0] - a[0]) * Math.PI) / 180
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a[1] * Math.PI) / 180) * Math.cos((b[1] * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+/** 折线重采样点：沿折线每 stepM 米取一个点（含起点），用于稳定采样海拔/坡度 */
+export interface ProfilePoint {
+  lng: number
+  lat: number
+  /** 到段起点的累计里程（米） */
+  cumM: number
+}
+
+export function resampleCoords(
+  coords: Array<[number, number]>,
+  stepM = 200,
+): ProfilePoint[] {
+  if (coords.length === 0) return []
+  const cum: number[] = [0]
+  for (let i = 1; i < coords.length; i++) {
+    cum.push(cum[i - 1] + haversineM(coords[i - 1], coords[i]))
+  }
+  const total = cum[cum.length - 1]
+  const out: ProfilePoint[] = []
+  let target = 0
+  while (target <= total + 1e-6) {
+    let i = 1
+    while (i < cum.length && cum[i] < target - 1e-6) i++
+    if (i >= cum.length) break
+    const segLen = cum[i] - cum[i - 1]
+    const t = segLen > 0 ? (target - cum[i - 1]) / segLen : 0
+    out.push({
+      lng: coords[i - 1][0] + (coords[i][0] - coords[i - 1][0]) * t,
+      lat: coords[i - 1][1] + (coords[i][1] - coords[i - 1][1]) * t,
+      cumM: target,
+    })
+    target += stepM
+  }
+  return out
+}

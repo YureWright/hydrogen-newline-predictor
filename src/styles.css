@@ -35,3 +35,60 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 .legend-tip { margin-top: 12px; font-size: 12px; color: #667; }
 .map-box { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); height: 640px; background: #e6edf0; }
 @media (max-width: 900px) { .content { grid-template-columns: 1fr; } }
+/* ================= 路段数据分析面板 ================= */
+.segments-panel { margin-top: 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 22px; }
+.panel-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.panel-title h3 { font-size: 18px; color: var(--green); }
+.panel-sub { font-size: 12px; color: #889; }
+.panel-loading { padding: 14px; color: #667; font-size: 14px; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 14px; }
+.stat-card { background: #f4f8f6; border-radius: 10px; padding: 10px 12px; text-align: center; }
+.stat-card b { display: block; font-size: 17px; color: var(--green); }
+.stat-card span { font-size: 11px; color: #889; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+.chart-card { background: #fafcfb; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.chart-card h4 { font-size: 14px; color: var(--green); margin-bottom: 8px; }
+.chart-card.chart-wide { grid-column: 1 / -1; }
+.chart-svg { width: 100%; height: auto; display: block; }
+.chart-empty { color: #889; font-size: 13px; padding: 20px; text-align: center; }
+.dist-bars .dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.dist-label { width: 34px; font-size: 12px; color: #445; }
+.dist-track { flex: 1; height: 12px; background: #edf2ef; border-radius: 6px; overflow: hidden; }
+.dist-fill { height: 100%; border-radius: 6px; }
+.dist-value { width: 44px; font-size: 12px; color: #667; text-align: right; }
+.stacked-track { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #edf2ef; }
+.stacked-seg { height: 100%; }
+.stacked-legend { display: flex; gap: 10px; margin-top: 8px; font-size: 11px; color: #667; flex-wrap: wrap; }
+.stacked-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+
+/* 路段数据表 */
+.table-card { margin-top: 16px; }
+.table-card h4 { font-size: 14px; color: var(--green); margin-bottom: 8px; }
+.table-tip { font-size: 11px; color: #889; font-weight: 400; margin-left: 8px; }
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; max-height: 460px; overflow-y: auto; }
+.seg-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.seg-table th { position: sticky; top: 0; background: #eef4f1; color: #445; padding: 8px 10px; text-align: left; white-space: nowrap; z-index: 1; }
+.seg-table th.sortable { cursor: pointer; user-select: none; }
+.seg-table th.sortable:hover { color: var(--green2); }
+.seg-table td { padding: 7px 10px; border-top: 1px solid #eef2ef; white-space: nowrap; }
+.seg-table tr:hover td { background: #f6faf8; }
+.mono { font-variant-numeric: tabular-nums; }
+.road-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.lv { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; color: #fff; }
+.lv.highway { background: #1e7a54; } .lv.national { background: #2c7fb8; } .lv.provincial { background: #f0ad4e; } .lv.city { background: #9467bd; } .lv.other { background: #999; }
+.grade-up { color: #d62728; } .grade-down { color: #2ca02c; }
+.traffic-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+/* AI 评估 */
+.ai-card { margin-top: 18px; background: linear-gradient(180deg, #f6faf8, #fbfdfc); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.ai-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-head h4 { font-size: 15px; color: var(--green); }
+.ai-model { font-size: 11px; color: #1e7a54; background: #e3f0e9; border-radius: 10px; padding: 2px 8px; }
+.btn-ai { margin-left: auto; background: var(--green2); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; cursor: pointer; }
+.btn-ai:disabled { opacity: 0.6; }
+.md-body { margin-top: 10px; font-size: 13.5px; line-height: 1.7; color: #2b2f2e; }
+.md-body h2, .md-body h3, .md-body h4, .md-body h5 { color: var(--green); margin: 10px 0 4px; }
+.md-body ul, .md-body ol { margin: 6px 0 6px 20px; }
+.md-body li { margin: 2px 0; }
+.md-body p { margin: 6px 0; }
+@media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
