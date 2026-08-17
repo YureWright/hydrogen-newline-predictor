@@ -77,15 +77,22 @@ export default defineConfig({
             }
             if (path === '/geocode') {
               const addr = (url.searchParams.get('address') || '').trim()
+              // ① 优先高德地理编码：精确到门址/POI（实测 key 支持，返回 level=门牌号/门址/公交站点等）
+              if (key) {
+                const r = await fetch('https://restapi.amap.com/v3/geocode/geo?address=' + encodeURIComponent(addr) + '&key=' + key, { signal: AbortSignal.timeout(15000) })
+                const j: any = await r.json()
+                if (j.status === '1' && j.geocodes && j.geocodes[0] && j.geocodes[0].location) {
+                  return send(res, 200, { ok: true, source: 'amap-geocode', name: j.geocodes[0].formatted_address || addr, location: j.geocodes[0].location })
+                }
+                // ② 高德失败（如权限/配额问题）→ 回退内置城市表（城市中心点），并明确标注
+                const hit = Object.entries(CITY_TABLE).find(([city]) => addr.includes(city) || city.includes(addr))
+                if (hit) return send(res, 200, { ok: true, source: 'local-table', name: hit[0] + '（城市中心）', location: hit[1] })
+                return send(res, 200, { ok: false, msg: '地理编码失败：' + (j.info || '未知错误') + '（可在高德控制台为 Key 开通"地理编码"权限）' })
+              }
+              // ③ 无 Key：仅内置城市表兜底
               const hit = Object.entries(CITY_TABLE).find(([city]) => addr.includes(city) || city.includes(addr))
               if (hit) return send(res, 200, { ok: true, source: 'local-table', name: hit[0], location: hit[1] })
-              if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
-              const r = await fetch('https://restapi.amap.com/v3/geocode/geo?address=' + encodeURIComponent(addr) + '&key=' + key, { signal: AbortSignal.timeout(15000) })
-              const j: any = await r.json()
-              if (j.status === '1' && j.geocodes && j.geocodes[0] && j.geocodes[0].location) {
-                return send(res, 200, { ok: true, source: 'amap-geocode', name: j.geocodes[0].formatted_address || addr, location: j.geocodes[0].location })
-              }
-              return send(res, 200, { ok: false, msg: '地理编码失败：' + (j.info || '未知错误') + '（可在高德控制台为 Key 开通"地理编码/输入提示"权限）' })
+              return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
             }
             if (path === '/route') {
               const origin = url.searchParams.get('origin') || ''

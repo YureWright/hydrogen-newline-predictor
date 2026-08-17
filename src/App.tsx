@@ -4,7 +4,7 @@ import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
 import type { RouteCandidate, H2Station } from './route/types'
 
-interface GeoResult { ok: boolean; name?: string; location?: string; msg?: string }
+interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
 interface RouteResult { ok: boolean; routes?: RouteCandidate[]; msg?: string }
 
 export default function App() {
@@ -25,14 +25,14 @@ export default function App() {
     }).catch(() => {})
   }, [])
 
-  const geocode = useCallback(async (address: string): Promise<MapPoint | null> => {
+  const geocode = useCallback(async (address: string): Promise<{ point: MapPoint | null; source?: string }> => {
     const r = await fetch('/api/geocode?address=' + encodeURIComponent(address))
     const j = (await r.json()) as GeoResult
     if (j.ok && j.location) {
       const [lng, lat] = j.location.split(',').map(Number)
-      return { name: j.name || address, lng, lat }
+      return { point: { name: j.name || address, lng, lat }, source: j.source }
     }
-    return null
+    return { point: null, source: j.source }
   }, [])
 
   const query = useCallback(async () => {
@@ -40,16 +40,16 @@ export default function App() {
     try {
       const f = await geocode(fromAddr)
       const t = await geocode(toAddr)
-      if (!f || !t) {
-        setError('地址解析失败：请检查输入，或到高德控制台为 Key 开通"地理编码/输入提示"权限')
+      if (!f.point || !t.point) {
+        setError('地址解析失败：请检查输入，或到高德控制台为 Key 开通"地理编码"权限')
         return
       }
-      setFrom(f); setTo(t)
-      const r = await fetch('/api/route?origin=' + encodeURIComponent(f.lng + ',' + f.lat) + '&destination=' + encodeURIComponent(t.lng + ',' + t.lat))
+      setFrom(f.point); setTo(t.point)
+      const r = await fetch('/api/route?origin=' + encodeURIComponent(f.point.lng + ',' + f.point.lat) + '&destination=' + encodeURIComponent(t.point.lng + ',' + t.point.lat))
       const j = (await r.json()) as RouteResult
       if (j.ok && j.routes && j.routes.length) {
         setRoutes(j.routes); setSelected(0)
-        if (f.name.includes('内置') || t.name.includes('内置')) setNote('提示：部分地址使用内置城市表解析（高德地理编码权限未开通）。')
+        if (f.source === 'local-table' || t.source === 'local-table') setNote('提示：部分地址未命中高德地理编码，回退到城市中心点。')
       } else {
         setError(j.msg || '路线查询失败')
       }
