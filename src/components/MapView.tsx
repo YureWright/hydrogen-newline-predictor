@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
+import { wgs84ToGcj02 } from '../route/coords'
 import type { RouteCandidate, H2Station } from '../route/types'
 
 const TILE_URL = 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'
@@ -40,9 +41,11 @@ interface Props {
   from: MapPoint | null
   to: MapPoint | null
   stations: H2Station[]
+  /** 高亮路段（WGS-84 [lng,lat][]，点击路段表格行触发；null=不高亮） */
+  highlight?: Array<[number, number]> | null
 }
 
-export default function MapView({ routes, selectedIndex, onSelect, from, to, stations }: Props) {
+export default function MapView({ routes, selectedIndex, onSelect, from, to, stations, highlight }: Props) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layersRef = useRef<L.LayerGroup | null>(null)
@@ -78,6 +81,18 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
     if (from) L.circleMarker([from.lat, from.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#0b3d2e', fillOpacity: 1 }).addTo(layers).bindTooltip('起点 ' + from.name)
     if (to) L.circleMarker([to.lat, to.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#d62728', fillOpacity: 1 }).addTo(layers).bindTooltip('终点 ' + to.name)
 
+    // 高亮路段（表格点击）：WGS-84 → GCJ-02 显示，粗黄线 + 端点标记
+    let highlightCoords: Array<[number, number]> = []
+    if (highlight && highlight.length >= 2) {
+      highlightCoords = highlight.map(([lng, lat]) => wgs84ToGcj02(lng, lat)).map(([lng, lat]) => [lat, lng] as [number, number])
+      const hl = L.polyline(highlightCoords, {
+        color: '#ffd700', weight: 9, opacity: 0.95,
+      }).addTo(layers)
+      hl.bindTooltip('选中路段（' + highlight.length + ' 点）', { sticky: true })
+      L.circleMarker(highlightCoords[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#ffd700', fillOpacity: 1 }).addTo(layers).bindTooltip('路段起点')
+      L.circleMarker(highlightCoords[highlightCoords.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: '#ffd700', fillOpacity: 1 }).addTo(layers).bindTooltip('路段终点')
+    }
+
     const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
     for (const s of stations) {
       const dist = selCoords.length ? pointToPolylineKm(s.lng, s.lat, selCoords) : Infinity
@@ -87,8 +102,12 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
         fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
       }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
     }
-    if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.15))
-  }, [routes, selectedIndex, from, to, stations, onSelect])
+    if (highlightCoords.length >= 2) {
+      map.fitBounds(L.latLngBounds(highlightCoords).pad(0.25))
+    } else if (bounds.length) {
+      map.fitBounds(L.latLngBounds(bounds).pad(0.15))
+    }
+  }, [routes, selectedIndex, from, to, stations, onSelect, highlight])
 
   return <div ref={divRef} style={{ height: '100%', width: '100%' }} />
 }

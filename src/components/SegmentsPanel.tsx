@@ -36,6 +36,10 @@ const MOTION_LABEL: Record<string, string> = {
 const MOTION_COLOR: Record<string, string> = {
   cruise: '#9aa', toll: '#d62728', intersection: '#ff7f0e', ramp: '#2c7fb8', turn: '#9467bd', serviceArea: '#2ca02c', urbanStopStart: '#8c564b',
 }
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  stop: '停止', start: '启动', decel: '减速', turn: '转弯',
+}
+
 const MOTION_MARK: Record<string, { label: string; color: string }> = {
   toll: { label: '费', color: '#d62728' },
   intersection: { label: '口', color: '#ff7f0e' },
@@ -54,18 +58,21 @@ const PHASE_TEXT: Record<string, string> = {
   compute: '计算坡度与海拔…',
 }
 
-export default function SegmentsPanel({ origin, destination, routeIndex, candidate }: {
+export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight }: {
   origin: string
   destination: string
   routeIndex: number
   candidate: RouteCandidate
+  /** 点击路段行 → 在左侧地图高亮该路段（WGS-84 坐标；传 null 清除） */
+  onHighlight?: (coords: Array<[number, number]> | null) => void
 }) {
   const [stage, setStage] = useState<Stage>('idle')
   const [data, setData] = useState<SegmentsResponse | null>(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<{ phase: string; done: number; total: number; cached: number } | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>('distanceKm')
-  const [sortDesc, setSortDesc] = useState(true)
+  const [sortKey, setSortKey] = useState<SortKey>('index')
+  const [sortDesc, setSortDesc] = useState(false)
+  const [selectedSeg, setSelectedSeg] = useState<number | null>(null)
   const [aiText, setAiText] = useState('')
   const [aiModel, setAiModel] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -318,6 +325,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     <div className="segments-panel">
       <div className="panel-title">
         <button className="btn-back" onClick={backToSelect}>← 换一条路线</button>
+        {selectedSeg != null && (
+          <button className="btn-back btn-clear-hl" onClick={() => { setSelectedSeg(null); onHighlight?.(null) }}>✕ 清除高亮</button>
+        )}
         <h3>路段数据分析（{segments.length} 段）</h3>
         <span className="panel-sub">
           {data.dem?.source === 'terrarium'
@@ -373,12 +383,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       </div>
 
       <div className="table-card">
-        <h4>路段数据表 <span className="table-tip">点击「里程 / 坡度 / 海拔 / 均速」排序</span></h4>
+        <h4>路段数据表 <span className="table-tip">点击表头排序（# = 起点→终点顺序，字段可切换升降）；点击行在左侧地图高亮</span></h4>
         <div className="table-scroll">
           <table className="seg-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th className="sortable" onClick={() => headerSort('index')}>#（路线顺序）{sortArrow('index')}</th>
                 <th>道路</th>
                 <th>等级</th>
                 <th className="sortable" onClick={() => headerSort('distanceKm')}>里程 km{sortArrow('distanceKm')}</th>
@@ -396,7 +406,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             </thead>
             <tbody>
               {sorted.map((s) => (
-                <tr key={s.index}>
+                <tr key={s.index}
+                    className={selectedSeg === s.index ? 'row-selected' : ''}
+                    onClick={() => {
+                      if (selectedSeg === s.index) { setSelectedSeg(null); onHighlight?.(null) }
+                      else { setSelectedSeg(s.index); onHighlight?.(s.coordsWgs84 ?? null) }
+                    }}>
                   <td className="mono">{s.index}</td>
                   <td className="road-name" title={s.roadName}>{s.roadName || '—'}</td>
                   <td><span className={'lv ' + s.roadLevel}>{ROAD_LEVEL_LABEL[s.roadLevel]}</span></td>
@@ -409,7 +424,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   <td className="mono">{s.elevationGainM != null ? s.elevationGainM : '—'}</td>
                   <td className="mono">{s.elevationLossM != null ? s.elevationLossM : '—'}</td>
                   <td><span className="motion-chip" style={{ background: MOTION_COLOR[s.motionBehavior] }}>{MOTION_LABEL[s.motionBehavior]}</span></td>
-                  <td className="mono motion-events">{s.motionEvents.length ? s.motionEvents.map((e) => `${e.label ?? e.type}×${e.expectedCount}`).join(' ') : '—'}</td>
+                  <td className="mono motion-events" title={s.motionEvents.map((e) => e.label ?? e.type).join(' / ')}>{s.motionEvents.length ? s.motionEvents.map((e) => `${EVENT_TYPE_LABEL[e.type]}${e.expectedCount}`).join(' · ') : '—'}</td>
                   <td><span className="traffic-dot" style={{ background: TRAFFIC_COLOR[s.trafficStatus] }} />{TRAFFIC_LABEL[s.trafficStatus]}</td>
                   <td className="mono">{s.stopDensity}</td>
                   <td className="mono">{s.durationH}</td>

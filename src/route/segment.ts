@@ -118,6 +118,37 @@ export const MOTION_PROB: Record<string, { stop: number; decel: number }> = {
   uTurn: { stop: 0.3, decel: 1.0 }, // 掉头：接近停车
 }
 
+/** 红绿灯路口密度（个/km）：高速无路口；国道/省道/城市按实际路口密度 */
+export const INTERSECTION_DENSITY_PER_KM: Record<RoadLevel, number> = {
+  highway: 0,
+  national: 0.4,
+  provincial: 0.6,
+  city: 3.0, // 城区干道约每 300m 一个路口
+  other: 0.5,
+}
+
+/** 单个路口停车概率（随实时路况变化：越堵越容易停） */
+export const INTERSECTION_STOP_PROB: Record<TrafficStatus, number> = {
+  smooth: 0.35,
+  slow: 0.55,
+  congested: 0.8,
+  severe: 0.95,
+  unknown: 0.35,
+}
+
+/** 生成红绿灯路口事件：段内路口数 = 里程 × 密度，期望停车 = 路口数 × 单路口停车概率 */
+export function buildIntersectionEvents(
+  distanceKm: number,
+  roadLevel: RoadLevel,
+  traffic: TrafficStatus,
+): MotionEvent[] {
+  const density = INTERSECTION_DENSITY_PER_KM[roadLevel] ?? 0
+  if (density <= 0 || distanceKm <= 0) return []
+  const n = Math.max(1, Math.round(distanceKm * density))
+  const p = INTERSECTION_STOP_PROB[traffic] ?? 0.35
+  return [{ type: 'stop', expectedCount: round2(n * p), probability: p, label: '红绿灯路口' }]
+}
+
 /** 指令关键词 → 行为（优先级：收费站 > 服务区 > 匝道 > 路口 > 转弯） */
 const TOLL_RE = /收费站|ETC|人工收费/
 const MTC_RE = /人工|MTC/
@@ -302,9 +333,11 @@ const EVENT_SPEED_KMH: Partial<Record<MotionBehavior, number>> = {
 }
 
 /**
- * 长事件 step → 拆成"巡航主体 + 尾部事件段"。
+ * 长事件 step → 拆成"主体段 + 尾部事件段"。
  * 高德高速长 step 的指令是"沿X路行驶N千米 + 动作"（如"…行驶63.7千米向右前方行驶进入匝道"），
  * 事件发生在 step 末尾——若不拆，整个 63km 都会被标成匝道/转弯，又密又不均衡。
+ * - 主体段：城市道路 → urbanStopStart（带红绿灯事件），其余 → cruise（非高速挂红绿灯事件）；
+ * - 尾部事件段：保留检测到的事件（收费站/匝道/转弯），均速用事件典型速度。
  * 返回 1~2 个 SegmentData（事件 step 较短或折线不足时保持整段）。
  */
 function splitLongEventStep(args: {
@@ -320,44 +353,43 @@ function splitLongEventStep(args: {
 }): SegmentData[] {
   const { index, roadName, roadLevel, distanceM, durationS, avgSpeed, trafficStatus, coordsWgs84, motion } = args
   const behavior = motion.behavior
-  const isEvent = behavior !== 'cruise' && behavior !== 'urbanStopStart'
+  const isEvent = isEventBehavior(behavior)
   const isLong = distanceM / 1000 > EVENT_SPLIT_KM
+  const stopDensity = inferStopDensity(roadLevel, trafficStatus)
+  const durH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
+  const base = {
+    index,
+    roadName,
+    roadLevel,
+    avgSpeedKmh: avgSpeed,
+    gradePercent: null,
+    elevationM: null,
+    trafficStatus,
+    stopDensity,
+    temperatureC: null,
+  }
   if (!isEvent || !isLong || coordsWgs84.length < 3) {
+    // 短事件 step 或非事件 step：整段保留；非事件段（巡航/城市起停）补挂红绿灯事件
+    const inter = isEventBehavior(behavior) ? [] : buildIntersectionEvents(distanceM / 1000, roadLevel, trafficStatus)
     return [{
-      index,
-      roadName,
-      roadLevel,
+      ...base,
       distanceKm: round2(distanceM / 1000),
-      avgSpeedKmh: avgSpeed,
-      gradePercent: null,
-      elevationM: null,
-      trafficStatus,
-      stopDensity: inferStopDensity(roadLevel, trafficStatus),
       motionBehavior: behavior,
-      motionEvents: motion.events,
-      temperatureC: null,
+      motionEvents: [...motion.events, ...inter],
       coordsWgs84,
-      durationH: durationS > 0 ? round2(durationS / 3600) : round2(distanceM / 1000 / (avgSpeed || 1)),
+      durationH: round2(durH),
     }]
   }
   const zoneM = Math.min((EVENT_ZONE_KM[behavior] ?? 1.5) * 1000, distanceM / 2)
   const idx = splitIndexAt(coordsWgs84, distanceM - zoneM)
   if (idx <= 0 || idx >= coordsWgs84.length - 1) {
     return [{
-      index,
-      roadName,
-      roadLevel,
+      ...base,
       distanceKm: round2(distanceM / 1000),
-      avgSpeedKmh: avgSpeed,
-      gradePercent: null,
-      elevationM: null,
-      trafficStatus,
-      stopDensity: inferStopDensity(roadLevel, trafficStatus),
       motionBehavior: behavior,
       motionEvents: motion.events,
-      temperatureC: null,
       coordsWgs84,
-      durationH: durationS > 0 ? round2(durationS / 3600) : round2(distanceM / 1000 / (avgSpeed || 1)),
+      durationH: round2(durH),
     }]
   }
   const headCoords = coordsWgs84.slice(0, idx + 1)
@@ -366,40 +398,29 @@ function splitLongEventStep(args: {
   const tailGeo = cumDistance(tailCoords)
   const totalGeo = headGeo + tailGeo
   const headFrac = totalGeo > 0 ? Math.min(0.99, headGeo / totalGeo) : 0.5
-  const stopDensity = inferStopDensity(roadLevel, trafficStatus)
-  const durationH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
+  const headKm = (distanceM / 1000) * headFrac
+  const tailKm = (distanceM / 1000) * (1 - headFrac)
+  // 主体段行为：城市 → 城市起停（补红绿灯事件）；其余 → 巡航（非高速补红绿灯事件）
+  const headBehavior: MotionBehavior = roadLevel === 'city' ? 'urbanStopStart' : 'cruise'
+  const headEvents = buildIntersectionEvents(headKm, roadLevel, trafficStatus)
+  const tailSpeed = EVENT_SPEED_KMH[behavior] ?? 30
   return [
     {
-      index,
-      roadName,
-      roadLevel,
-      distanceKm: round2((distanceM / 1000) * headFrac),
-      avgSpeedKmh: avgSpeed,
-      gradePercent: null,
-      elevationM: null,
-      trafficStatus,
-      stopDensity,
-      motionBehavior: 'cruise',
-      motionEvents: [],
-      temperatureC: null,
+      ...base,
+      distanceKm: round2(headKm),
+      motionBehavior: headBehavior,
+      motionEvents: headEvents,
       coordsWgs84: headCoords,
-      durationH: round2(durationH * headFrac),
+      durationH: round2(durH * headFrac),
     },
     {
-      index,
-      roadName,
-      roadLevel,
-      distanceKm: round2((distanceM / 1000) * (1 - headFrac)),
-      avgSpeedKmh: EVENT_SPEED_KMH[behavior] ?? 30,
-      gradePercent: null,
-      elevationM: null,
-      trafficStatus,
-      stopDensity,
+      ...base,
+      distanceKm: round2(tailKm),
+      avgSpeedKmh: tailSpeed,
       motionBehavior: behavior,
       motionEvents: motion.events,
-      temperatureC: null,
       coordsWgs84: tailCoords,
-      durationH: round2(((distanceM / 1000) * (1 - headFrac)) / (EVENT_SPEED_KMH[behavior] ?? 30)),
+      durationH: round2(tailKm / tailSpeed),
     },
   ]
 }

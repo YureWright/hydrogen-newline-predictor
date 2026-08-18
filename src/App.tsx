@@ -15,6 +15,8 @@ export default function App() {
   const [routes, setRoutes] = useState<RouteCandidate[]>([])
   const [selected, setSelected] = useState(0)
   const [stations, setStations] = useState<H2Station[]>([])
+  /** 高亮路段（WGS-84 [lng,lat][]，点击路段表格行设置） */
+  const [highlight, setHighlight] = useState<Array<[number, number]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
@@ -48,7 +50,7 @@ export default function App() {
       const r = await fetch('/api/route?origin=' + encodeURIComponent(f.point.lng + ',' + f.point.lat) + '&destination=' + encodeURIComponent(t.point.lng + ',' + t.point.lat))
       const j = (await r.json()) as RouteResult
       if (j.ok && j.routes && j.routes.length) {
-        setRoutes(j.routes); setSelected(0)
+        setRoutes(j.routes); setSelected(0); setHighlight(null)
         if (f.source === 'local-table' || t.source === 'local-table') setNote('提示：部分地址未命中高德地理编码，回退到城市中心点。')
       } else {
         setError(j.msg || '路线查询失败')
@@ -95,7 +97,7 @@ export default function App() {
               <p className="legend-tip">💡 先点选一条路线，再点「开始测算」提取路段数据；🟦 沿线 20km 加氢站（蓝=商用 / 橙=自用），灰点为全国 571 座加氢站</p>
             </div>
             <div className="map-box">
-              <MapView routes={routes} selectedIndex={selected} onSelect={setSelected} from={from} to={to} stations={stations} />
+              <MapView routes={routes} selectedIndex={selected} onSelect={setSelected} from={from} to={to} stations={stations} highlight={highlight} />
             </div>
           </div>
         )}
@@ -106,6 +108,7 @@ export default function App() {
             destination={to.lng + ',' + to.lat}
             routeIndex={selected}
             candidate={routes[selected]}
+            onHighlight={setHighlight}
           />
         )}
       </main>

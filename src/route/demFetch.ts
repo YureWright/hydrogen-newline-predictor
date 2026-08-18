@@ -26,7 +26,7 @@ import {
   tileXY, type ProfilePoint,
 } from './dem'
 import { round1, round2 } from './parse'
-import { isEventBehavior } from './segment'
+import { buildIntersectionEvents, isEventBehavior } from './segment'
 
 export interface DemTile {
   x: number
@@ -398,6 +398,13 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
   }
   const distanceKm = round2(totalM / 1000)
   const avgSpeedKmh = parent.avgSpeedKmh || 50
+  // 事件段（收费站/匝道/路口/转弯/服务区）：不切分，事件原样保留（只挂首片，防御性）
+  // 非事件段（巡航/城市起停）：按本子段里程比例重算红绿灯事件——
+  //   父段在 buildSegments 算的事件是整段口径，若地形切分成多片，不能全堆在首片
+  const isEventParent = isEventBehavior(parent.motionBehavior)
+  const motionEvents = isEventParent
+    ? sliceIndex === 0 ? (parent.motionEvents ?? []) : []
+    : buildIntersectionEvents(distanceKm, parent.roadLevel, parent.trafficStatus)
   return {
     index: 0, // 最后统一重排
     roadName: parent.roadName,
@@ -409,7 +416,7 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     trafficStatus: parent.trafficStatus,
     stopDensity: parent.stopDensity,
     motionBehavior: parent.motionBehavior,
-    motionEvents: sliceIndex === 0 ? (parent.motionEvents ?? []) : [],
+    motionEvents,
     temperatureC: parent.temperatureC,
     coordsWgs84: pts.map((p) => [p.lng, p.lat] as [number, number]),
     durationH: round2(distanceKm / (avgSpeedKmh || 1)),

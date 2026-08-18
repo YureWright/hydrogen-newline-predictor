@@ -177,6 +177,33 @@ function main() {
   assert('头部巡航段均速 = 整步均速', longSegs[0].avgSpeedKmh > 35, String(longSegs[0].avgSpeedKmh))
   assert('尾部时长 = 尾部里程/事件速度（自洽）', Math.abs(longSegs[1].durationH - longSegs[1].distanceKm / 35) < 0.005, 'dur=' + longSegs[1].durationH + ' km=' + longSegs[1].distanceKm)
 
+  console.log('— 城市红绿灯事件 —')
+  const cityRun: AmapRawPath = {
+    distance: '2000', duration: '400', tolls: '0', toll_distance: '0',
+    steps: [
+      { instruction: '沿幸福大街向南行驶2公里', distance: '2000', duration: '400', tolls: '0', toll_distance: '0', polyline: '116.0,39.9;116.0,39.95;116.0,40.0' },
+    ],
+  }
+  const citySegs = buildSegments(cityRun)
+  assert('城市 step → urbanStopStart', citySegs[0].motionBehavior === 'urbanStopStart')
+  assert('城市 step 挂红绿灯事件', citySegs[0].motionEvents.some(e => e.label === '红绿灯路口' && e.type === 'stop'))
+  const expCity = citySegs[0].motionEvents.filter(e => e.type === 'stop').reduce((a, e) => a + e.expectedCount, 0)
+  assert('城市期望停车 = 路口数×P（2km×3路口/km×0.35≈2.1）', Math.abs(expCity - 2.1) < 0.05, String(expCity))
+  assert('expectedStopCount 用红绿灯事件', Math.abs(expectedStopCount(citySegs[0]) - expCity) < 1e-9)
+
+  console.log('— 长城市转弯 step 拆分（头部恢复城市起停） —')
+  const longCityTurn: AmapRawPath = {
+    distance: '10000', duration: '1200', tolls: '0', toll_distance: '0',
+    steps: [
+      { instruction: '沿京津快速途径XX桥向南行驶10千米右转', distance: '10000', duration: '1200', tolls: '0', toll_distance: '0', polyline: '117.00,39.0;117.01,39.0;117.02,39.0;117.03,39.0;117.04,39.0;117.05,39.0;117.06,39.0;117.07,39.0;117.08,39.0;117.09,39.0;117.10,39.0;117.11,39.0;117.12,39.0;117.13,39.0;117.14,39.0' },
+    ],
+  }
+  const cityTurnSegs = buildSegments(longCityTurn)
+  assert('长城市转弯 step → 拆成 2 段', cityTurnSegs.length === 2, String(cityTurnSegs.length))
+  assert('头部是城市起停（不再误判巡航）', cityTurnSegs[0].motionBehavior === 'urbanStopStart', String(cityTurnSegs[0].motionBehavior))
+  assert('头部带红绿灯事件', cityTurnSegs[0].motionEvents.some(e => e.label === '红绿灯路口'))
+  assert('尾部是转弯且带减速事件', cityTurnSegs[1].motionBehavior === 'turn' && cityTurnSegs[1].motionEvents.some(e => e.type === 'decel'))
+
   console.log('— 事件段不参与地形切分 —')
   assert('cruise 参与切分', shouldSplitByGrade('cruise') === true)
   assert('urbanStopStart 参与切分', shouldSplitByGrade('urbanStopStart') === true)

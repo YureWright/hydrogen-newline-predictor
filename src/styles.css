@@ -136,3 +136,9 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 }
 .motion-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .motion-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* 路段表：行点击高亮（联动地图） */
+.seg-table tbody tr { cursor: pointer; }
+.seg-table tbody tr:hover { background: #f3f8f4; }
+.seg-table tbody tr.row-selected { background: #fff6d6 !important; box-shadow: inset 3px 0 0 #f0ad4e; }
+.btn-clear-hl { margin-left: 8px; }
