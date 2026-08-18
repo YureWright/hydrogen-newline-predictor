@@ -15,8 +15,8 @@ export default function App() {
   const [routes, setRoutes] = useState<RouteCandidate[]>([])
   const [selected, setSelected] = useState(0)
   const [stations, setStations] = useState<H2Station[]>([])
-  /** 高亮路段（WGS-84 [lng,lat][]，点击路段表格行设置） */
-  const [highlight, setHighlight] = useState<Array<[number, number]> | null>(null)
+  /** 高亮路段列表（每条 WGS-84 [lng,lat][]，勾选路段表格行设置；空数组=不高亮） */
+  const [highlight, setHighlight] = useState<Array<Array<[number, number]>>>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
@@ -50,7 +50,7 @@ export default function App() {
       const r = await fetch('/api/route?origin=' + encodeURIComponent(f.point.lng + ',' + f.point.lat) + '&destination=' + encodeURIComponent(t.point.lng + ',' + t.point.lat))
       const j = (await r.json()) as RouteResult
       if (j.ok && j.routes && j.routes.length) {
-        setRoutes(j.routes); setSelected(0); setHighlight(null)
+        setRoutes(j.routes); setSelected(0); setHighlight([])
         if (f.source === 'local-table' || t.source === 'local-table') setNote('提示：部分地址未命中高德地理编码，回退到城市中心点。')
       } else {
         setError(j.msg || '路线查询失败')

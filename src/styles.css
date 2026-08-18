@@ -142,3 +142,7 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 .seg-table tbody tr:hover { background: #f3f8f4; }
 .seg-table tbody tr.row-selected { background: #fff6d6 !important; box-shadow: inset 3px 0 0 #f0ad4e; }
 .btn-clear-hl { margin-left: 8px; }
+
+/* 多选勾选框 */
+.seg-table .chk-th, .seg-table .chk-cell { width: 30px; text-align: center; padding: 4px 2px; }
+.seg-table .chk-cell input, .seg-table .chk-th input { cursor: pointer; width: 15px; height: 15px; }

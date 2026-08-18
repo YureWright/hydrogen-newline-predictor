@@ -63,8 +63,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   destination: string
   routeIndex: number
   candidate: RouteCandidate
-  /** 点击路段行 → 在左侧地图高亮该路段（WGS-84 坐标；传 null 清除） */
-  onHighlight?: (coords: Array<[number, number]> | null) => void
+  /** 勾选路段行 → 在左侧地图同时高亮多条路段（每条 WGS-84 折线；空数组=清除） */
+  onHighlight?: (coordsList: Array<Array<[number, number]>>) => void
 }) {
   const [stage, setStage] = useState<Stage>('idle')
   const [data, setData] = useState<SegmentsResponse | null>(null)
@@ -72,7 +72,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [progress, setProgress] = useState<{ phase: string; done: number; total: number; cached: number } | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('index')
   const [sortDesc, setSortDesc] = useState(false)
-  const [selectedSeg, setSelectedSeg] = useState<number | null>(null)
+  const [selectedSegs, setSelectedSegs] = useState<Set<number>>(new Set())
+  const toggleSeg = useCallback((index: number) => {
+    setSelectedSegs((prev) => {
+      const s = new Set(prev)
+      if (s.has(index)) s.delete(index)
+      else s.add(index)
+      return s
+    })
+  }, [])
   const [aiText, setAiText] = useState('')
   const [aiModel, setAiModel] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -166,6 +174,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   const segments = data?.segments ?? []
   const summary = data?.summary
+
+  // 勾选集合变化 → 通知地图同时高亮多条路段
+  useEffect(() => {
+    if (!onHighlight) return
+    const list = [...selectedSegs]
+      .map((i) => segments.find((x) => x.index === i)?.coordsWgs84)
+      .filter((c): c is Array<[number, number]> => !!c && c.length >= 2)
+    onHighlight(list)
+  }, [selectedSegs, segments, onHighlight])
 
   const sorted = useMemo(() => {
     const arr = [...segments]
@@ -325,8 +342,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     <div className="segments-panel">
       <div className="panel-title">
         <button className="btn-back" onClick={backToSelect}>← 换一条路线</button>
-        {selectedSeg != null && (
-          <button className="btn-back btn-clear-hl" onClick={() => { setSelectedSeg(null); onHighlight?.(null) }}>✕ 清除高亮</button>
+        {selectedSegs.size > 0 && (
+          <button className="btn-back btn-clear-hl" onClick={() => setSelectedSegs(new Set())}>✕ 清除高亮（{selectedSegs.size}）</button>
         )}
         <h3>路段数据分析（{segments.length} 段）</h3>
         <span className="panel-sub">
@@ -383,11 +400,20 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       </div>
 
       <div className="table-card">
-        <h4>路段数据表 <span className="table-tip">点击表头排序（# = 起点→终点顺序，字段可切换升降）；点击行在左侧地图高亮</span></h4>
+        <h4>路段数据表 <span className="table-tip">☑ 勾选或点击行可多选路段，左侧地图同时高亮；点击表头排序（# = 起点→终点顺序，字段可切换升降）</span></h4>
         <div className="table-scroll">
           <table className="seg-table">
             <thead>
               <tr>
+                <th className="chk-th">
+                  <input type="checkbox"
+                    checked={segments.length > 0 && selectedSegs.size === segments.length}
+                    onChange={() => {
+                      if (selectedSegs.size === segments.length) setSelectedSegs(new Set())
+                      else setSelectedSegs(new Set(segments.map((s) => s.index)))
+                    }}
+                    title="全选/全不选" />
+                </th>
                 <th className="sortable" onClick={() => headerSort('index')}>#（路线顺序）{sortArrow('index')}</th>
                 <th>道路</th>
                 <th>等级</th>
@@ -407,11 +433,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             <tbody>
               {sorted.map((s) => (
                 <tr key={s.index}
-                    className={selectedSeg === s.index ? 'row-selected' : ''}
-                    onClick={() => {
-                      if (selectedSeg === s.index) { setSelectedSeg(null); onHighlight?.(null) }
-                      else { setSelectedSeg(s.index); onHighlight?.(s.coordsWgs84 ?? null) }
-                    }}>
+                    className={selectedSegs.has(s.index) ? 'row-selected' : ''}
+                    onClick={() => toggleSeg(s.index)}>
+                  <td className="chk-cell" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedSegs.has(s.index)} onChange={() => toggleSeg(s.index)} title="勾选该路段高亮" />
+                  </td>
                   <td className="mono">{s.index}</td>
                   <td className="road-name" title={s.roadName}>{s.roadName || '—'}</td>
                   <td><span className={'lv ' + s.roadLevel}>{ROAD_LEVEL_LABEL[s.roadLevel]}</span></td>

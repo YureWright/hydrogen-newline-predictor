@@ -41,8 +41,8 @@ interface Props {
   from: MapPoint | null
   to: MapPoint | null
   stations: H2Station[]
-  /** 高亮路段（WGS-84 [lng,lat][]，点击路段表格行触发；null=不高亮） */
-  highlight?: Array<[number, number]> | null
+  /** 高亮路段列表（每条 WGS-84 [lng,lat][]，勾选路段表格行触发；空数组=不高亮） */
+  highlight?: Array<Array<[number, number]>>
 }
 
 export default function MapView({ routes, selectedIndex, onSelect, from, to, stations, highlight }: Props) {
@@ -81,16 +81,20 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
     if (from) L.circleMarker([from.lat, from.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#0b3d2e', fillOpacity: 1 }).addTo(layers).bindTooltip('起点 ' + from.name)
     if (to) L.circleMarker([to.lat, to.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#d62728', fillOpacity: 1 }).addTo(layers).bindTooltip('终点 ' + to.name)
 
-    // 高亮路段（表格点击）：WGS-84 → GCJ-02 显示，粗黄线 + 端点标记
-    let highlightCoords: Array<[number, number]> = []
-    if (highlight && highlight.length >= 2) {
-      highlightCoords = highlight.map(([lng, lat]) => wgs84ToGcj02(lng, lat)).map(([lng, lat]) => [lat, lng] as [number, number])
-      const hl = L.polyline(highlightCoords, {
-        color: '#ffd700', weight: 9, opacity: 0.95,
-      }).addTo(layers)
-      hl.bindTooltip('选中路段（' + highlight.length + ' 点）', { sticky: true })
-      L.circleMarker(highlightCoords[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#ffd700', fillOpacity: 1 }).addTo(layers).bindTooltip('路段起点')
-      L.circleMarker(highlightCoords[highlightCoords.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: '#ffd700', fillOpacity: 1 }).addTo(layers).bindTooltip('路段终点')
+    // 高亮路段（表格多选）：WGS-84 → GCJ-02 显示，多条用色板区分
+    const highlightCoords: Array<Array<[number, number]>> = []
+    const HL_COLORS = ['#ffd700', '#ff8c00', '#e91e63', '#9b59b6', '#00bcd4', '#f44336', '#4caf50', '#3f51b5']
+    if (highlight) {
+      highlight.forEach((coords, hi) => {
+        if (!coords || coords.length < 2) return
+        const gcj = coords.map(([lng, lat]) => wgs84ToGcj02(lng, lat)).map(([lng, lat]) => [lat, lng] as [number, number])
+        highlightCoords.push(gcj)
+        const color = HL_COLORS[hi % HL_COLORS.length]
+        const hl = L.polyline(gcj, { color, weight: 9, opacity: 0.95 }).addTo(layers)
+        hl.bindTooltip('高亮路段 ' + (hi + 1) + '/' + highlight.length, { sticky: true })
+        L.circleMarker(gcj[0], { radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).addTo(layers)
+        L.circleMarker(gcj[gcj.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).addTo(layers)
+      })
     }
 
     const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
@@ -102,8 +106,9 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
         fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
       }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
     }
-    if (highlightCoords.length >= 2) {
-      map.fitBounds(L.latLngBounds(highlightCoords).pad(0.25))
+    if (highlightCoords.length > 0) {
+      const all = highlightCoords.flat()
+      if (all.length >= 2) map.fitBounds(L.latLngBounds(all).pad(0.2))
     } else if (bounds.length) {
       map.fitBounds(L.latLngBounds(bounds).pad(0.15))
     }
