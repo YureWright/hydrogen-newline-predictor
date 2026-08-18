@@ -290,6 +290,17 @@ const EVENT_ZONE_KM: Partial<Record<MotionBehavior, number>> = {
   toll: 1.5, ramp: 1.5, turn: 1.5, serviceArea: 1.5, intersection: 0.5,
 }
 
+/** 是否为"行为事件段"（收费站/匝道/路口/转弯/服务区）——参与行为建模，不参与地形切分 */
+export function isEventBehavior(b: MotionBehavior): boolean {
+  return b !== 'cruise' && b !== 'urbanStopStart'
+}
+
+/** 事件段典型通过速度（km/h，重卡）：长 step 拆分出的尾部事件段用它，避免继承整步 90+km/h 的高速均速
+ * —— 否则"单次停车动能 0.5·m·v²"会按 93km/h 算，而实际过收费站/匝道只有 20~40km/h，能量差约 5 倍。 */
+const EVENT_SPEED_KMH: Partial<Record<MotionBehavior, number>> = {
+  toll: 25, ramp: 35, turn: 30, serviceArea: 30, intersection: 25,
+}
+
 /**
  * 长事件 step → 拆成"巡航主体 + 尾部事件段"。
  * 高德高速长 step 的指令是"沿X路行驶N千米 + 动作"（如"…行驶63.7千米向右前方行驶进入匝道"），
@@ -379,7 +390,7 @@ function splitLongEventStep(args: {
       roadName,
       roadLevel,
       distanceKm: round2((distanceM / 1000) * (1 - headFrac)),
-      avgSpeedKmh: avgSpeed,
+      avgSpeedKmh: EVENT_SPEED_KMH[behavior] ?? 30,
       gradePercent: null,
       elevationM: null,
       trafficStatus,
@@ -388,7 +399,7 @@ function splitLongEventStep(args: {
       motionEvents: motion.events,
       temperatureC: null,
       coordsWgs84: tailCoords,
-      durationH: round2(durationH * (1 - headFrac)),
+      durationH: round2(((distanceM / 1000) * (1 - headFrac)) / (EVENT_SPEED_KMH[behavior] ?? 30)),
     },
   ]
 }
@@ -411,13 +422,21 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
     const coordsGcj = decodePolyline(step.polyline ?? '')
     const coordsWgs84 = coordsGcj.map(([lng, lat]) => gcj02ToWgs84(lng, lat))
     let motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84)
-    // 同一事件区合并计数：连续同类"场站型事件"（收费站/匝道/服务区）只计一次——
-    // 第一个 step 挂事件概率，后续连续同类 step 只标行为、不再重复计事件
-    // （一座收费广场常被切成"进入收费站+驶出收费站"等多个 step，实际只过一座）
+    // 同一事件区合并：连续同类"场站型事件"（收费站/匝道/服务区）属于同一座广场/同一处匝道区——
+    // 直接合并进上一个事件段（距离/时长/坐标累加），事件只保留一份，避免出现
+    // "收费站但无变速事件"的空壳段，也避免一座广场被重复计数
     const isPlazaRun =
       (motion.behavior === 'toll' || motion.behavior === 'ramp' || motion.behavior === 'serviceArea') &&
       motion.behavior === lastBehavior
-    if (isPlazaRun) motion = { behavior: motion.behavior, events: [] }
+    if (isPlazaRun && segments.length > 0) {
+      const last = segments[segments.length - 1]
+      last.distanceKm = round2(last.distanceKm + distanceM / 1000)
+      const durH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
+      last.durationH = round2(last.durationH + durH)
+      last.coordsWgs84 = last.coordsWgs84.concat(coordsWgs84)
+      if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
+      continue // 不 push 新段；lastBehavior 保持同类事件
+    }
     const pieces = splitLongEventStep({
       index: i, roadName, roadLevel, distanceM, durationS, avgSpeed,
       trafficStatus, coordsWgs84, motion,

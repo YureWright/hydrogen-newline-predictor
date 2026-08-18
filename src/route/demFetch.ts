@@ -26,6 +26,7 @@ import {
   tileXY, type ProfilePoint,
 } from './dem'
 import { round1, round2 } from './parse'
+import { isEventBehavior } from './segment'
 
 export interface DemTile {
   x: number
@@ -441,7 +442,7 @@ function scaleSubs(parent: SegmentData, subs: SegmentData[]): SegmentData[] {
  * 收费站/匝道/路口/转弯/服务区等行为事件段保持整段——事件是"点状行为"，拆散会
  * 造成同类事件段又密又碎、且事件概率被分散到多个子段。 */
 export function shouldSplitByGrade(behavior: MotionBehavior): boolean {
-  return behavior === 'cruise' || behavior === 'urbanStopStart'
+  return !isEventBehavior(behavior)
 }
 
 /** 剖面子集列表 → 子段（继承父段行为字段；离散事件只挂到首个子段，避免重复计数） */

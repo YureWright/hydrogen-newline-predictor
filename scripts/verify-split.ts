@@ -154,11 +154,10 @@ function main() {
     ],
   }
   const tollSegs = buildSegments(tollRun)
-  assert('连续收费站 step：两个都标 toll', tollSegs.every(s => s.motionBehavior === 'toll'))
-  assert('连续收费站 step：只第一个挂事件（一次计数）',
-    tollSegs[0].motionEvents.some(e => e.type === 'stop') && tollSegs[1].motionEvents.length === 0)
-  assert('连续收费站 step：全段期望停车 = 0.1（一座广场只计一次）',
-    Math.abs(expectedStopCount(tollSegs[0]) + expectedStopCount(tollSegs[1]) - 0.1) < 1e-9)
+  assert('连续收费站 step → 合并成 1 段（同一广场）', tollSegs.length === 1, String(tollSegs.length))
+  assert('合并后为 toll 且带变速事件', tollSegs[0].motionBehavior === 'toll' && tollSegs[0].motionEvents.some(e => e.type === 'stop'))
+  assert('合并后里程守恒（≈3km）', Math.abs(tollSegs[0].distanceKm - 3) < 0.1, String(tollSegs[0].distanceKm))
+  assert('合并后全段期望停车 = 0.1（一座广场只计一次）', Math.abs(expectedStopCount(tollSegs[0]) - 0.1) < 1e-9)
 
   console.log('— 长事件 step 拆分（尾部事件段） —')
   const longRamp: AmapRawPath = {
@@ -174,6 +173,9 @@ function main() {
   assert('事件只挂在尾部（一次计数）', longSegs[1].motionEvents.some(e => e.type === 'decel') && longSegs[0].motionEvents.length === 0)
   const kmSum = longSegs.reduce((a, s) => a + s.distanceKm, 0)
   assert('里程守恒（合计≈10km）', Math.abs(kmSum - 10) < 0.5, String(kmSum))
+  assert('尾部匝道段均速 = 事件典型速度(35km/h)', Math.abs(longSegs[1].avgSpeedKmh - 35) < 0.1, String(longSegs[1].avgSpeedKmh))
+  assert('头部巡航段均速 = 整步均速', longSegs[0].avgSpeedKmh > 35, String(longSegs[0].avgSpeedKmh))
+  assert('尾部时长 = 尾部里程/事件速度（自洽）', Math.abs(longSegs[1].durationH - longSegs[1].distanceKm / 35) < 0.005, 'dur=' + longSegs[1].durationH + ' km=' + longSegs[1].distanceKm)
 
   console.log('— 事件段不参与地形切分 —')
   assert('cruise 参与切分', shouldSplitByGrade('cruise') === true)
