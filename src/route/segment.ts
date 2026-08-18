@@ -122,7 +122,10 @@ export const MOTION_PROB: Record<string, { stop: number; decel: number }> = {
 const TOLL_RE = /收费站|ETC|人工收费/
 const MTC_RE = /人工|MTC/
 const SERVICE_RE = /服务区|停车区/
-const RAMP_RE = /匝道|进入高速|驶出高速|靠右前方|靠左前方|向右前方|向左前方/
+/** 匝道关键词：只认真正"进入/驶出高速国道快速路"或明确"匝道"；
+ * 不含"靠右前方/向右前方"——那往往是高速分叉口"保持主路"的引导语，不是匝道。
+ * 真正的匝道指令都会带"进入/驶出/匝道"字样（如"向右前方行驶，进入G6京藏高速"）。 */
+const RAMP_RE = /匝道|进入[^，。]{0,10}(高速|国道|快速路)|驶出[^，。]{0,10}(高速|国道|快速路)/
 const INTERSECTION_RE = /红绿灯|信号灯/
 const MINOR_INTERSECTION_RE = /路口/
 const TURN_RE = /左转|右转|掉头|转弯|环岛/
@@ -228,11 +231,19 @@ export function detectMotionBehavior(
   return { behavior: 'cruise', events: [] }
 }
 
-/** 段内期望停车次数：事件段取事件期望次数；巡航/城市起停按停车密度 × 里程折算 */
+/** 段内期望停车次数
+ * - 有离散停车事件（收费站/路口等）→ 取事件期望次数之和；
+ * - 无离散事件的巡航/城市起停段 → 按停车密度 × 里程折算；
+ * - 无离散事件的行为事件段（如"同一事件区"里被合并计数的后续 step）→ 计 0，
+ *   事件已在同事件区首个 segment 上计过一次，背景密度不再叠加（避免双重计数）。
+ */
 export function expectedStopCount(seg: SegmentData): number {
   const stopEvs = (seg.motionEvents ?? []).filter((e) => e.type === 'stop')
   if (stopEvs.length > 0) return round2(stopEvs.reduce((a, e) => a + e.expectedCount, 0))
-  return round2((seg.stopDensity ?? 0) * seg.distanceKm)
+  if (seg.motionBehavior === 'cruise' || seg.motionBehavior === 'urbanStopStart') {
+    return round2((seg.stopDensity ?? 0) * seg.distanceKm)
+  }
+  return 0
 }
 
 /** 停车/怠速密度（次/km）= 道路等级基准 × 路况系数 */
@@ -244,9 +255,149 @@ export function inferStopDensity(roadLevel: RoadLevel, traffic: TrafficStatus): 
  * 把一条高德原始路线（path）切成路段序列（SegmentData[]）。
  * 每个 step 一段；坐标转 WGS-84；坡度/海拔/温度暂为 null（后续里程碑填充）。
  */
+/** 两点球面距离（米，局部实现，避免 segment.ts 依赖 Node 侧 dem.ts） */
+export function haversineMeters(a: [number, number], b: [number, number]): number {
+  const R = 6371000
+  const dLat = ((b[1] - a[1]) * Math.PI) / 180
+  const dLng = ((b[0] - a[0]) * Math.PI) / 180
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a[1] * Math.PI) / 180) * Math.cos((b[1] * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+/** 折线累计里程（米） */
+function cumDistance(coords: Array<[number, number]>): number {
+  let sum = 0
+  for (let i = 1; i < coords.length; i++) sum += haversineMeters(coords[i - 1], coords[i])
+  return sum
+}
+
+/** 沿折线找累计里程 ≥ targetM 的点索引；找不到返回 -1 */
+function splitIndexAt(coords: Array<[number, number]>, targetM: number): number {
+  let cum = 0
+  for (let i = 1; i < coords.length; i++) {
+    cum += haversineMeters(coords[i - 1], coords[i])
+    if (cum >= targetM) return i
+  }
+  return -1
+}
+
+/** 长事件 step 拆分阈值：超过该里程且带事件关键词的 step，把尾部事件区单独成段 */
+export const EVENT_SPLIT_KM = 3.0
+/** 尾部事件区长度（km）：匝道/收费站/转弯/服务区 1.5km，路口 0.5km */
+const EVENT_ZONE_KM: Partial<Record<MotionBehavior, number>> = {
+  toll: 1.5, ramp: 1.5, turn: 1.5, serviceArea: 1.5, intersection: 0.5,
+}
+
+/**
+ * 长事件 step → 拆成"巡航主体 + 尾部事件段"。
+ * 高德高速长 step 的指令是"沿X路行驶N千米 + 动作"（如"…行驶63.7千米向右前方行驶进入匝道"），
+ * 事件发生在 step 末尾——若不拆，整个 63km 都会被标成匝道/转弯，又密又不均衡。
+ * 返回 1~2 个 SegmentData（事件 step 较短或折线不足时保持整段）。
+ */
+function splitLongEventStep(args: {
+  index: number
+  roadName: string
+  roadLevel: RoadLevel
+  distanceM: number
+  durationS: number
+  avgSpeed: number
+  trafficStatus: TrafficStatus
+  coordsWgs84: Array<[number, number]>
+  motion: MotionDetection
+}): SegmentData[] {
+  const { index, roadName, roadLevel, distanceM, durationS, avgSpeed, trafficStatus, coordsWgs84, motion } = args
+  const behavior = motion.behavior
+  const isEvent = behavior !== 'cruise' && behavior !== 'urbanStopStart'
+  const isLong = distanceM / 1000 > EVENT_SPLIT_KM
+  if (!isEvent || !isLong || coordsWgs84.length < 3) {
+    return [{
+      index,
+      roadName,
+      roadLevel,
+      distanceKm: round2(distanceM / 1000),
+      avgSpeedKmh: avgSpeed,
+      gradePercent: null,
+      elevationM: null,
+      trafficStatus,
+      stopDensity: inferStopDensity(roadLevel, trafficStatus),
+      motionBehavior: behavior,
+      motionEvents: motion.events,
+      temperatureC: null,
+      coordsWgs84,
+      durationH: durationS > 0 ? round2(durationS / 3600) : round2(distanceM / 1000 / (avgSpeed || 1)),
+    }]
+  }
+  const zoneM = Math.min((EVENT_ZONE_KM[behavior] ?? 1.5) * 1000, distanceM / 2)
+  const idx = splitIndexAt(coordsWgs84, distanceM - zoneM)
+  if (idx <= 0 || idx >= coordsWgs84.length - 1) {
+    return [{
+      index,
+      roadName,
+      roadLevel,
+      distanceKm: round2(distanceM / 1000),
+      avgSpeedKmh: avgSpeed,
+      gradePercent: null,
+      elevationM: null,
+      trafficStatus,
+      stopDensity: inferStopDensity(roadLevel, trafficStatus),
+      motionBehavior: behavior,
+      motionEvents: motion.events,
+      temperatureC: null,
+      coordsWgs84,
+      durationH: durationS > 0 ? round2(durationS / 3600) : round2(distanceM / 1000 / (avgSpeed || 1)),
+    }]
+  }
+  const headCoords = coordsWgs84.slice(0, idx + 1)
+  const tailCoords = coordsWgs84.slice(idx)
+  const headGeo = cumDistance(headCoords)
+  const tailGeo = cumDistance(tailCoords)
+  const totalGeo = headGeo + tailGeo
+  const headFrac = totalGeo > 0 ? Math.min(0.99, headGeo / totalGeo) : 0.5
+  const stopDensity = inferStopDensity(roadLevel, trafficStatus)
+  const durationH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
+  return [
+    {
+      index,
+      roadName,
+      roadLevel,
+      distanceKm: round2((distanceM / 1000) * headFrac),
+      avgSpeedKmh: avgSpeed,
+      gradePercent: null,
+      elevationM: null,
+      trafficStatus,
+      stopDensity,
+      motionBehavior: 'cruise',
+      motionEvents: [],
+      temperatureC: null,
+      coordsWgs84: headCoords,
+      durationH: round2(durationH * headFrac),
+    },
+    {
+      index,
+      roadName,
+      roadLevel,
+      distanceKm: round2((distanceM / 1000) * (1 - headFrac)),
+      avgSpeedKmh: avgSpeed,
+      gradePercent: null,
+      elevationM: null,
+      trafficStatus,
+      stopDensity,
+      motionBehavior: behavior,
+      motionEvents: motion.events,
+      temperatureC: null,
+      coordsWgs84: tailCoords,
+      durationH: round2(durationH * (1 - headFrac)),
+    },
+  ]
+}
+
 export function buildSegments(path: AmapRawPath): SegmentData[] {
   const steps: AmapRawStep[] = path.steps ?? []
   const segments: SegmentData[] = []
+  /** 上一个 segment 的行为（用于同事件区合并计数） */
+  let lastBehavior: MotionBehavior | null = null
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i]
     const distanceM = Number(step.distance) || 0
@@ -257,29 +408,26 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
     const avgSpeed = durationS > 0
       ? round1((distanceM / 1000) / (durationS / 3600))
       : CRUISE_SPEED_BY_LEVEL[roadLevel]
-    const durationH = durationS > 0
-      ? round2(durationS / 3600)
-      : round2(distanceM / 1000 / (avgSpeed || 1))
     const coordsGcj = decodePolyline(step.polyline ?? '')
     const coordsWgs84 = coordsGcj.map(([lng, lat]) => gcj02ToWgs84(lng, lat))
-    const motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84)
-    segments.push({
-      index: i,
-      roadName,
-      roadLevel,
-      distanceKm: round2(distanceM / 1000),
-      avgSpeedKmh: avgSpeed,
-      gradePercent: null,
-      elevationM: null,
-      trafficStatus,
-      stopDensity: inferStopDensity(roadLevel, trafficStatus),
-      motionBehavior: motion.behavior,
-      motionEvents: motion.events,
-      temperatureC: null,
-      coordsWgs84,
-      durationH,
+    let motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84)
+    // 同一事件区合并计数：连续同类"场站型事件"（收费站/匝道/服务区）只计一次——
+    // 第一个 step 挂事件概率，后续连续同类 step 只标行为、不再重复计事件
+    // （一座收费广场常被切成"进入收费站+驶出收费站"等多个 step，实际只过一座）
+    const isPlazaRun =
+      (motion.behavior === 'toll' || motion.behavior === 'ramp' || motion.behavior === 'serviceArea') &&
+      motion.behavior === lastBehavior
+    if (isPlazaRun) motion = { behavior: motion.behavior, events: [] }
+    const pieces = splitLongEventStep({
+      index: i, roadName, roadLevel, distanceM, durationS, avgSpeed,
+      trafficStatus, coordsWgs84, motion,
     })
+    for (const piece of pieces) {
+      segments.push(piece)
+      lastBehavior = piece.motionBehavior
+    }
   }
+  segments.forEach((s, k) => { s.index = k })
   return segments
 }
 

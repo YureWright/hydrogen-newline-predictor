@@ -1,10 +1,10 @@
 /** 路段切分算法验证：行为区检测 + 坡度自适应切分（纯函数，无需联网） */
-import type { MotionBehavior, SegmentData } from '../src/route/types'
+import type { AmapRawPath, MotionBehavior, SegmentData } from '../src/route/types'
 import {
-  detectMotionBehavior, expectedStopCount, maxHeadingChange,
+  buildSegments, detectMotionBehavior, expectedStopCount, maxHeadingChange,
 } from '../src/route/segment'
 import {
-  mergeContinuationFragments, splitGradeProfile, GRADE_BAND_PCT, MAX_SEGMENT_KM,
+  mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile, GRADE_BAND_PCT, MAX_SEGMENT_KM,
 } from '../src/route/demFetch'
 import type { ProfilePoint } from '../src/route/dem'
 
@@ -77,6 +77,10 @@ function main() {
     Math.abs((detectMotionBehavior('前方人工收费车道', 'highway', []).events.find(e => e.type === 'stop')?.expectedCount ?? -1) - 0.95) < 1e-9)
   assert('服务区 → serviceArea', detectMotionBehavior('进入服务区', 'highway', []).behavior === 'serviceArea')
   assert('匝道 → ramp', detectMotionBehavior('靠右前方行驶进入G6京藏高速', 'highway', []).behavior === 'ramp')
+  assert('驶出高速 → ramp', detectMotionBehavior('驶出G6京藏高速', 'highway', []).behavior === 'ramp')
+  assert('分叉口保持主路(靠右前方) → 不再误判匝道', detectMotionBehavior('靠右前方行驶，保持G6京藏高速', 'highway', []).behavior === 'cruise')
+  assert('分叉口保持主路(向右前方) → 不再误判匝道', detectMotionBehavior('向右前方行驶，保持主路', 'highway', []).behavior === 'cruise')
+  assert('进入城区(含"进入") → 不误判匝道', detectMotionBehavior('进入天津市区', 'city', []).behavior === 'urbanStopStart')
   assert('红绿灯路口 → intersection', detectMotionBehavior('直行通过红绿灯路口', 'city', []).behavior === 'intersection')
   const inter = detectMotionBehavior('直行通过红绿灯路口', 'city', [])
   assert('红绿灯停车 P=0.4', Math.abs((inter.events.find(e => e.type === 'stop')?.expectedCount ?? -1) - 0.4) < 1e-9)
@@ -140,6 +144,45 @@ function main() {
   r = profile([{ lenKm: 0.5, gradePct: 3 }])
   slices = splitGradeProfile(r.pts, r.elevs)
   assert('0.5km 短段 → 1 片（不切分）', slices.length === 1, String(slices.length))
+
+  console.log('— 同一事件区合并计数（buildSegments） —')
+  const tollRun: AmapRawPath = {
+    distance: '3000', duration: '300', tolls: '10', toll_distance: '3000',
+    steps: [
+      { instruction: '进入收费站', distance: '1500', duration: '150', tolls: '5', toll_distance: '1500', polyline: '113.1,40.9;113.2,40.9;113.3,40.9' },
+      { instruction: '驶出收费站', distance: '1500', duration: '150', tolls: '5', toll_distance: '1500', polyline: '113.3,40.9;113.4,40.9;113.5,40.9' },
+    ],
+  }
+  const tollSegs = buildSegments(tollRun)
+  assert('连续收费站 step：两个都标 toll', tollSegs.every(s => s.motionBehavior === 'toll'))
+  assert('连续收费站 step：只第一个挂事件（一次计数）',
+    tollSegs[0].motionEvents.some(e => e.type === 'stop') && tollSegs[1].motionEvents.length === 0)
+  assert('连续收费站 step：全段期望停车 = 0.1（一座广场只计一次）',
+    Math.abs(expectedStopCount(tollSegs[0]) + expectedStopCount(tollSegs[1]) - 0.1) < 1e-9)
+
+  console.log('— 长事件 step 拆分（尾部事件段） —')
+  const longRamp: AmapRawPath = {
+    distance: '10000', duration: '500', tolls: '20', toll_distance: '10000',
+    steps: [
+      { instruction: '沿S15京津高速途径XX桥向东南行驶10千米向右前方行驶进入匝道', distance: '10000', duration: '500', tolls: '20', toll_distance: '10000', polyline: '117.0,39.0;117.1,39.1;117.2,39.2;117.3,39.3;117.4,39.4;117.5,39.5' },
+    ],
+  }
+  const longSegs = buildSegments(longRamp)
+  assert('长事件 step → 拆成 2 段', longSegs.length === 2, String(longSegs.length))
+  assert('头部为巡航', longSegs[0].motionBehavior === 'cruise')
+  assert('尾部为匝道', longSegs[1].motionBehavior === 'ramp')
+  assert('事件只挂在尾部（一次计数）', longSegs[1].motionEvents.some(e => e.type === 'decel') && longSegs[0].motionEvents.length === 0)
+  const kmSum = longSegs.reduce((a, s) => a + s.distanceKm, 0)
+  assert('里程守恒（合计≈10km）', Math.abs(kmSum - 10) < 0.5, String(kmSum))
+
+  console.log('— 事件段不参与地形切分 —')
+  assert('cruise 参与切分', shouldSplitByGrade('cruise') === true)
+  assert('urbanStopStart 参与切分', shouldSplitByGrade('urbanStopStart') === true)
+  assert('toll 不切分', shouldSplitByGrade('toll') === false)
+  assert('ramp 不切分', shouldSplitByGrade('ramp') === false)
+  assert('intersection 不切分', shouldSplitByGrade('intersection') === false)
+  assert('turn 不切分', shouldSplitByGrade('turn') === false)
+  assert('serviceArea 不切分', shouldSplitByGrade('serviceArea') === false)
 
   console.log(failed === 0 ? '\n✅ 全部通过' : '\n❌ ' + failed + ' 项失败')
   process.exit(failed === 0 ? 0 : 1)

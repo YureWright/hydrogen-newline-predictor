@@ -20,7 +20,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SegmentData } from './types'
+import type { MotionBehavior, SegmentData } from './types'
 import {
   decodePng, haversineM, resampleCoords, sampleElevationInTile,
   tileXY, type ProfilePoint,
@@ -437,6 +437,13 @@ function scaleSubs(parent: SegmentData, subs: SegmentData[]): SegmentData[] {
   }))
 }
 
+/** 是否参与坡度地形切分：只有巡航/城市起停段切分；
+ * 收费站/匝道/路口/转弯/服务区等行为事件段保持整段——事件是"点状行为"，拆散会
+ * 造成同类事件段又密又碎、且事件概率被分散到多个子段。 */
+export function shouldSplitByGrade(behavior: MotionBehavior): boolean {
+  return behavior === 'cruise' || behavior === 'urbanStopStart'
+}
+
 /** 剖面子集列表 → 子段（继承父段行为字段；离散事件只挂到首个子段，避免重复计数） */
 function slicesToSubs(parent: SegmentData, slices: ProfileSlice[]): SegmentData[] {
   return slices.map((sl, k) => finalizeSub(parent, sl, k))
@@ -469,7 +476,7 @@ function enrichWithTiles(
       const tile = tiles.get(tx + ',' + ty)
       return tile ? sampleElevationInTile(tile, p.lng, p.lat) : NaN
     })
-    const slices = splitGradeProfile(pts, elevs, o.split)
+    const slices = shouldSplitByGrade(s.motionBehavior) ? splitGradeProfile(pts, elevs, o.split) : [{ pts, elevs }]
     const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))
   }
@@ -530,7 +537,7 @@ async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichRes
     if (pts.length < 2) continue
     const segElevs: number[] = []
     for (let i = 0; i < pts.length; i++) segElevs.push(elevs[k++])
-    const slices = splitGradeProfile(pts, segElevs)
+    const slices = shouldSplitByGrade(s.motionBehavior) ? splitGradeProfile(pts, segElevs) : [{ pts, elevs: segElevs }]
     const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))
   }

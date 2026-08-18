@@ -31,6 +31,21 @@ async function main() {
   }))
   console.log('')
   console.log('路段 | 道路 | 等级 | 里程km | 均速 | 坡度% | 海拔m | 变速 | 期望停车 | 路况')
+  const behaviorStat = new Map<string, { count: number; km: number; stops: number }>()
+  for (const s of enriched.segments) {
+    const b = s.motionBehavior
+    const cur = behaviorStat.get(b) ?? { count: 0, km: 0, stops: 0 }
+    cur.count += 1
+    cur.km += s.distanceKm
+    cur.stops += expectedStopCount(s)
+    behaviorStat.set(b, cur)
+  }
+  console.log('')
+  console.log('行为汇总 | 段数 | 里程km | 期望停车/启停次数')
+  for (const [b, v] of [...behaviorStat.entries()].sort((a, c) => c[1].count - a[1].count)) {
+    console.log('  ' + MOTION_LABEL[b] + ' | ' + v.count + ' | ' + v.km.toFixed(1) + ' | ' + v.stops.toFixed(2))
+  }
+  console.log('')
   for (const s of enriched.segments) {
     console.log(
       [s.index, s.roadName || '-', ROAD_LEVEL[s.roadLevel], s.distanceKm, s.avgSpeedKmh,
