@@ -18,3 +18,6 @@ data/dem-cache/
 __pycache__/
 *.pyc
 .venv/
+
+# 临时提交消息
+.git-commit-msg.tmp
