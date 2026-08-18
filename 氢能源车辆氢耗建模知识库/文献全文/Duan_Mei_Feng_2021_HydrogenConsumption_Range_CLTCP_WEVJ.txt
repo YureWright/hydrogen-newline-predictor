@@ -1,0 +1,1141 @@
+
+
+Citation: Duan, Z.; Mei, N.; Feng, L.;
+Yu, S.; Jiang, Z.; Chen, D.; Xu, X.;
+Hong, J. Research on Hydrogen
+Consumption and Driving Range of
+Hydrogen Fuel Cell Vehicle under
+the CLTC-P Condition. World Electr.
+Veh. J. 2022, 13, 9. https://doi.org/
+10.3390/wevj13010009
+Academic Editor: Jose Ignacio
+Huertas
+Received: 15 October 2021
+Accepted: 21 December 2021
+Published: 29 December 2021
+Publisher’s Note: MDPI stays neutral
+with regard to jurisdictional claims in
+published maps and institutional afﬁl-
+iations.
+Copyright:
+© 2021 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed
+under
+the
+terms
+and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+Article
+Research on Hydrogen Consumption and Driving Range of
+Hydrogen Fuel Cell Vehicle under the CLTC-P Condition
+Zhijie Duan 1,2, Nan Mei 3,4, Lili Feng 2, Shuguang Yu 2, Zengyou Jiang 2, Dongfang Chen 5, Xiaoming Xu 3,4,*
+and Jichao Hong 3,4,6,*
+1
+School of Environmental Science and Engineering, Tianjin University, Tianjin 300350, China;
+duanzhijie@gwm.cn
+2
+Hydrogen Testing Branch of Great Wall Motor Co., Ltd., Baoding 071000, China; fenglili@gwm.cn (L.F.);
+wangdawei@gwm.cn (S.Y.); cvfcvt@gwm.cn (Z.J.)
+3
+School of Mechanical Engineering, University of Science and Technology Beijing, Beijing 100083, China;
+2221904085@stmail.ujs.edu.cn
+4
+Shunde Graduate School, University of Science and Technology Beijing, Foshan 528000, China
+5
+School of Vehicle and Mobility, Tsinghua University, Beijing 100084, China; dfchen@mail.tsinghua.edu.cn
+6
+Key Laboratory of Conveyance and Equipment, Ministry of Education, Nanchang 330013, China
+*
+Correspondence: b2050553@ustb.edu.cn (X.X.); hongjichao@ustb.edu.cn (J.H.)
+Abstract: Hydrogen consumption and mileage are important economic indicators of fuel cell vehicles.
+Hydrogen consumption is the fundamental reason that restricts mileage. Since there are few quantita-
+tive studies on hydrogen consumption during actual vehicle operation, the high cost of hydrogen
+consumption in outdoor testing makes it impossible to guarantee the accuracy of the test. Therefore,
+this study puts forward a test method based on the hydrogen consumption of fuel cell vehicles under
+CLTC-P operating conditions to test the hydrogen consumption of fuel cell vehicles per 100 km.
+Finally, the experiment shows that the mileage calculated by hydrogen consumption has a higher
+consistency with the actual mileage. Based on this hydrogen consumption test method, the hydrogen
+consumption can be accurately measured, and the test time and cost can be effectively reduced.
+Keywords: fuel cell; hydrogen consumption; driving range; test methods; comparative analysis
+1. Introduction
+As global energy and environmental issues continue to emerge, hydrogen energy’s
+zero-emission and pollution-free characteristics make it an ideal clean secondary energy
+source. Hydrogen fuel cell vehicles are currently one of the most essential hydrogen energy
+application scenarios [1–3]. Environmental sustainability stimulates the development of
+electric vehicles with excellent energy-saving and emission reduction effects [4,5]. This
+has aroused great interest in new energy batteries. Major developed countries, such as
+the United States, Japan, South Korea, and Germany, as well as the European Union have
+vigorously developed hydrogen energy and fuel cell vehicle industries [6–9]. From the
+battery point of view, life evaluation and prediction help to extend the durability of fuel cells
+and accelerate their commercialization [10–12]. At the same time, from the perspective of
+the entire vehicle, the fuel economy of fuel cell vehicles cannot be ignored [13–15]. Therefore,
+the research on hydrogen consumption and the cruising range of fuel cell vehicles is also a
+hot issue. These two studies mainly focus on test method innovation, platform construction,
+and simulation modeling. The test methods of hydrogen consumption mainly include the
+temperature and pressure method, mass analysis method, and ﬂow method [16]. Based
+on the calculation of fuel cell vehicles’ actual hydrogen supply capacity, combined with
+the fundamental structure of the hydrogen supply system, Tian et al. [17] designed a test
+platform based on the weight method, temperature–pressure method, and ﬂow method.
+Guo et al. [18] researched the fuel cell vehicle driving range test and evaluation method. The
+energy consumption and hydrogen consumption of electric-electric hybrid fuel cell vehicles
+World Electr. Veh. J. 2022, 13, 9. https://doi.org/10.3390/wevj13010009
+https://www.mdpi.com/journal/wevj
+
+World Electr. Veh. J. 2022, 13, 9
+2 of 13
+are tested, forming a driving range evaluation method for different fuel cell vehicles.
+Considering the test and analysis results, suggestions and references for improving the
+driving range of fuel cell vehicles are put forward. J.S. et al. [19] proposed a method for
+measuring the fuel consumption of hydrogen fuel cell vehicles on a chassis dynamometer,
+which provides information for the development of hydrogen fuel economy test methods.
+In terms of simulation modeling, the main research point is to improve the accuracy of
+the hydrogen consumption model. Hou [20] established a semi-empirical kinetic model of
+hydrogen consumption in a fuel cell engine and conducted experimental veriﬁcation based
+on the steady-state hydrogen consumption model. The results show that the model has
+high accuracy, a simple structure, and few parameters and can better reﬂect the dynamic
+characteristics of hydrogen consumption of fuel cell engines. Javier et al. [21] calculated the
+hydrogen consumption of hybrid electric vehicles and simulated FC hybrid electric vehicles
+under standard operating conditions, developing an all-electric model and a thermal model
+of the entire vehicle. Fang et al. [13] designed a hydrogen consumption measurement
+research platform for a proton exchange membrane fuel cell vehicle (PEMFCV). They
+used the system to conduct multiple scheduled tests to verify that the platform meets the
+research needs. Hou et al. [22] introduced a dynamic model of hydrogen consumption in
+a fuel cell stack. Under the step load change, the hydrogen consumption changes with a
+speciﬁc time lag. The delay time of the load-up phase is shorter than that of the load-down
+stage. The overshoot duration and peak value are distributed in a normal range. Other
+studies to carry out hydrogen consumption prediction of the fuel cell system based on the
+hybrid intelligent method have achieved satisfactory results in the veriﬁcation process of
+the model [23–25].
+However, the above research is limited to studying the hydrogen consumption model
+and consumption alone, without linking hydrogen consumption with a driving range and
+lacking consistency between test and calculated data. This article takes Test vehicle A and
+Test vehicle B as the research objects to conduct hydrogen consumption and driving range
+tests of fuel cell vehicles to study the consistency of vehicle hydrogen consumption and
+moving range test data. This work can provide a data reference for supplementing or
+revising the hydrogen fuel cell vehicle standards. More importantly, referring to the above
+method to carry out the hydrogen consumption/driving range test for fuel cell vehicles, the
+testing time and cost will be signiﬁcantly reduced on the premise of ensuring the testing
+accuracy.
+2. Research Object
+The research object of this article is based on two models, test vehicles A and B. The
+Type A fuel cell vehicle has a maximum fuel cell power of 114 kW and a battery power
+energy of 1.65 kWh/5.94 MJ. Type B fuel cell vehicles have a fuel cell system power of
+95 kW and a power battery of 1.56 kWh/5.62 MJ. Two kinds of hydrogen storage-related
+parameters are listed in Table 1.
+Table 1. Hydrogen storage parameters of car models.
+Test Vehicle
+Model
+Hydrogen
+Storage
+Pressure
+Hydrogen
+Storage
+Volume
+Hydrogen
+Storage
+Driving
+Range
+(NEDC)
+Fuel Cell
+Power
+(kW)
+Test vehicle A
+70 Mpa
+122.4 L
+5.0 kg/599.8 MJ
+650 km
+114
+Test vehicle B
+70 Mpa
+156.6 L
+6.33 kg/759.3 MJ
+800 km
+95
+3. Test Method
+The test environment meets the requirements of the GB/T39132-2020 fuel cell electric
+vehicle type test procedure of the driving range test method. The test room is equipped with
+air-conditioning, and the test environment temperature is 20~30 ◦C. The two test vehicles
+were running-in. The running-in mileage exceeded 1000 km, and 300 km within seven days
+before the test. The test vehicle A chassis dynamometer’s load setting follows the vehicle
+
+World Electr. Veh. J. 2022, 13, 9
+3 of 13
+reference mass speciﬁed in GB18352.5–2013, and test vehicle B chassis dynamometer load
+is set under the provisions in GB18352.6–2016. The test parameters are listed in Table 2, and
+the test ﬂowchart is shown in Figure 1.
+Table 2. Speciﬁc parameters of test conditions.
+Model
+Loading
+Convention
+Coefﬁcient A
+Coefﬁcient B
+Coefﬁcient C
+Test vehicle A
+DYNO
+1930 kg
+8.50 N
+0 N/(km/h)
+0.05770 N/(km/h)2
+Test vehicle B
+ROAD
+2030.3 kg
+156.85 N
+1.3640 N/(km/h)
+0.03630 N/(km/h)2
+DYNO
+2030.3 kg
+−30.46 N
+1.7424 N/(km/h)
+0.03290 N/(km/h)2
+Figure 1. The test ﬂowchart.
+3.1. Introduction to the Test Methods for Hydrogen Consumption of Fuel Cell Vehicles
+The New European Driving Cycle (NEDC) is a standard car cycle deﬁned based on
+the road conditions in the European Union. Before 2020, most of the test cycle conditions
+of the country’s automobiles adopt NEDC conditions. It is very different from the actual
+road conditions. The tested fuel consumption and emission data are also different from
+the existing conditions. Therefore, the application has signiﬁcant limitations. The NEDC
+driving cycle curve is shown in Figure 2.
+
+World Electr. Veh. J. 2022, 13, 9
+4 of 13
+ 
+Figure 2. NEDC working condition curve.
+Both Test vehicles A and B belong to category A vehicles. CLTC-P is a Chinese
+light-duty vehicle test cycle passenger car. First, the vehicle is preheated (1 CLTC-P cycle
+working condition, standing for 15 min), and then 6 CLTC-P cycle working conditions are
+established to complete the test. CLTC-P reﬂects the actual road conditions with Chinese
+characteristics more truly, including a more reasonable deﬁnition of average speed and
+maximum speed, more comprehensive driving conditions, a better proportion of parking
+modes, and richer dynamic acceleration and deceleration conditions. Figure 3 shows the
+driving curve of CLTC-P Chinese passenger cars.
+Figure 3. CLTC-P working condition curve.
+3.2. Introduction of Fuel Cell Vehicle Driving Range Test Method
+Fuel cell electric vehicle tests are carried out in accordance with the CLTC-P cycle
+conditions speciﬁed in GB/T38146.1. The car will stop the test if it meets one of the
+following two conditions:
+(1)
+The vehicle meter will give a parking indication;
+(2)
+The vehicle speed tolerance does not meet ±2 km/h or the time tolerance exceeds
+10 s.
+When the vehicle reaches the test end condition, keep the vehicle gear unchanged.
+Then, wait for the vehicle to coast to the lowest stable speed or 5 km/h, and depress the
+brake pedal to stop. After the test is over, the vehicle’s mileage is rounded to an integer
+value to be the driving mileage of the test.
+3.3. Test Method and Procedure
+The test device and interface diagram are shown in Figure 4 [26]. The NEDC cycle
+conditions were not selected for the hydrogen consumption test for data comparison. The
+hydrogen consumption is consistent with the driving range test, and both use CLTC-P cycle
+conditions. To fully accumulate test samples and observe more comprehensive test results
+and comparisons, hydrogen consumption has been continuously carried out in 13 CLTC-P
+cycle conditions. Simultaneously, Test vehicle B cannot be connected to the test room to
+supply hydrogen, so the hydrogen consumption test uses vehicle-mounted hydrogen. The
+data were obtained according to the temperature and pressure method. The pressure and
+
+World Electr. Veh. J. 2022, 13, 9
+5 of 13
+temperature data were collected by the sensor of the vehicle-mounted hydrogen storage
+bottle through the vehicle CAN communication.
+ 
+Figure 4. The diagram of the test device and interface.
+3.3.1. Hydrogen Consumption Test for Fuel Cell Vehicles
+Both models have undergone 13 CLTC-P cycle test conditions. The speciﬁc test steps
+are as follows:
+(1)
+Test vehicle A vehicles close the on-board hydrogen supply system and use the
+hydrogen from the hydrogen supply pipeline outside the test room. In this study,
+Austrian AVL’s hydrogen ﬂow metering system was used to measure the value of
+vehicle hydrogen consumption. Test vehicle B vehicles use the pressure-temperature
+method of the vehicle’s hydrogen storage tank to measure hydrogen consumption
+indirectly;
+(2)
+After the vehicle is ﬁxed to the chassis dynamometer, leave it at room temperature
+(20–30 ◦C) for 30 min;
+(3)
+Vehicle road load and chassis dynamometer load are set following national standards;
+(4)
+The vehicle is warmed up, the vehicle is driven on the chassis dynamometer, the
+vehicle is turned off after the CLTC-P cycle is completed, and the vehicle is set to the
+initial value for 15 min;
+(5)
+Start the vehicle signal acquisition equipment. The acquired signals include but
+are not limited to each hydrogen cylinder temperature, hydrogen cylinder pressure,
+hydrogen fuel cell stack current, voltage, vehicle mileage, hydrogen consumption,
+and hydrogen ﬂow, and the acquisition frequency of each signal is 10 Hz;
+(6)
+Start the vehicle and perform 13 continuous working condition tests in accordance
+with the CLTC-P working condition table. The vehicle cannot be stopped during the
+test operation until the end of the test;
+(7)
+Record the mileage at the end of each test cycle and keep the mileage to one decimal
+place. If the hydrogen ﬂow rate is used to test the hydrogen consumption, the
+hydrogen consumption is recorded at the same time, and the hydrogen consumption
+is kept to one decimal place;
+(8)
+After the vehicle completes 13 cycles of testing, record the total mileage and stop the
+vehicle;
+(9)
+Stop data recording and analyze the data.
+3.3.2. Hydrogen Consumption Test for Fuel Cell Vehicles
+(a)
+Fill the vehicle-mounted hydrogen cylinder with hydrogen until the rated pressure is
+70 MPa;
+(b)
+Keep the car static at room temperature (20–30 ◦C) for 30 min, then ﬁx the car to the
+chassis dynamometer;
+
+World Electr. Veh. J. 2022, 13, 9
+6 of 13
+(c)
+Start the vehicle, test according to CLTC-P working conditions, and stop when the
+test end conditions are reached;
+(d)
+Record the mileage and accumulated mileage of each cycle working condition, keeping
+one decimal place for the mileage of each working condition. The accumulated
+mileage is rounded up.
+4. Test Results and Discussion
+4.1. Analysis and Discussion of Hydrogen Consumption Test Data
+The vehicle test continuously carried out 13 CLTC-P cycle conditions and obtained
+hydrogen consumption per 100 km for 11 groups of three continuous CLTC-P cycle condi-
+tions and eight groups of hydrogen consumption per 100 km for six consecutive CLTC-P
+cycles. The actual hydrogen consumption per 100 km is calculated based on the actual
+hydrogen consumption of each cycle and the corresponding mileage. The relative deviation
+is calculated based on the actual value and the average value of hydrogen consumption
+((Actual value −average value)/Average value × 100%).
+4.1.1. Analysis of Test Vehicle A Test Results and Hydrogen Consumption Measurement
+Method
+The actual hydrogen consumption of each CLTC-P cycle of Test vehicle A is measured
+using hydrogen from the hydrogen supply pipeline outside the test room and measured by
+the hydrogen ﬂow metering system of AVL, Austria. The speciﬁc data are shown in Table 3.
+According to the data in the above table, the hydrogen consumption per hundred
+kilometers of a single cycle is 0.977 kg/100 km, the hydrogen consumption of three cycles
+is 0.979 kg/100 km, and the hydrogen consumption of six cycles is 0.983 kg/100 km. The
+maximum deviation of hydrogen consumption in a single working condition from the
+average value is 3.59%. The maximum deviation of the hydrogen consumption from the
+average value for three consecutive cycles is 3.0%. The maximum deviation of hydrogen
+consumption from the average value for six consecutive cycles is 1.0%. The deviation
+distribution of each cycle is shown in Figure 5.
+Figure 5. Cyclic deviation distribution.
+4.1.2. Analysis of Test Vehicle B Test Results and Hydrogen Consumption Evaluation
+Method
+The actual hydrogen consumption of each CLTC-P cycle of Test vehicle B uses vehicle-
+mounted hydrogen. It is calculated and measured following the pressure-temperature
+method with the vehicle hydrogen storage bottle. The vehicle hydrogen storage bottle’s
+pressure and temperature sensor signals are collected and output by the vehicle CAN
+signal. Limited by the accuracy of the pressure and temperature sensors of the vehicle’s
+hydrogen storage cylinder, the hydrogen consumption varies signiﬁcantly among various
+cycle conditions. The speciﬁc data are shown in Table 4.
+
+World Electr. Veh. J. 2022, 13, 9
+7 of 13
+Table 3. Actual hydrogen consumption of Test vehicle A under the CLTC-P cycle.
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1
+14.6
+141.7
+0.9702
+0.38
+2
+14.4
+140.8
+0.9775
+−0.25
+3
+14.5
+142.4
+0.9819
+0.89
+4
+14.5
+143.0
+0.9860
+1.32
+5
+14.4
+146.4
+1.0167
+3.75
+6
+14.6
+144.7
+0.9911
+2.57
+7
+14.3
+143.6
+1.0042
+1.78
+8
+14.4
+134.8
+0.9361
+−4.46
+9
+14.4
+138.3
+0.9604
+−1.97
+10
+14.4
+137.3
+0.9535
+−2.69
+11
+14.4
+146.2
+1.0146
+3.59
+12
+14.4
+137.8
+0.9569
+−2.32
+13
+14.4
+137.5
+0.9545
+−2.60
+Average value
+14.4
+141.1
+0.9772
+——
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1~3
+43.5
+423.1
+0.973
+−0.7
+2~4
+43.4
+422.5
+0.974
+−0.6
+3~5
+43.4
+423.1
+0.975
+−0.4
+4~6
+43.5
+424.9
+0.977
+−0.2
+5~7
+43.3
+429.6
+0.992
+1.3
+6~8
+43.3
+433.5
+1.001
+2.3
+7~9
+43.1
+434.7
+1.009
+3.0
+8~10
+43.2
+423.1
+0.979
+0.0
+9~11
+43.2
+416.7
+0.965
+−1.5
+10~12
+43.2
+410.4
+0.950
+−3.0
+11~13
+43.2
+421.7
+0.976
+−0.3
+Average value
+43.3
+423.9
+0.9791
+——
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1~6
+87.0
+848.0
+0.9747
+−0.8
+2~7
+86.7
+852.1
+0.9828
+0.0
+3~8
+86.7
+856.6
+0.9880
+0.5
+4~9
+86.6
+859.6
+0.9926
+1.0
+5~10
+86.5
+852.7
+0.9858
+0.3
+6~11
+86.5
+850.2
+0.9829
+0.0
+7~12
+86.3
+845.1
+0.9793
+−0.4
+8~13
+86.4
+844.8
+0.9778
+−0.5
+Average value
+86.6
+851.1
+0.9830
+——
+
+World Electr. Veh. J. 2022, 13, 9
+8 of 13
+Table 4. Actual hydrogen consumption of Test vehicle B under CLTC-P cycle.
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1
+14.5
+118.8
+0.8193
+−1.0
+2
+14.4
+135.7
+0.9424
+13.9
+3
+14.3
+137.3
+0.9601
+16.0
+4
+14.3
+91.6
+0.6406
+−22.6
+5
+14.4
+122.9
+0.8535
+3.1
+6
+14.3
+115.3
+0.8063
+−2.6
+7
+14.5
+121.1
+0.8352
+0.9
+8
+14.4
+118.0
+0.8194
+−1.0
+9
+14.4
+95.8
+0.6653
+−19.6
+10
+14.2
+124.8
+0.8796
+6.3
+11
+14.5
+113.0
+0.7793
+−5.8
+12
+14.5
+135.7
+0.9359
+13.1
+13
+14.2
+116.8
+0.8225
+−0.6
+Average value
+14.2
+119.0
+0.8277
+——
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1~3
+43.2
+391.8
+0.907
+10.4
+2~4
+43.0
+364.6
+0.848
+3.2
+3~5
+43.0
+351.8
+0.818
+−0.4
+4~6
+43.0
+329.8
+0.767
+−6.7
+5~7
+43.2
+359.3
+0.832
+1.2
+6~8
+43.2
+354.4
+0.820
+−0.2
+7~9
+43.3
+334.9
+0.773
+−5.9
+8~10
+43.0
+338.7
+0.788
+−4.1
+9~11
+43.1
+333.7
+0.774
+−5.8
+10~12
+43.2
+373.6
+0.865
+5.2
+11~13
+43.2
+365.5
+0.846
+3.0
+Average value
+43.1
+354.4
+0.8217
+——
+Cycles
+Cycle Mileage
+(km)
+Actual
+Hydrogen
+Consumption
+(g)
+Actual
+Hydrogen
+Consumption
+per Hundred
+Kilometers
+(kg/100 km)
+Relative
+Difference Rate
+%
+1~6
+86.2
+721.6
+0.8371
+2.9
+2~7
+86.2
+723.9
+0.8398
+3.2
+3~8
+86.2
+706.2
+0.8193
+0.7
+4~9
+86.3
+664.7
+0.7702
+−5.3
+5~10
+86.2
+698.0
+0.8097
+−0.5
+6~11
+86.3
+688.1
+0.7973
+−2.0
+7~12
+86.5
+708.5
+0.8191
+0.7
+8~13
+86.2
+704.2
+0.8169
+0.4
+Average value
+86.3
+701.9
+0.8137
+——
+
+World Electr. Veh. J. 2022, 13, 9
+9 of 13
+According to the data in the above table, the hydrogen consumption per hundred
+kilometers of a single cycle is 0.828 kg/100 km, the hydrogen consumption of three cycles
+is 0.822 kg/100 km, and the hydrogen consumption of six cycles is 0.815 kg/100 km. The
+maximum deviation of hydrogen consumption in a single working condition from the
+average value is −22.6%. The maximum deviation of hydrogen consumption from the
+average value for three consecutive cycles is 10.4%. The maximum deviation of hydrogen
+consumption from the average value for six consecutive cycles is 5.3%. The relative
+deviation decreases as the number of cycle conditions increases. The deviation distribution
+of each process is shown in Figure 6.
+Figure 6. Cyclic deviation distribution.
+4.2. Analysis and Discussion of Test Data of Vehicle Driving Range
+The vehicle’s driving range is based on the current national standard fuel cell electric
+vehicle test method. CLTC-P cycle conditions were used to obtain the actual test. At the
+same time, according to the test, the hydrogen consumption of the vehicle per 100 km (cal-
+culated by the trial and test of six consecutive CLTC-P cycle conditions) and the vehicle’s
+available hydrogen amount is indirectly calculated to obtain the driving range (computed
+value). Hence, 13 successive CLTC-P cycle conditions are received in the actual test vehi-
+cle. Eight groups of six continuous CLTC-P cycle conditions are obtained for hydrogen
+consumption per 100 km. The driving range (calculated value) is obtained.
+4.2.1. Analysis of Test Vehicle A Test Results and Driving Range Test Method
+The actual hydrogen consumption of each CLTC-P cycle of Test vehicle A uses the
+hydrogen of the hydrogen supply pipeline outside the test room. It is measured by the
+hydrogen ﬂow metering system of Austria AVL Company, Melbourne, Australia. The
+speciﬁc values are shown in Table 5.
+Table 5. Driving range of Test vehicle A under CLTC-P cycle conditions.
+Serial
+Number
+Cycle
+Condition
+Hydrogen
+Consump-
+tion
+(g)
+Vehicle
+Mileage
+(km)
+Hydrogen
+Consump-
+tion per
+Hundred
+Kilometers
+(kg/100 km)
+Driving
+Range
+(Calculated
+Value) (km)
+Difference
+Rate %
+1
+1~6
+848.0
+87.0
+0.975
+513
+0.6
+2
+2~7
+852.1
+86.7
+0.983
+509
+−0.2
+3
+3~8
+856.6
+86.7
+0.988
+506
+−0.8
+4
+4~9
+859.6
+86.6
+0.993
+504
+−1.2
+5
+5~10
+852.7
+86.5
+0.986
+507
+−0.5
+6
+6~11
+850.2
+86.5
+0.983
+509
+−0.3
+7
+7~12
+845.1
+86.3
+0.979
+511
+0.1
+8
+8~13
+844.8
+86.4
+0.978
+511
+0.3
+Test driving range (km): 510 km.
+According to the data in the above table, the hydrogen consumption per hundred
+kilometers for six cycles is 0.978 kg/100 km. The maximum deviation between the continu-
+
+World Electr. Veh. J. 2022, 13, 9
+10 of 13
+ous driving range and the average value of six stable cycle conditions is −1.2%, and the
+deviation distribution of each cycle is shown in Figure 7.
+Figure 7. Deviation distribution of 6 continuous cycle conditions.
+4.2.2. Analysis of Test Vehicle B Test Results and Driving Range Test Method
+The actual hydrogen consumption of the Test vehicle B vehicle CLTC-P cycle working
+condition uses the vehicle-mounted hydrogen, which is calculated and measured by the
+pressure-temperature method of the vehicle hydrogen storage bottle. The vehicle hydrogen
+storage bottle’s pressure and temperature sensor signals are collected and output by the
+vehicle CAN signal. The speciﬁc values are shown in Table 6.
+Table 6. Driving range of Test vehicle B under CLTC-P cycle conditions.
+Serial
+Number
+Cycle
+Condition
+Hydrogen
+Consump-
+tion
+(g)
+Vehicle
+Mileage
+(km)
+Hydrogen
+Consump-
+tion per
+Hundred
+Kilometers
+(kg/100 km)
+Driving
+Range
+(Calculated
+Value) (km)
+Difference
+Rate %
+1
+1~6
+721.6
+86.2
+0.837
+756
+−5.7
+2
+2~7
+723.9
+86.2
+0.840
+754
+−6.0
+3
+3~8
+706.2
+86.2
+0.819
+773
+−3.7
+4
+4~9
+664.7
+86.3
+0.770
+822
+2.5
+5
+5~10
+698.0
+86.2
+0.810
+782
+−2.5
+6
+6~11
+688.1
+86.3
+0.797
+794
+−1.0
+7
+7~12
+708.5
+86.5
+0.819
+773
+−3.6
+8
+8~13
+704.2
+86.2
+0.817
+775
+−3.4
+Test driving range (km): 802 km.
+According to the driving range (calculated value), hydrogen per hundred kilometers
+for six cycles is 0.817 kg/100 km. Given the test driving range and difference rate ((contin-
+uing driving range (calculated value) −test driving range)/test driving range × 100%),
+the maximum difference rate of each group of values is −6.0%. The speciﬁc distribution is
+shown in Figure 8.
+Figure 8. Deviation distribution of 6 continuous cycle conditions.
+
+World Electr. Veh. J. 2022, 13, 9
+11 of 13
+4.3. Energy-Saving Effect of the Braking Energy Recovery Strategy
+This section compares the braking energy recovery strategy and the non-brake energy
+recovery strategy adopted by the Test vehicle B vehicle under the CLTC-P cycle. From
+Table 7 and Figure 9, it can be seen that the initial driving range increased by 135.8 km,
+and the driving range at termination was increased by 175.5 km after adopting the braking
+energy recovery strategy. The SOC values of the batteries with and without the braking
+energy recovery strategy are 57% and 51%, respectively, an increase of 6%.
+Table 7. Parameter data of Test vehicle B’s two strategies under CLTC-P conditions.
+Main Parameters
+With Braking Energy
+Recovery
+Without Braking Energy
+Recovery
+Initial driving range
+612.4 km
+476.6 km
+Final driving range
+463.3 km
+287.8 km
+Battery SOC
+57%
+51%
+Figure 9. Comparison of battery SOC value changes.
+5. Conclusions
+Six consecutive standard cycles of external hydrogen supply were used to test the
+hydrogen consumption of fuel cell vehicles during CLTC-P operation. The difference
+between the calculated and tested driving ranges was less than 1.2%. The cycle conditions
+are divided into three groups, and the mileage is calculated by calculating the hydrogen
+consumption per hundred kilometers of each group. The difference between the actual
+mileage and the calculated average mileage decreases as the number of cycles increases.
+After adopting the braking energy recovery strategy, the initial driving range was
+increased by 135.8 km, and the driving range at the end was increased by 175.5 km. The
+SOC values of the batteries with and without the braking energy recovery strategy are 57%
+and 51%, respectively, an increase of 6%.
+Referring to the above method to carry out the hydrogen consumption/driving range
+test for fuel cell vehicles and calculate the driving range value of fuel cell vehicles, the fuel
+cell vehicle driving range test time and the test cost are signiﬁcantly reduced. At the same
+time, the testing unit and the country of the testing organization can also guarantee the
+accuracy of the test values.
+Author Contributions: Conceptualization, Z.D., N.M. and J.H.; methodology, Z.D.; software, Z.D.;
+validation, Z.D., N.M. and J.H.; formal analysis, Z.D.; investigation, Z.D.; resources, Z.D.; data
+curation, L.F.; writing—original draft preparation, N.M. and J.H.; writing—review and editing, D.C.;
+visualization, S.Y.; supervision, Z.J.; project administration, X.X.; funding acquisition, X.X. All authors
+have read and agreed to the published version of the manuscript.
+Funding: The project is supported partly by the National Natural Science Foundation of China
+(No. 52107220), Postdoctoral Research Fund Project of China (No. 2021M690353), Scientiﬁc and
+Technological Innovation Foundation of Foshan (No. BK21BE012), Postdoctor Research Foundation of
+Shunde Graduate School of University of Science and Technology Beijing (No. 2021BH007), and Key
+Laboratory of Conveyance and Equipment (East China Jiaotong University), Ministry of Education,
+(No. KLCE2021-02).
+
+World Electr. Veh. J. 2022, 13, 9
+12 of 13
+Institutional Review Board Statement: Not applicable.
+Informed Consent Statement: Not applicable.
+Data Availability Statement: The data presented in this study are available on request from the
+corresponding author. The data are not publicly available due to corporate sensitivity.
+Conﬂicts of Interest: The authors declare no conﬂict of interest. The funders had no role in the design
+of the study; in the collection, analyses, or interpretation of data; in the writing of the manuscript, or
+in the decision to publish the results.
+References
+1.
+Mathieu, T.; Kourosh, M.; Asmae, M. Techno-Economics of a New High Throughput Process for Proton Exchange Membranes
+Manufacturing. World Electr. Veh. J. 2016, 8, 431–442.
+2.
+Speers, P. Hydrogen Mobility Europe (H2ME): Vehicle and Hydrogen Refuelling Station Deployment Results. World Electr. Veh. J.
+2018, 9, 2. [CrossRef]
+3.
+Zhou, S.; Jin, J.; Wei, Y. A Driving Cycle for a Fuel Cell Logistics Vehicle on a Fixed Route: Case of the Guangdong Province.
+World Electr. Veh. J. 2021, 12, 5. [CrossRef]
+4.
+Hong, J.; Wang, Z.; Chen, W.; Wang, L.; Lin, P.; Qu, C. Online Accurate State of Health Estimation for Battery Systems on
+Real-World Electric Vehicles with Variable Driving Conditions Considered. J. Clean. Prod. 2021, 294, 125814. [CrossRef]
+5.
+Hong, J.; Wang, Z.; Yao, Y. Fault prognosis of battery system based on accurate voltage abnormity prognosis using long short-term
+memory neural networks. Appl. Energy 2019, 251, 113381. [CrossRef]
+6.
+Han, J.; Dongsuk, K.; Youngjin, P. Sensitivity analysis for assessing robustness of position- based predictive energy management
+strategy for fuel cell hybrid electric vehicle. World Electr. Veh. J. 2015, 7, 330–341. [CrossRef]
+7.
+Andaloro, L.; Micari, S.; Napoli, G.; Polimeni, A.; Antonucci, V. A Hybrid Electric Fuel Cell Minibus: Drive Test. World Electr. Veh.
+J. 2016, 8, 131–138. [CrossRef]
+8.
+Kim, N.; Moawad, A.; Vijayagopal, R.; Rousseau, A. Impact of Fuel Cell and Storage System Improvement on Fuel Consumption
+and Cost. World Electr. Veh. J. 2016, 8, 305–314. [CrossRef]
+9.
+Cullen, D.A.; Neyerlin, K.C.; Ahluwalia, R.K.; Mukundan, R.; More, K.L.; Borup, R.L.; Weber, A.Z.; Myers, D.J.; Kusoglu, A. New
+roads and challenges for fuel cells in heavy-duty transportation. Nat. Energy 2021, 6, 462–474. [CrossRef]
+10.
+Pei, P.; Chen, D.; Wu, Z.; Ren, P. Nonlinear methods for evaluating and online predicting the lifetime of fuel cells. Appl. Energy
+2019, 254, 113730. [CrossRef]
+11.
+Szałek, A.; Pielecha, I.; Cieslik, W. Fuel Cell Electric Vehicle (FCEV) Energy Flow Analysis in Real Driving Conditions (RDC).
+Energies 2021, 14, 5018. [CrossRef]
+12.
+Pielecha, I.; Cie´slik, W.; Szałek, A. The use of electric drive in urban driving conditions using a hydrogen powered vehicle-Toyota
+Mirai. Combust. Engines 2018, 57, 51–58. [CrossRef]
+13.
+Maodong, F.; Mingjie, C.; Qingchun, L.; Zhenhua, J. Hydrogen Consumption Measurement Research Platform for Fuel Cell
+Vehicles. In Proceedings of the International Conference on Electrical and Control Engineering, Wuhan, China, 25–27 June 2010;
+IEEE: Piscataway, NJ, USA, 2010; pp. 1142–1145.
+14.
+Ahluwalia, R.K.; Wang, X.; Rousseau, A.; Kumar, R. Fuel economy of hydrogen fuel cell vehicles. J. Power Sources 2004, 130,
+192–201. [CrossRef]
+15.
+Offer, G.J.; Contestabile, M.; Howey, D.A.; Clague, R.; Brandon, N.P. Techno-economic and behavioural analysis of battery electric,
+hydrogen fuel cell and hybrid vehicles in a future sustainable road transport system in the UK. Energy Policy 2011, 39, 1939–1950.
+[CrossRef]
+16.
+Lai, X.; Ling, L.; Liang, W.; Wang, B. Test Platform Development for Fuel Cell Vehicle’s Hydrogen Management System.
+TELKOMNIKA Indones. J. Electr. Eng. 2012, 10. [CrossRef]
+17.
+Tian, Y.; Zhang, Y.F.; Jin, Z.H.; Wang, K.L.; Nie, S.F.; Lu, Q.C. Development of Hydrogen Consumption Test Platform for Fuel Cell
+Vehicles. Adv. Mater. Res. 2013, 602–604, 1031–1035. [CrossRef]
+18.
+Guo, T. Research on the Measurement Method of Fuel Cell Vehicle Driving Range. Power Technol. 2021, 45, 848–850+931.
+19.
+Lim, J.-S.; Lee, H.-W.; Hong, Y.-S.; Lee, K.-B.; Yong, G.-J.; Kwon, H.-B. Development on Fuel Economy Test Method for Hydrogen
+Fuel Cell Vehicles. Trans. Korean Hydrog. New Energy Soc. 2010, 21, 207–213.
+20.
+Hou, Y.; Zhuang, M.; Wan, G. A study on a semi-empirical dynamic model for hydrogen consumption of a fuel cell engine.
+Automot. Eng. 2007, 29, 942–945.
+21.
+Pino, F.J.; Marcos, D.; Bordons, C.; Rosa, F. Car air-conditioning considerations on hydrogen consumption in fuel cell and driving
+limitations. Int. J. Hydrog. 2015, 40, 11696–11703. [CrossRef]
+22.
+Hou, Y.; Shen, C.; Hao, D.; Liu, Y.; Wang, H. A dynamic model for hydrogen consumption of fuel cell stacks considering the
+effects of hydrogen purge operation. Renew. Energy 2014, 62, 672–678. [CrossRef]
+23.
+Montero-Sousa, J.A.; Aláiz-Moretón, H.; Quintián, H.; González-Ayuso, T.; Novais, P.; Calvo-Rolle, J.L. Hydrogen consumption
+prediction of a fuel cell based system with a hybrid intelligent approach. Energy 2020, 205, 117986. [CrossRef]
+
+World Electr. Veh. J. 2022, 13, 9
+13 of 13
+24.
+Li, Y.; Pei, P.; Wu, Z.; Ren, P.; Jia, X.; Chen, D.; Huang, S. Approaches to avoid ﬂooding in association with pressure drop in proton
+exchange membrane fuel cells. Appl. Energy 2018, 224, 42–51. [CrossRef]
+25.
+Chen, D.; Pan, L.; Pei, P.; Huang, S.; Ren, P.; Song, X. Carbon-coated oxygen vacancies-rich Co3O4 nanoarrays grow on nickel
+foam as efﬁcient bifunctional electrocatalysts for rechargeable zinc-air batteries. Energy 2021, 224, 120142. [CrossRef]
+26.
+Duan, Z.; Zhang, L.; Feng, L.; Yu, S.; Jiang, Z.; Xu, X.; Hong, J. Research on Economic and Operating Characteristics of Fuel Cell
+Cars Based on Real Vehicle Tests. Energies 2021, 14, 7856. [CrossRef]

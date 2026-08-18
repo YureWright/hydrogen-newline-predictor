@@ -1,0 +1,945 @@
+Citation: Savran, E.; Karpat, E.;
+Karpat, F. Fuel Cell Electric Vehicle
+Hydrogen Consumption and Battery
+Cycle Optimization Using Bald Eagle
+Search Algorithm. Appl. Sci. 2024, 14,
+7744. https://doi.org/10.3390/
+app14177744
+Academic Editor: Suchao Xie
+Received: 29 July 2024
+Revised: 19 August 2024
+Accepted: 27 August 2024
+Published: 2 September 2024
+Copyright: © 2024 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+applied  
+sciences
+Article
+Fuel Cell Electric Vehicle Hydrogen Consumption and Battery
+Cycle Optimization Using Bald Eagle Search Algorithm
+Efe Savran 1
+, Esin Karpat 2
+and Fatih Karpat 1,*
+1
+Department of Mechanical Engineering, Bursa Uludag University, 16059 Bursa, Turkey;
+efesavran@uludag.edu.tr
+2
+Department of Electrical—Electronics Engineering, Bursa Uludag University, 16059 Bursa, Turkey;
+esinoz@uludag.edu.tr
+*
+Correspondence: karpat@uludag.edu.tr
+Abstract: In this study, the Bald Eagle Search Algorithm performed hydrogen consumption and
+battery cycle optimization of a fuel cell electric vehicle. To save time and cost, the digital vehicle
+model created in Matlab/Simulink and validated with real-world driving data is the main platform
+of the optimization study. The digital vehicle model was run with the minimum and maximum
+battery charge states determined by the Bald Eagle Search Algorithm, and hydrogen consumption
+and battery cycle values were obtained. By using the algorithm and digital vehicle model together,
+hydrogen consumption was minimized and range was increased. It was aimed to extend the life
+of the parts by considering the battery cycle. At the same time, the number of battery packs was
+included in the optimization and its effect on consumption was investigated. According to the study
+results, the total hydrogen consumption of the fuel cell electric vehicle decreased by 57.8% in the
+hybrid driving condition, 23.3% with two battery packs, and 36.27% with three battery packs in the
+constant speed driving condition.
+Keywords: fuel cell electric vehicle; optimization; bald eagle search algorithm; hydrogen consump-
+tion; battery life
+1. Introduction
+The harsh increase in worldwide energy demand and environmental pollution pushes
+people to discover new resources, force the more efficient use of existing resources, or force
+a change in energy use methods [1]. Studies such as conducting bio-based research [2,3],
+developing wind turbines, or increasing the use of solar energy are being carried out to
+limit the dependence on coal and oil in the discovery of new resources [4]. To increase
+resource use efficiency, examples such as research and development facilities to reduce fuel
+consumption in internal combustion engines, research on energy consumption in public
+areas [5], applying daylight saving time [6], and using thermal insulators in buildings can
+be given. The increasing frequency of use of vehicles with electric drive systems compared
+to internal combustion vehicles in recent years is a good example of a change in the method
+of energy use. Electric vehicles are quieter, have higher performance, are easier to use, and
+are more sustainable than internal combustion vehicles. At the same time, the energy cost
+per unit distance is lower than internal combustion vehicles [7]. By combining high system
+efficiency with renewable energy sources, sustainable transportation can be achieved on
+a wide scale. However, besides the several positives of electric vehicles, there are some
+negatives as well. Among the others, the driving range appears as an anxiety creator of
+electric vehicle drivers [8]. To solve this problem, researchers propose some solutions such
+as battery swapping, wireless charging, and Vehicle-to-Vehicle (V2V) platforms [9–11].
+Apart from range anxiety, another negative phenomenon of electric vehicles is the charge
+time [12]. The battery charging time is longer than a gasoline tank filling duration [13].
+Therefore, charge waiter drivers are planning their route according to charging locations
+Appl. Sci. 2024, 14, 7744. https://doi.org/10.3390/app14177744
+https://www.mdpi.com/journal/applsci
+
+Appl. Sci. 2024, 14, 7744
+2 of 19
+and manage the time on it. To overcome such problems, fuel cell electric vehicles have
+some advantages. While it takes 5 or 6 h to fully charge a battery in an electric vehicle, it is
+considered that 600 s may be sufficient to fill hydrogen tanks [14]. The resulting significant
+time difference shows that fuel cell electric vehicles have the potential to eliminate the
+energy-filling problem. Similar to the charging time advantage, fuel cell electric vehicles
+provide good results in terms of driving range. In a study conducted by Gray et al. [15], a
+significant range advantage of an internal fuel cell electric vehicle compared to a battery
+electric vehicle is evident. For these reasons, it is important to continue research on fuel cell
+electric vehicles.
+Fuel cell electric vehicles can present a more optimistic picture to the driver than
+battery electric vehicles. Additionally, there are some technical differences between them.
+While a battery electric vehicle has types of equipment such as a battery, power electronics,
+electric motor, and transmission, a fuel cell electric vehicle has elements such as a hydrogen
+tank, pressure regulator, and fuel cell module in addition to the equipment existing in
+the battery electric vehicle [16,17]. Most fuel cell electric vehicles include both fuel cell
+modules and electrical energy storage such as batteries or supercapacitors for long ranges.
+Since hybrid power systems have multiple power supply components, power management
+or an optimization strategy is needed for consumption minimization and has long-life
+components. The result of a well-developed optimization strategy can provide financial
+savings and ease sustainable transportation. There are many studies in the literature on fuel
+cell system optimization [18–22]. The general aspect is based on similar contents such as
+energy and hydrogen consumption minimization, fuel cell and battery lifetime extension,
+system efficiency increase, and component optimization [23–26].
+Optimization methodologies in the latest studies include some approaches such as
+neural network (NN) [21], particle swarm algorithm (PSO) [27], genetic algorithm (GA) [28],
+dynamic programming (DP) [18], sunflower optimization (SFO) [22], and Bald Eagle Search
+Algorithm (BESA) [29]. The BESA, which is one of the nature-inspired meta-heuristic
+optimization algorithms [30], is chosen for its superior balance between exploration and ex-
+ploitation, making it highly effective in navigating complex search spaces. When compared
+to commonly used algorithms, the BESA offers significant advantages in computation time
+and convergence speed. Its structured phases allow for the faster identification of optimal
+solutions with fewer iterations, making it particularly suitable for problems requiring both
+high precision and computational efficiency [29,31–33].
+Previous studies in the literature include topics such as vehicle component optimiza-
+tion, energy management systems, and parameter optimization. Marghichi et al. [34]
+benefit from the BESA for a battery state of health estimation. In a methodology com-
+parison, the BESA showed the highest accuracy. Fathy et al. [35] conducted a study on
+battery parameter estimation using the BESA. They compared the performance of sev-
+eral methods and found that the BESA showed more reliable results. Yuvaraj et al. [36]
+studied charging distribution in India. They used the BESA to find the best location for
+charging stations. The chosen methodology resulted in more accuracy. Ghadbane et al. [37]
+provide a hybrid storage system (battery and supercapacitor) management strategy. The
+BESA showed superiority in the battery state of charge preserves. Fathy [38] developed an
+optimization methodology that includes some subsystems, such as photovoltaics, wind
+turbines, fuel cells, micro turbines, and batteries. During the stages of the optimization
+process, the developed method structured with the BESA presented the best result values
+between the specified components. Zaky et al. [29] highlighted the lifetime of fuel cells and
+researched parameter optimization. The BESA and five different metaheuristic algorithms
+were used on two different fuel cell systems. Among others, the BESA showed the best
+results in the optimization of fuel cell systems. Alsaidan et al. [31] provide an optimization
+strategy for fuel cells with five different algorithms. Three different fuel cell systems were
+used for the optimization process, and the BESA showed the best result. Yang et al. [32]
+researched the parameter identification of fuel cells. The BESA showed better performance
+than the genetic algorithm (GA) to optimize the fuel cell. Youssef et al. [39] utilized the
+
+Appl. Sci. 2024, 14, 7744
+3 of 19
+BESA in an energy management system at home. The approach aims to reduce energy
+consumption while keeping human comfort stable and minimizing the electricity bills and
+average peak ratio. Rezk et al. [40] researched the best fuel cell characteristic definitions.
+Among the five different approaches, the BESA made two fuel cell systems with the best
+parameters. Abaza et al. [41] researched the optimal parameters of a fuel cell system. While
+the optimization process includes several algorithms, the BESA is the superior algorithm
+among them. Rezk et al. [42] compared several optimization methodologies for fuel cell
+performance optimization. The BESA minimized the parameters more effectively. Ferahtia
+et al. [33] conducted research on energy management optimization of a fuel cell hybrid
+electric vehicle that has a fuel cell, battery, and supercapacitor. A significant hydrogen
+consumption reduction was achieved in the New European Driving Cycle (NEDC) and
+Extra Urban Driving Cycle (EUDC) driving cycles using the BESA.
+Studies in the literature make strong contributions to this subject. There are still gaps
+in the literature on this rapidly developing topic. Energy management systems designed in
+previous studies are mostly about only hydrogen consumption minimization. Management
+structures created using real vehicle driving data have also been included in very few
+studies. Additionally, in the hybrid vehicle architecture, the battery and fuel cell are
+considered independently. Therefore, this study was conducted to fill the gaps mentioned
+and to make strong contributions to the literature. In this study, optimization was carried
+out to minimize hydrogen consumption and the battery cycle in a fuel cell electric vehicle
+using the BESA. The optimization study was carried out on a digital vehicle model created
+in a Matlab/Simulink environment to save time and cost, based on a real fuel cell electric
+vehicle. The digital model has been validated by real-world driving data obtained by
+driving a real fuel cell electric vehicle. The verified digital model was combined with the
+BESA in the Matlab Workspace folder. In the main process of optimization, the minimum
+state of charge (SoC), maximum SoC, hydrogen consumption, and battery cycle values are
+exchanged between the BESA and the digital vehicle model. Additionally, optimization
+was repeated for different battery pack numbers. The contribution of this study to the
+literature includes the simultaneous optimization of hydrogen consumption and the battery
+cycle in suitable driving cycles of a fuel cell electric vehicle. This study, which includes
+real-world driving data, also demonstrates the effect of the number of battery packs on
+hydrogen consumption.
+2. Materials and Methods
+The methodology followed in the optimization study for the fuel cell electric vehicle
+includes five sub-stages. In the first stage, the real fuel cell electric vehicle was introduced
+and technical details were shared. In the second stage, a digital vehicle model was created
+in Matlab/Simulink to simulate the real vehicle, whose features and operating principles
+are known. In the third stage, to confirm the operating accuracy of the digital vehicle model,
+a real road drive was carried out with the real vehicle, and controller area network (CAN)
+data were recorded. The results obtained by running the same real driving conditions on
+the digital vehicle model were compared graphically. Additionally, at this stage, the fuel
+cell was verified with the data shared by the supplier. In the fourth stage, the working
+principle of the BESA is explained and the limitations taken into account in optimization
+are stated. To concretely see the effectiveness of the optimization carried out in the fifth
+stage, different driving conditions were created in the digital model. Driving conditions
+included constant drive with two and three battery packs and hybrid drive simulating
+urban driving. Figure 1 shows a summary of the main flow mentioned in general terms.
+
+Appl. Sci. 2024, 14, 7744
+4 of 19
+ 
+ 
+1. Real fuel cell electric vehicle introduction 
+2. Fuel cell electric vehicle digital model 
+ 
+ 
+3. Data-driven validation process 
+4. Driving condition deﬁnition 
+ 
+ 
+ 
+ 
+5. Optimization with the BESA 
+ 
+Figure 1. The main flow of the methodology.
+2.1. Fuel Cell Electric Vehicle
+The working principle should be well-defined since this system has a hybrid archi-
+tecture and two energy sources are working. In this vehicle architecture, the battery is the
+master energy source of the vehicle, and the fuel cell subsystem works as a battery supplier
+and range extender. The fuel cell subsystem working conditions depend on the battery SoC
+level. The user-defined minimum SoC level activates the fuel cell subsystem and forces it
+to supply power to the battery; The maximum SoC level indicates sufficient energy in the
+battery and disables the fuel cell subsystem. The real vehicle on which the study is based is
+a fuel cell hybrid electric bus, and its technical details are shared in Table 1.
+
+Appl. Sci. 2024, 14, 7744
+5 of 19
+Table 1. Technical specifications of fuel cell electric vehicle.
+Parameter
+Specification
+Gross vehicle weight
+18,000–20,000 kg
+Vehicle length
+10–14 m
+Vehicle front area
+7–8 m2
+Drag coefficient
+0.6–0.8
+Tire radius
+0.4–0.5 m
+Transmission ratio
+20–23
+Maximum motor power
+200–300 kW
+Maximum motor torque
+800–1000 Nm
+Motor type
+In-wheel hub PMSM
+Battery capacity
+25–30 kWh
+Fuel cell type
+Proton Exchange Membrane
+Fuel cell maximum power
+70 kW
+Hydrogen tank capacity
+1500–1700 L
+The fuel cell power supply–SoC level relationship between the maximum and mini-
+mum SoC level in the operating principle before vehicle optimization is shared in Figure 2.
+Figure 2. Fuel cell SoC–power supply behavior.
+2.2. Digital Vehicle Model
+To provide time and cost advantages in the optimization study, a digital model of the
+real fuel cell electric vehicle was structured in Matlab/Simulink. The digital vehicle model
+was examined in two areas: the vehicle and fuel cell. While on the vehicle side, there are
+concepts such as speed, acceleration, torque, power, and energy consumption, on the fuel
+cell side there are variables such as SoC, current demand, temperature, voltage, and power.
+Operations between the inputs given in the digital vehicle model and the desired outputs
+can be carried out with some basic equations.
+Equations (1)–(10) describe the basic calculations performed in the digital vehicle
+model. Equations (1)–(5) show the basic resistance forces acting on a vehicle, which are also
+shown in Figure 3, while Equations (6)–(8) reveal the required motor power calculations.
+Equations (9)–(10) show the data obtained in the required motor power calculation and the
+required energy and charge rate calculations. Among the parameters in Equations (1)–(5),
+ρ is the air density, A is the vehicle front surface area, Vv is the vehicle speed, Cd is the
+drag coefficient, m is the vehicle mass, g is the gravitational acceleration, Crr is the wheel
+rolling resistance coefficient, ∝is the road slope angle, and Fresistance is the total force that
+the vehicle faces while driving.
+Faero = 1
+2ρAV2
+vCd
+(1)
+Frr = mgCrr cos(∝)
+(2)
+Fgr = mg sin(∝)
+(3)
+
+Appl. Sci. 2024, 14, 7744
+6 of 19
+Fi = ma
+(4)
+Fresistance = Faero + Frr + Fgrade + Fi
+(5)
+Figure 3. Drive resistance forces on a vehicle.
+Among the parameters in Equations (6)–(10), Mw represents the wheel torque, itr is the
+total transmission ratio, ηtr is the power transmission efficiency, wm is the motor angular
+speed, and Pm is the motor power. Ebattery is the total energy in the battery, Econs is drawn
+energy from the battery, and Vnominal is the nominal voltage in the battery.
+Mw = Fresistance ∗rw
+(6)
+Mm = Mw
+itr
+∗ηtr
+(7)
+Pm = Mm ∗wm
+(8)
+Econs =
+Z t
+0 Pmdt
+
+1
+3600
+(9)
+SoC =
+Ebattery −Econs
+Vnominal
+
+1
+3600 Ebattery
+100
+(10)
+There are basic empirical formulas expressing the operation of the fuel cell in the
+literature [43–49]. The operating principle of the system is similar to the vehicle’s basic
+equations. The net voltage output of the fuel cell is obtained after subtracting the loss
+voltages from the reference voltage value. In this study, the calculations for the fuel cell
+used in the digital vehicle model are given in Equations (11)–(20). Among the empirical
+formulas created for the fuel cell, Equation (11) expresses the voltage value created per
+cell, Equation (12) expresses the fundamental voltage value in the system excluding losses,
+Equation (13) expresses the voltage drop due to activation loss, Equation (14) expresses the
+ohmic voltage loss, and Equation (16) declares the concentration voltage loss. Equation (17)
+is the total voltage produced in the fuel cell stack, Equations (18) and (19) are the flow
+equations of the anode and cathode, and Equation (20) is the cathode water flow equation.
+Equation (11) is the voltage per cell in the fuel cell stack.
+Vcell = Vnerst −Vact −Vohm −Vcon
+(11)
+Equation (12) is the Nernst voltage that includes T as the cell temperature, F as the
+Faraday constant, R as the gas constant, and PH2, PO2, and PH2O are hydrogen, oxygen, and
+vapor pressures, respectively.
+Vnerst = 1.229 −0.85 ∗10−3 ∗(T −298.15) + R ∗T
+2 ∗F ∗ln
+ 
+PH2 ∗P0.5
+O2
+PH2O
+!
+(12)
+Equation (13) is the activation loss voltage, also expressed by the Tafel equation [50],
+occurring in low current regions. In related parameters, n is the cell number and α is the
+
+Appl. Sci. 2024, 14, 7744
+7 of 19
+charge coefficient. The rest of the parameters can be extracted from the Tafel equation in
+the related reference.
+Vact = −
+R ∗T
+n ∗α ∗F ∗ln
+ l
+l0
+
+(13)
+Equation (14) is the ohmic loss occurring in the continuous operating region. In the
+ohmic loss, I is the instant current and Rmem is the membrane resistance.
+Vohm = I ∗Rmem
+(14)
+Equation (15) is the membrane resistance expression used in the ohmic loss calculation.
+Tm is the membrane thickness, and σ is the conductivity value of the membrane.
+Rmem = tm
+σ
+(15)
+Equation (16) is the concentration loss in high current regions.
+Vcons =
+
+1.1 ∗10−4 −12 ∗10−6 ∗(T −273)
+
+∗e8∗10−3∗I
+(16)
+Equation (17) is the total voltage produced from cells connected in series in the fuel
+cell stack. Vcell is the produced voltage in a cell.
+Vstack = Vcell ∗Ncell
+(17)
+Equation (18) includes the expressions for anode flow. Va is the anode volume, mH2 is
+the hydrogen flow rate, and ka is the flow constant for the anode.
+Va
+R∗T
+dPH2
+dt
+= mH2−i −mH2−o −
+1
+4∗F
+mH2 = ka ∗
+ PH2 −Pamb
+
+(18)
+Equation (19) has the fundamental explanations for cathode flow. Vc is the cathode
+volume, mO2 is the oxygen flow rate, and kc is the flow constant for the cathode.
+Vc
+R∗T
+dPO2
+dt
+= mO2−i −mO2−o −
+1
+4∗F
+mO2 = kc ∗
+ PO2 −Pamb
+
+(19)
+Equation (20) is the expression of the cathode water.
+Vc
+R ∗T
+dPH2O−C
+dt
+= mH2O−ic −mH2O−oc −
+1
+2 ∗F
+(20)
+The polarization curve in Figure 4 expresses the main loss behavior during the working
+stage of a fuel cell [51]. At low currents, the activation loss due to the barrier that must
+be overcome for the reaction to begin is dominant. Ohmic loss, which occurs due to
+the resistance encountered by ions moving in the electrolyte and electrons moving in
+the external circuit, is constantly effective. At high currents, concentration loss is more
+dominant due to inefficiency and an insufficient diffusion rate on the electrode surface. In
+Figure 4, the dominance regions of the loss types are shown for an easier understanding of
+the expressions in Equations (13), (14) and (16).
+
+Appl. Sci. 2024, 14, 7744
+8 of 19
+ 
+Figure 4. Overview of the polarization curve of the fuel cell.
+Two subsystems were taken into account in the operating logic of the virtual fuel cell
+electric vehicle model. In the resulting fuel cell electric vehicle model, the vehicle side
+consumes the energy stored in the battery by consuming energy while driving, and the fuel
+cell side replaces the consumed energy according to the battery charge state. The general
+operating scheme of the fuel cell vehicle model is shown in Figure 5.
+Figure 5. Fuel cell electric digital vehicle model diagram.
+2.3. Data-Driven Validation
+The created digital vehicle model was used in an optimization study. The accuracy of
+the study is largely limited by the ability of the digital model to provide accurate results. For
+this reason, a driving test was carried out with the fuel cell electric vehicle, the features of
+which were mentioned before, and CAN-bus data were recorded using the method shown
+in the flowchart of the study. The data obtained from the test drive were converted into
+meaningful data to be used in the validation study of the digital model. In the verification
+study, the vehicle and the fuel cell were evaluated separately to demonstrate the operating
+accuracy of the two separate subsystems.
+The real fuel cell electric vehicle is used in urban driving conditions with frequent
+stop-and-go traffic and has a relatively low average speed. For this reason, one of the most
+critical points on the vehicle side of the verification study of the digital model is that the
+values occurring during rapid start-up can be seen with sufficient accuracy in the digital
+environment. Therefore, to verify the vehicle side in the digital model, a sudden start
+was made under real driving conditions and the vehicle was accelerated to full speed. A
+moment of the real driving and data recording setup can be seen in Figure 6.
+
+Appl. Sci. 2024, 14, 7744
+9 of 19
+ 
+ 
+Figure 6. Driving data recording process.
+Figure 7 shows the comparison of the results obtained from the vehicle side validation
+study on the fuel cell electric vehicle digital model. Figure 7a shows the instant speeds
+between the data of the real and digital vehicle models, Figure 7b shows the instant motor
+power, Figure 7c shows the current drawn and Figure 7d shows the instant motor torque.
+In the graphs of the comparison study of the four basic parameters required for energy
+consumption in an electric vehicle, black lines show the digital model response, and red
+lines show the values of the CAN-bus data record taken from the real vehicle. In this part
+of the study, while the real vehicle has drawn 1.540 Ah from the battery, this value was
+1.624 Ah in the digital vehicle model. According to the resulting consumption values, there
+is an acceptable difference of 5.17% between the real vehicle and the digital model.
+ 
+ 
+(a) 
+(b) 
+ 
+ 
+(c) 
+(d) 
+Figure 7. Graphical illustration of digital vehicle verification. (a) Vehicle speed, (b) power, (c) instant
+current drawn, and (d) motor torque.
+A similar approach to the vehicle verification test was adopted in determining the
+operating accuracy of the fuel cell. At this stage, the current, voltage, and power values
+shared by the fuel cell supplier in the real vehicle were taken as references. By giving
+current demand to the fuel cell digital model, total voltage and power values were taken
+and comparison graphs were created. In the resulting comparison graphs, the power and
+
+Appl. Sci. 2024, 14, 7744
+10 of 19
+voltage responses of the fuel cell digital model in response to current demand were largely
+similar to the values shared by the supplier. For this reason, it has been observed that
+the fuel cell digital model works with sufficient accuracy for the optimization study. The
+benchmark graphs resulting from the verification study are shared in Figure 8.
+0
+10
+20
+30
+40
+50
+60
+70
+80
+0
+50
+100
+150
+200
+250
+300
+350
+400
+450
+0
+25
+50
+75
+100
+125
+150
+175
+200
+225
+250
+Power (kW)
+Voltage (V)
+Current (A)
+Real Voltage
+Simulated Voltage
+Simulated Power
+Real Power
+Figure 8. Fuel cell system polarization verification curves.
+2.4. Optimization Assessment Cycles
+The optimization algorithm detects the optimal minimum and maximum SoC values
+at which the fuel cell is activated and deactivated and reports it to the digital vehicle model.
+The digital vehicle model runs the driving profile according to the SoC values determined
+by the algorithm and displays the hydrogen consumption and the number of battery
+charging cycles. To see the effect of the optimization algorithm concretely, comparable
+values before and after optimization are needed.
+Before the optimization, the fuel cell module was activated at 50% and disabled at
+85%, depending on the SoC. The algorithm effect comparison study was carried out in two
+stages. In the first stage, called “constant drive”, driving the vehicle on a flat road at a
+constant speed of 70 km/h for 7200 s was simulated. The SoC values of the digital model
+before and after optimization, the amount of hydrogen consumed in constant drive, and
+the number of battery charging cycles were obtained.
+The second stage aims to see the optimal SoC values of the vehicle under frequent
+stop-and-go driving and passenger-load conditions and to determine the optimization
+improvement rate. For this, SORT [52] by The International Association of Public Transport
+(UITP) [53] was used. SORT types, namely, SORT-1 represents heavy urban, SORT-2 is easy
+urban, and SORT-3 is easy suburban, were combined in the same driving profile and called
+“hybrid drive”, and different traffic behaviors were desired to be seen in a single drive. The
+velocity profile of the combined SORT types is seen in Figure 9.
+Figure 9. Velocity profile of the SORT combination.
+
+Appl. Sci. 2024, 14, 7744
+11 of 19
+In the digital vehicle model, running is started with 100% SoC. For the SoC value to
+drop to the minimum SoC value and activate the fuel cell, sufficient energy consumption
+must be made on the vehicle side. During the control, it was seen that the SORT combination
+profile given in Figure 9 was not sufficient for the fuel cell to be activated. Therefore, the
+combination created was repeated 15 times and the final version of the 8114 s hybrid drive
+profile was obtained, as shown in Figure 10. Since hybrid drive simulates real urban driving
+conditions, it was studied according to the fully loaded condition of the vehicle.
+Figure 10. Velocity profile of the hybrid drive.
+2.5. The BESA
+In a study conducted by Alsattar et al. [30], the BESA, a meta-heuristic optimization
+technique that simulates the hunting behavior of the North American bird of prey, the
+bald eagle, was introduced. Thanks to their superior vision, bald eagles can locate their
+prey from very far away. They are in search of suitable trees for food and nesting in their
+habitats. While searching for food in an ocean, hunting behaviors are divided into three
+categories: selecting, searching, and swooping. These behaviors can be seen in Figure 11.
+An eagle in the selection phase heads towards the area where the prey is most abundant,
+and in the search phase, it starts looking for prey in the selected area. The basic concept of
+the BESA is to mimic bald eagle behaviors while flying and fishing.
+ 
+Figure 11. The flow of bald eagle hunting.
+2.5.1. Selection Phase
+Bald eagles in the selection phase find and choose the best hunting area based on the
+amount of food for which they can search. Equation (21) represents this behavior.
+Pnew,i = Pbest + α ∗r(Pave −Pi)
+(21)
+
+Appl. Sci. 2024, 14, 7744
+12 of 19
+Here, r is an arbitrary value between 0 and 1, and α takes a value between 1.5 and 2 to
+handle changes in position. The eagle searches several different nearby areas to select an
+area based on the information available. Pbest refers to the search area that eagles choose
+based on the best position they discover during their search. The pre-selected search region
+is surrounded by spots that the eagles search randomly, and Pmean suggests that these
+eagles use all the information from previous regions. The preliminary data obtained from
+the random search are multiplied by α to calculate their current movements. This procedure
+randomly changes each search position [30,54].
+2.5.2. Search Phase
+Bald eagles in the search phase look for prey within the chosen area and move in a
+spiral to speed up the search. Equation (22) mathematically expresses the best position
+for attack.
+Pi,new = Pi + y(i) ∗(Pi −Pi+1) + x(i) ∗(Pi −Pmean)
+(22)
+x(i) =
+xr(i)
+max(|xr|)
+,
+y(i) =
+yr(i)
+max(|yr|)
+(23)
+xr(i) = r(i) ∗sin(θ(i))
+,
+yr(i) = r(i) ∗cos(θ(i))
+(24)
+θ(i) = β ∗π ∗rand . . .
+r(i) = θ(i) + R ∗rand . . .
+(25)
+The β parameter determines the corner between the point search at the center point
+by taking a value between 5 and 10, and the R parameter determines the number of search
+cycles by taking a value between 0.5 and 2.
+2.5.3. Swooping Phase
+During the attack phase, eagles attack the target they have reduced. All eagles move
+toward the best position for prey. Equation (26) shows this behavior mathematically.
+Pi,new = rand ∗Pbest + x1(i) ∗(Pi −c1 ∗Pmean) + y1(i) ∗(Pi −c2 ∗Pbest)
+c1, c2 ∈[1, 2]
+(26)
+x1(i) =
+xr(i)
+max(|xr|)
+,
+y1(i) =
+yr(i)
+max(|yr|)
+(27)
+r(i) = r(i) ∗sinh[(θ(i))]
+,
+yr(i) = r(i) ∗cosh[(θ(i))]
+(28)
+θ(i) = β ∗π ∗rand
+,
+r(i) = θ(i)
+(29)
+Figure 12 shows the main components of the BESA, including the selection, search,
+and swooping stages.
+The fitness function can be seen in Equation (30). The weighted sum of hydrogen
+consumption and battery cycle is the main target to be minimized in the optimization study.
+The minimum and maximum SoC values are set to ensure the least hydrogen consumption
+with the minimum number of cycles. Here, the weighted coefficients used to determine the
+total fitness value are φ1 and φ2, respectively.
+Fitness = φ1 ∗batterycycle + φ2 ∗hydrogenconsumption
+(30)
+Minimum and maximum SoC values are the parameters that must be obtained for
+optimal hydrogen consumption. The number of variables is set to two. In the initial phase,
+minimum and maximum SoC values are randomly assigned. For these initial values,
+the digital vehicle model in Simulink is run and the objective function is calculated with
+Equation (30). The flow diagram of the BESA can be seen in Figure 13.
+
+Appl. Sci. 2024, 14, 7744
+13 of 19
+Figure 12. Bald eagle hunting behavior.
+Figure 13. The BESA flow.
+For the optimization study to be completed successfully, the constraint and success
+target must be determined. In this study, a separate classification was made for minimum
+and maximum SoC values to determine the optimal SoC range. However, regardless of
+the driving cycle, the consumed hydrogen mass and battery cycle constraints are given in
+Equation (31).
+The limitations are as follows:
+20 < SoCmin < 49
+50 < SoCmax < 80
+SoCmin < SoC (t) < SoCmax
+H2 < 10
+BC < 5
+(31)
+Figure 14 shows the interaction between the BESA and the digital vehicle model
+created in Simulink.
+
+Appl. Sci. 2024, 14, 7744
+14 of 19
+Figure 14. Optimization process flowchart.
+3. Results
+In the optimization study carried out using the BESA on a fuel cell electric vehicle,
+the optimal minimum and maximum SoC values that would minimize the total hydrogen
+consumption and battery cycle were determined. Two driving conditions were considered
+in the study: constant drive and hybrid drive. Since the optimization study also included
+the battery cycle status, the effect of the number of battery packs was also included. The
+results obtained can be considered as two groups: constant drive with two and three battery
+packs, and hybrid drive. In each result group, the hydrogen consumption amount and
+battery cycle values before and after optimization were shared and the saving rates were
+stated. Additionally, the SoC behavior graphs obtained from the digital vehicle model
+operated according to optimal SoC values and the power conditions of the fuel cell, battery,
+and motor were also shared.
+The BESA in the combination of constant drive with two battery packs revealed the
+optimization result in 33,186 s. According to this combination, the optimal minimum SoC
+was determined as 20% and the maximum SoC was determined as 60%. With optimal SoC
+values, hydrogen consumption was 7.729 kg and battery cycle was two. Before optimization,
+hydrogen consumption was 9.638 kg, and the battery cycle was three. According to this
+result, a total improvement of 23% was achieved. Optimal minimum and maximum SoC
+values for three battery packs were found as 20% and 62%, respectively. The optimization
+process resulted in 32,325 s. Hydrogen consumption was 6.144 kg and the battery cycle was
+one with the optimal SoC, while hydrogen consumption was 9.132 kg and the battery cycle
+was two before optimization. The improvement for three battery packs was calculated
+as 36.27%.
+Figure 15 shows the SoC behavior in constant driving. Figure 15a shows the SoC
+behavior before optimization with two battery packs, Figure 15b shows after optimization
+with two battery packs, Figure 15c shows before optimization with three battery packs, and
+Figure 15d shows after optimization with three battery packs.
+Figure 16 shows the power behavior during constant drive with two and three bat-
+tery packs. Figure 16a shows the behavior before optimization with two battery packs,
+Figure 16b shows the behavior after optimization with two battery packs, Figure 16c shows
+the behavior before optimization with three battery packs, Figure 16d shows the behavior
+after optimization with three battery packs. In the graphs, the black color is the power
+requested by the motor, the red color is the response of the battery, and blue is the power
+provided by the fuel cell when it is turned on and off. It is obvious that the battery cy-
+
+Appl. Sci. 2024, 14, 7744
+15 of 19
+cles have been reduced after optimization and a decrease in the number of cycles can be
+achieved by increasing the number of battery packs.
+ 
+ 
+(a) 
+(b) 
+ 
+ 
+(c) 
+(d) 
+Figure 15. SoC behaviors in constant drive (a) before optimization with two battery packs, (b) after
+optimization with two battery packs, (c) before optimization with three battery packs, and (d) after
+optimization with three battery packs.
+ 
+(a) 
+(b) 
+ 
+(c) 
+(d) 
+Figure 16. Power behavior of the vehicle in constant drive (a) before optimization with two battery
+packs, (b) after optimization with two battery packs, (c) before optimization with three battery packs,
+and (d) after optimization with three battery packs.
+
+Appl. Sci. 2024, 14, 7744
+16 of 19
+In hybrid drive, the defined optimal minimum SoC was 25% and the maximum SoC
+was 51% within 36,124 s. While hydrogen consumption was 3.641 kg and the battery cycle
+was two before optimization, hydrogen consumption decreased to 1.378 kg and the battery
+cycle to one after optimization. According to these results, a total improvement of 57.8%
+was achieved. The SoC graphs before and after optimization are shared in Figure 17.
+ 
+ 
+Figure 17. SoC behaviors in hybrid drive before (left panel) and after (right panel) optimization.
+The power behaviors in the hybrid drive are shown in Figure 18. Figure 18a shows the
+power behavior before optimization, while Figure 18b shows the after optimization. Since
+this driving condition had frequent stop-and-go conditions, the motor power demand and
+battery power response made the graph noisy. However, the switching on and off interval
+of the fuel cell can be seen in blue.
+ 
+(a) 
+(b) 
+Figure 18. Power behavior of the vehicle in hybrid drive (a) before optimization and (b) after
+optimization.
+4. Conclusions
+In this study, the optimization of the sum of hydrogen consumption and battery
+cycle for a fuel cell electric vehicle was carried out with the help of the BESA. Since both
+of the outputs taken into consideration in the study are valuable, a global optimization
+perspective was adopted. According to the study results, hydrogen consumption was
+decreased by 57.8% in the hybrid driving condition, 23.3% with two battery packs, and
+36.27% with three battery packs in the constant speed driving condition.
+The most important output obtained from this study is given below.
+•
+The number of battery packs has a slight impact on optimal SoC ratios.
+•
+An increase in the number of battery packs reduces hydrogen consumption.
+•
+As the number of battery packs increases, the effectiveness of the optimization algo-
+rithm also increases.
+•
+Increasing the optimal SoC range causes excessive hydrogen consumption while
+decreasing it causes excessive battery usage.
+•
+The energy recovered through regenerative braking reduces hydrogen consumption.
+
+Appl. Sci. 2024, 14, 7744
+17 of 19
+The findings of the study are not limited to these and will be supported by experi-
+mental data in future studies. The optimization strategy will also be repeated in the fuel
+cell-dominant vehicle architecture.
+Author Contributions: Conceptualization, E.S and E.K.; methodology, E.S.; software, E.S.; validation,
+E.S; formal analysis, E.S. and E.K.; investigation, E.S. and E.K.; resources, E.S.; data curation, E.S.;
+writing—original draft preparation, E.S. and E.K.; writing—review and editing, E.S. and E.K.; visual-
+ization, E.S.; supervision, F.K.; project administration, F.K.; funding acquisition, F.K. All authors have
+read and agreed to the published version of the manuscript.
+Funding: This research was funded by TUBITAK grant number 119C154.
+Institutional Review Board Statement: Not applicable.
+Informed Consent Statement: Not applicable.
+Data Availability Statement: Numerical models and data are available and can be provided upon
+request.
+Conflicts of Interest: The authors declare no conflict of interest.
+References
+1.
+Yava¸s, Ö.; Savran, E.; Nalbur, B.E.; Karpat, F. Energy and Carbon Loss Management in an Electric Bus Factory for Energy
+Sustainability. Transdiscipl. J. Eng. Sci. 2022, 13, 97–110. [CrossRef]
+2.
+Ennetta, R.; Soyhan, H.S.; Koyuno˘glu, C.; Demir, V.G. Current Technologies and Future Trends for Biodiesel Production: A
+Review. Arab. J. Sci. Eng. 2022, 47, 15133–15151. [CrossRef]
+3.
+Demir, V.G.; Yuksel, H.; Koten, H.; Zafer Gul, M.; Soyhan, H.S. Microwave-Assisted Pilot-Scale Biodiesel Production and Engine
+Tests. Proc. Inst. Civ. Eng. Energy 2019, 172, 1–11. [CrossRef]
+4.
+Ang, T.Z.; Salem, M.; Kamarol, M.; Das, H.S.; Nazari, M.A.; Prabaharan, N. A Comprehensive Study of Renewable Energy
+Sources: Classifications, Challenges and Suggestions. Energy Strateg. Rev. 2022, 43, 100939. [CrossRef]
+5.
+Almasri, R.A.; Abu-Hamdeh, N.H.; Al-Tamimi, N. A State-of-the-Art Review of Energy-Efficient and Renewable Energy Systems
+in Higher Education Facilities. Front. Energy Res. 2023, 11, 1344216. [CrossRef]
+6.
+Küfeo˘glu, S.; Üçler, ¸S.; Eskicio˘glu, F.; Öztürk, E.B.; Chen, H. Daylight Saving Time Policy and Energy Consumption. Energy Rep.
+2021, 7, 5013–5025. [CrossRef]
+7.
+Topal, O.; Nakir, ˙I. Total Cost of Ownership Based Economic Analysis of Diesel, CNG and Electric Bus Concepts for the Public
+Transport in Istanbul City. Energies 2018, 11, 2369. [CrossRef]
+8.
+Wang, Z.; Zeng, S.; Guo, J. Understanding the Influence of State of Health on the Range Anxiety of Battery Electric Vehicle Drivers.
+IET Intell. Transp. Syst. 2021, 15, 286–296. [CrossRef]
+9.
+Rainieri, G.; Buizza, C.; Ghilardi, A. Transportation Research Part F: Psychology and Behaviour the Psychological, Human Factors
+and Socio-Technical Contribution: A Systematic Review towards Range Anxiety of Battery Electric Vehicles’ Drivers. Transp. Res.
+Part F Psychol. Behav. 2023, 99, 52–70. [CrossRef]
+10.
+Chakraborty, P.; Parker, R.; Hoque, T.; Cruz, J.; Du, L.; Wang, S.; Bhunia, S. Addressing the Range Anxiety of Battery Electric
+Vehicles with Charging En Route. Sci. Rep. 2022, 12, 5588. [CrossRef]
+11.
+Rabih, M.; Takruri, M.; Al-Hattab, M.; Alnuaimi, A.A.; Bin Thaleth, M.R. Wireless Charging for Electric Vehicles: A Survey and
+Comprehensive Guide. World Electr. Veh. J. 2024, 15, 118. [CrossRef]
+12.
+Andrenacci, N.; Valentini, M.P. A Literature Review on the Charging Behaviour of Private Electric Vehicles. Appl. Sci. 2023, 13,
+12877. [CrossRef]
+13.
+De Wolf, D.; Smeers, Y. Comparison of Battery Electric Vehicles and Fuel Cell Vehicles. World Electr. Veh. J. 2023, 14, 262. [CrossRef]
+14.
+Kim, M.S.; Jeon, H.K.; Lee, K.W.; Ryu, J.H.; Choi, S.W. Analysis of Hydrogen Filling of 175 Liter Tank for Large-Sized Hydrogen
+Vehicle. Appl. Sci. 2022, 12, 4856. [CrossRef]
+15.
+Gray, N.; O’Shea, R.; Wall, D.; Smyth, B.; Lens, P.N.L.; Murphy, J.D. Batteries, Fuel Cells, or Engines? A Probabilistic Economic
+and Environmental Assessment of Electricity and Electrofuels for Heavy Goods Vehicles. Adv. Appl. Energy 2022, 8, 100110.
+[CrossRef]
+16.
+Waseem, M.; Amir, M.; Lakshmi, G.S.; Harivardhagini, S.; Ahmad, M. Fuel Cell-Based Hybrid Electric Vehicles: An Integrated
+Review of Current Status, Key Challenges, Recommended Policies, and Future Prospects. Green Energy Intell. Transp. 2023, 2,
+100121. [CrossRef]
+17.
+Selmi, T.; Khadhraoui, A.; Cherif, A. Fuel Cell–Based Electric Vehicles Technologies and Challenges. Environ. Sci. Pollut. Res. 2022,
+29, 78121–78131. [CrossRef]
+18.
+Tang, X.; Zhou, H.; Wang, F.; Wang, W.; Lin, X. Longevity-Conscious Energy Management Strategy of Fuel Cell Hybrid Electric
+Vehicle Based on Deep Reinforcement Learning. Energy 2022, 238, 121593. [CrossRef]
+
+Appl. Sci. 2024, 14, 7744
+18 of 19
+19.
+Chen, H.; Zhang, Z.; Guan, C.; Gao, H. Optimization of Sizing and Frequency Control in Battery/Supercapacitor Hybrid Energy
+Storage System for Fuel Cell Ship. Energy 2020, 197, 117285. [CrossRef]
+20.
+KoteswaraRao, K.V.; Srinivasulu, G.N.; Ramesh, J.; Velisala, V. Optimal Component Sizing and Performance of Fuel Cell—Battery
+Powered Vehicle over World Harmonized and New European Driving Cycles. Energy Convers. Manag. 2024, 300, 117992.
+[CrossRef]
+21.
+Piras, M.; De Bellis, V.; Malfi, E.; Desantes, J.M.; Novella, R.; Lopez-juarez, M. International Journal of Hydrogen Energy
+Incorporating Speed Forecasting and SOC Planning into Predictive ECMS for Heavy-Duty Fuel Cell Vehicles. Int. J. Hydrogen
+Energy 2024, 55, 1405–1421. [CrossRef]
+22.
+Karthikeyan, B.; Ramasamy, P.; Maharajan, M.P.; Padmamalini, N.; Sivakumar, J. The Optimization of PEM Fuel-Cell Operating
+Parameters with the Design of a Multiport High-Gain DC–DC Converter for Hybrid Electric Vehicle Application. Sustainability
+2024, 16, 872. [CrossRef]
+23.
+Tang, X.; Zhang, Y.; Xu, S. Temperature Sensitivity Characteristics of PEM Fuel Cell and Output Performance Improvement Based
+on Optimal Active Temperature Control. Int. J. Heat Mass Transf. 2023, 206, 123966. [CrossRef]
+24.
+Zhang, Y.; Tang, X.; Xu, S.; Sun, C. Deep Learning-Based State-of-Health Estimation of Proton-Exchange Membrane Fuel Cells
+under Dynamic. Sensors 2024, 24, 4451. [CrossRef]
+25.
+Tang, X.; Qin, X.; Wei, K.; Xu, S. A Novel Online Degradation Model for Proton Exchange Membrane Fuel Cell Based on Online
+Transfer Learning. Int. J. Hydrogen Energy 2022, 48, 13617–13632. [CrossRef]
+26.
+Tang, X.; Shi, L.; Zhang, Y.; Li, B.; Xu, S.; Song, Z. Degradation Adaptive Energy Management Strategy for FCHEV Based on the
+Rule-DDPG Method: Tailored to the Current SOH of the Powertrain. IEEE Trans. Transp. Electrif. 2024, 1. [CrossRef]
+27.
+Peng, X.; Chen, H. Energy Management Optimization of Fuel Cell Hybrid Ship Based on Particle Swarm Optimization Algorithm.
+Energies 2023, 16, 1373. [CrossRef]
+28.
+Álvarez, R.; Corbera, S. Hydrogen Fuel Cell as Range Extender in Electric Vehicle Powertrains: Fuel Optimization Strategies.
+Nanostruct. Mater. Next-Gener. Energy Storage Convers. 2018, 1, 359–383.
+29.
+Zaky, A.A.; Ghoniem, R.M.; Selim, F. Precise Modeling of Proton Exchange Membrane Fuel Cell Using the Modified Bald Eagle
+Optimization Algorithm. Sustainability 2023, 15, 10590. [CrossRef]
+30.
+Alsattar, H.A.; Zaidan, A.A.; Zaidan, B.B. Novel Meta-Heuristic Bald Eagle Search Optimisation. Artif. Intell. Rev. 2020, 53,
+2237–2264. [CrossRef]
+31.
+Alsaidan, I.; Shaheen, M.A.M.; Hasanien, H.M.; Alaraj, M.; Alnafisah, A.S. A PEMFC Model Optimization Using the Enhanced
+Bald Eagle Algorithm. Ain Shams Eng. J. 2022, 13, 101749. [CrossRef]
+32.
+Yang, B.; Li, D.; Zeng, C.; Han, Y.; Li, J. Bald Eagle Search Algorithm for Parameter Identification of Proton Exchange Membrane
+Fuel Cell. Front. Energy Res. 2022, 10, 885461. [CrossRef]
+33.
+Ferahtia, S.; Rezk, H.; Ghoniem, R.M.; Fathy, A.; Alkanhel, R.; Ghonem, M.M. Optimal Energy Management for Hydrogen
+Economy in a Hybrid Electric Vehicle. Sustainability 2023, 15, 3267. [CrossRef]
+34.
+El Marghichi, M.; Loulijat, A.; Dangoury, S.; Chojaa, H.; Abdelaziz, A.Y.; Mossa, M.A.; Hong, J.; Geem, Z.W. Enhancing Battery
+Capacity Estimation Accuracy Using the Bald Eagle Search Algorithm. Energy Rep. 2023, 10, 2710–2724. [CrossRef]
+35.
+Fathy, A.; Ferahtia, S.; Rezk, H.; Yousri, D.; Abdelkareem, M.A.; Olabi, A.G. Robust Parameter Estimation Approach of Lithium-Ion
+Batteries Employing Bald Eagle Search Algorithm. Int. J. Energy Res. 2022, 46, 10564–10575. [CrossRef]
+36.
+Yuvaraj, T.; Devabalaji, K.R.; Thanikanti, S.B.; Pamshetti, V.B.; Nwulu, N.I. Integration of Electric Vehicle Charging Stations and
+DSTATCOM in Practical Indian Distribution Systems Using Bald Eagle Search Algorithm. IEEE Access 2023, 11, 55149–55168.
+[CrossRef]
+37.
+Ghadbane, H.E.; Barkat, S.; Houari, A.; Djerioui, A.; Rezk, H. Optimal Adaptive Fractional Order Integral Sliding Mode Controller-
+Energy Management Strategy for Electric Vehicles Based on Bald Eagle Search Algorithm. Int. J. Energy Res. 2024, 2024, 7844084.
+[CrossRef]
+38.
+Fathy, A. Bald Eagle Search Optimizer-Based Energy Management Strategy for Microgrid with Renewable Sources and Electric
+Vehicles. Appl. Energy 2023, 334, 120688. [CrossRef]
+39.
+Youssef, H.; Kamel, S.; Hassan, M.H.; Nasrat, L.; Jurado, F.; Jurado, F. An Improved Bald Eagle Search Optimization Algorithm
+for Optimal Home Energy Management Systems. Soft Comput. 2024, 28, 1367–1390. [CrossRef]
+40.
+Rezk, H.; Olabi, A.G.; Ferahtia, S.; Taha, E. Accurate Parameter Estimation Methodology Applied to Model Proton Exchange
+Membrane Fuel Cell. Energy 2022, 255, 124454. [CrossRef]
+41.
+Abaza, A.; Saeed, A.; Bayoumi, A. Optimal Parameter Estimation of Solid Oxide Fuel Cells Model Using Bald Eagle Search
+Optimizer. Int. J. Energy Res. 2022, 46, 13657–13669. [CrossRef]
+42.
+Rezk, H.; Ferahtia, S.; Sayed, E.T.; Abdelkareem, M.A.; Olabi, A.G. Robust Parameter Identification Strategy of Solid Oxide Fuel
+Cells Using Bald Eagle Search Optimization Algorithm. Int. J. Energy Res. 2022, 46, 10535–10552. [CrossRef]
+43.
+Erdinc, O.; Vural, B.; Uzunoglu, M. A Wavelet-Fuzzy Logic Based Energy Management Strategy for a Fuel Cell/Battery/Ultra-
+Capacitor Hybrid Vehicular Power System. J. Power Sources 2009, 194, 369–380. [CrossRef]
+44.
+Omran, A.; Lucchesi, A.; Smith, D.; Alaswad, A.; Amiri, A.; Wilberforce, T.; Sodr, R.; Olabi, A.G. Mathematical Model of a
+Proton-Exchange Membrane (PEM) Fuel Cell. Int. J. Thermofluids 2021, 11, 100110. [CrossRef]
+45.
+Rowe, A.; Li, X. Mathematical Modeling of Proton Exchange Membrane Fuel Cells. J. Power Sources 2001, 102, 82–96. [CrossRef]
+46.
+¸Sefkat, G.; Özel, M.A. PEM Yakıt Pilinin Simulink Modeli Ve Analizi. Uluda˘g Univ. J. Fac. Eng. 2018, 23, 351–366. [CrossRef]
+
+Appl. Sci. 2024, 14, 7744
+19 of 19
+47.
+¸Sefkat, G.; Ozel, M.A. Experimental and Numerical Study of Energy and Thermal Management System for a Hydrogen Fuel
+Cell-Battery Hybrid Electric Vehicle. Energy 2022, 238, 121794. [CrossRef]
+48.
+Ansari, S.A.; Khalid, M.; Kamal, K.; Abdul, T.; Ratlamwala, H.; Hussain, G.; Alkahtani, M. Modeling and Simulation of
+a Proton Exchange Membrane Fuel Cell Alongside a Waste Heat Recovery System Based on the Organic Rankine Cycle in
+MATLAB/SIMULINK Environment. Sustainability 2021, 13, 1218. [CrossRef]
+49.
+Musio, F.; Tacchi, F.; Omati, L.; Gallo, P.; Dotelli, G.; Limonta, S.; Brivio, D.; Grassini, P. PEMFC System Simulation in MATLAB-
+Simulink Environment. Int. J. Hydrogen Energy 2011, 36, 8045–8052. [CrossRef]
+50.
+Poggi-varaldo, H.M.; Solorza-feria, O. Tafel Equation Based Model for the Performance of a Microbial Fuel Cell. Int. J. Hydrogen
+Energy 2015, 1, 17421–17432. [CrossRef]
+51.
+Mitra, U.; Arya, A.; Gupta, S. A Comprehensive and Comparative Review on Parameter Estimation Methods for Modelling
+Proton Exchange Membrane Fuel Cell. Fuel 2023, 335, 127080. [CrossRef]
+52.
+The International Association of Public Transport SORT & E-SORT Brochures. Available online: https://www.uitp.org/
+publications/uitp-sort-e-sort-brochures/ (accessed on 18 August 2024).
+53.
+The International Association of Public Transport UITP. Available online: https://www.uitp.org/ (accessed on 18 August 2024).
+54.
+Kankılıç, S.; Karpat, E. Optimization of Multilayer Absorbers Using the Bald Eagle Optimization Algorithm. Appl. Sci. 2023, 13,
+301. [CrossRef]
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.

@@ -1,0 +1,548 @@
+Citation: Jiang, Y.; He, X. Simulation
+and Analysis of the Energy
+Consumption of a Fuel Cell Hybrid
+Electric Vehicle. World Electr. Veh. J.
+2024, 15, 436. https://doi.org/
+10.3390/wevj15100436
+Academic Editor: Michael Fowler
+Received: 16 August 2024
+Revised: 4 September 2024
+Accepted: 25 September 2024
+Published: 26 September 2024
+Copyright: © 2024 by the authors.
+Published by MDPI on behalf of the
+World Electric Vehicle Association.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed under the terms and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+Article
+Simulation and Analysis of the Energy Consumption of a Fuel
+Cell Hybrid Electric Vehicle
+Ying Jiang 1 and Xiangyu He 2,*
+1
+Art Crafts Industrial Design Center of Hunan Province, Changsha University of Science and Technology,
+Changsha 410004, China; jiangying118@csust.edu.cn
+2
+College of Automotive and Mechanical Engineering, Changsha University of Science and Technology,
+Changsha 410004, China
+*
+Correspondence: hexiangyu@csust.edu.cn
+Abstract: In the past two decades, people have started to develop efficient, clean and safe transporta-
+tion vehicles. The development of a fuel cell vehicle has become the focus of attention. First, we
+analyze the common components of a hybrid electric vehicle with a fuel cell. Second, we build a
+simulation model of the hybrid electric vehicle with a fuel cell. Through the simulation model, we
+study and analyze the fuel cell and battery under various conditions related to fuel consumption
+parameters. Through the above-described research, we hope to optimize the parameter structure of
+the fuel cell hybrid electric vehicle and improve the working efficiency of fuel cells.
+Keywords: hybrid electric vehicle; fuel cell; state of health; sustainability
+1. Introduction
+The worldwide use of a large number of internal combustion engine (ICE) vehicles has
+produced and continues to cause serious environmental problems. Air pollution, global
+warming and the depletion of oil resources have become the primary concerns in the
+context of human development. In recent decades, research and development activities
+related to transportation have emphasized the development of high-efficiency and clean
+transportation systems [1–4]. Electric vehicles, hybrid electric vehicles and fuel cell vehicles
+are considered the best alternatives to conventional ICE vehicles [5–8].
+Among these vehicles, fuel cell vehicles are one of the focal points of both researchers
+and industry. Unlike chemical batteries, fuel cells can generate electricity through chemical
+reactions rather than by storing electricity [9–11]. In addition, as long as the fuel supply is
+maintained, fuel cells can generate electricity. Compared with battery electric vehicles and
+ICE vehicles, fuel cell vehicles have the advantages of a long driving range, high conversion
+efficiency and zero emission because the energy in the fuel can be directly converted into
+electricity without having to go through the combustion process. Some commercial fuel
+cells have achieved efficiencies of 57% or more [12,13].
+In recent years, fuel cell technology has been used in various types of vehicles [14–16].
+Fuel cell buses are considered to be the most likely areas for commercialization, with many
+countries investing heavily in their development and operation. A fixed rail electric tram
+has also been considered a likely vehicle to introduce fuel cell technology to an urban
+area [17]. At the same time, proton-exchange membrane fuel cell (PEMFC) power has
+been applied to forklift trucks [5,18,19]. The fuel cell-based forklift effectively combines
+the advantages of an ICE forklift and a battery forklift, namely, long endurance and zero
+emissions [20]. In addition, fuel cells have been verified in construction equipment, aerial
+vehicles, and small airplanes, demonstrating their wide application prospects and great
+commercial value [21–24].
+However, as a power system, fuel cells still have many shortcomings, such as low
+power density, long start-up time and slow power response. The fuel cell system is
+World Electr. Veh. J. 2024, 15, 436. https://doi.org/10.3390/wevj15100436
+https://www.mdpi.com/journal/wevj
+
+World Electr. Veh. J. 2024, 15, 436
+2 of 13
+inefficient for peak loads and extremely low-power loads [25]. Therefore, a hybrid electric
+system based on a fuel cell is an effective method to overcome the above shortcomings.
+The hybrid electric system consists of a fuel cell and a battery or a supercapacitor [26].
+This hybrid system can effectively reduce the size and cost of fuel cells and eliminate the
+impacts of peak loads and very low-power loads on fuel cells.
+The fuel cell hybrid electric vehicle is different from a conventional ICE vehicle and a
+hybrid electric vehicle based on an ICE [27]. Fuel cell hybrid electric vehicles typically use
+fuel cells as the main power supply and batteries or supercapacitors as auxiliary power
+supplies that simultaneously provide electricity to the motor [28,29]. Because of the larger
+battery capacity, a bus can also use a battery as the main power supply and a fuel cell as
+the auxiliary power supply [25].
+In this paper, a fuel cell hybrid electric vehicle model is established in the AMESim [30].
+The simulation analysis mainly focuses on the influence of three parameters on the total
+fuel consumption: the inferior power limit for the fuel cell (IPLFC), the state of charge
+(SOC) interval of the battery (SIB) and the rated capacity of the battery (RCB). As a result,
+the parameters between the fuel cell and the battery are better matched, and fuel efficiency
+is improved.
+2. Components of a Fuel Cell Hybrid Electric Vehicle
+A fuel cell hybrid electric vehicle usually includes a fuel cell, battery, motor/generator,
+controller, etc., as shown in Figure 1. The fuel cell is the core component of a fuel cell
+vehicle, providing power for the vehicle. The battery works in tandem with the fuel cell to
+optimize efficiency and performance. The motor/generator can be used both as an electric
+motor to drive the wheels and as a generator to convert kinetic energy into electrical energy
+during regenerative braking. The fuel cell controller manages the power flow between the
+fuel cell, battery and motor/generator.
+ 
+Figure 1. Schematic of a fuel cell vehicle.
+2.1. Fuel Cell
+A fuel cell is a primary energy source that converts the chemical energy of its inter-
+nal fuel directly into electrical energy via electrochemical processes. When the fuel cell
+generates current, a voltage drop is generated by the presence of ohmic resistance in the
+electrode and the electrolyte that is proportional to the current density, as shown below:
+∆UΩ= ReI
+where ∆UΩis the voltage drop generated by the equivalent ohmic resistance, Re is the
+equivalent ohmic resistance, and I is the current density [31].
+Figure 2 shows an example of the characteristics of a running hydrogen–air fuel cell
+system. In Figure 2, the best efficiency of a fuel cell is in the range of 7% to 50% of the
+
+World Electr. Veh. J. 2024, 15, 436
+3 of 13
+maximum current. A large current leads to low efficiency because of the significant voltage
+drop in the fuel cell stack. Meanwhile, a small current leads to low efficiency because the
+percentage of energy consumed by the auxiliary equipment increases. In Figure 2, the fuel
+consumption and output voltage of the corresponding current can be calculated, and the
+corresponding efficiency can be obtained. In fact, fuel cells need auxiliary equipment to
+support their operations.
+ 
+Figure 2. The efficiency of hydrogen and oxygen fuel cells versus current density.
+Figure 3 shows the structural schematic diagram of a PEMFC used in the simulation
+model in this study, including the auxiliary parts of the air supply system, fuel supply
+system, cooling system and control system. The operation of these parts requires the
+support of a fuel cell. Therefore, the normal operation of the auxiliary parts will ensure the
+efficient operation of the fuel cell as a whole.
+Figure 3. The schematic of a PEMFC.
+2.2. Battery
+A battery is an electrochemical device that is usually composed of multiple cells that
+are stacked together. The SOC is an important parameter of the battery. The SOC is defined
+as the ratio of the residual capacity to the total charge capacity. By this definition, an
+adequate battery has a 100% SOC, while a fully discharged battery has a 0% SOC. In the
+
+World Electr. Veh. J. 2024, 15, 436
+4 of 13
+time interval dt, the relationship between the change of the SOC and discharge or charging
+current can be expressed below:
+∆SOC =
+idt
+Q(i)
+where Q(i) is the ampere capacity of the battery that corresponds to the current change
+rate i. Therefore, the battery’s SOC can be expressed as follows:
+SOC = SOC0 −
+Z
+idt
+Q(i)
+where SOC0 is the initial value of the SOC. The supply energy of the battery can be
+expressed as
+EC =
+Z t
+0 V(i, SOC)idt
+where V(i, SOC) is the terminal voltage of the battery, which is a function of the battery
+current i and its SOC.
+In addition, the RCB typically represents the battery specification and is defined as
+the ampere-hours obtained when the terminal voltage of the total charge state drops to
+the termination voltage. Therefore, the battery’s specification is usually expressed by the
+ampere-hour corresponding to a given current discharge rate.
+2.3. Permanent Magnet Synchronous Motor
+This study employed a widely used permanent magnet synchronous motor/generator
+(PMSM). The PMSM is similar to the induction motor, and the stator magnetic field rotates
+at a constant speed. Since the PMSM induction waveform is sinusoidal, we can carry out
+vector control and a direct-quadrature (DQ) transformation. Due to the use of rare earth
+materials, the flux density of the air gap increases, and the power density and torque ratio
+of the motor increase. The use of rare earth materials increases the flux density of air
+gap and PMSM power density, as well as the torque–inertia ratio. PMSM has advantages,
+including a fast response, high power density and high efficiency [32].
+In this paper, the PMSM can both drive the movement of the vehicle and recover the
+braking energy of the vehicle. As shown in Figure 4, when the speed W and torque T are
+the same symbol, the PMSM operates as a motor, and the output power Pm is positive.
+When the speed W and torque T are in the same direction, the PMSM operates as a motor
+and the output power Pm is positive. When W and T are in the opposite direction, the
+PMSM operates as a generator and the output power Pm is negative.
+ 
+Figure 4. The working schematic of a PMSM.
+2.4. Energy Control Strategy
+In this paper, we use the fuel cell as the main power supply and the battery as the aux-
+iliary power source. The study of the energy control algorithm is a popular research topic of
+
+World Electr. Veh. J. 2024, 15, 436
+5 of 13
+hybrid electric vehicles. Our energy management strategy is based on the motor/generator
+mode switch and the battery’s SOC.
+In motor mode, the energy management strategy is as follows:
+(1) When SOC ≤SOCmin, the battery does not provide electricity to the vehicle, and
+the fuel cell provides power to the vehicle and charges the battery.
+(2) When SOC > SOCmin, the battery provides electricity to the vehicle, together with
+the fuel cell.
+In generator mode, the energy management strategy is as follows:
+(1) When SOC ≤SOCmax, the generators and fuel cells simultaneously charge the
+batteries.
+(2) When SOC ≥SOCmax, the generators and fuel cells do not charge the batteries.
+3. Simulations
+3.1. Simulation Environment
+LMS AMEsim is an advanced simulation environment that supports an engineering
+system and can build an integrated simulation model of the hybrid electric vehicle. In this
+paper, the simulation model includes the following: a fuel cell (PEMFC stack, humidifier,
+hydrogen gas, air compressor), a fuel cell control unit (including DC-DC), a battery, a motor
+controller, an inverter, a PMSM, a mechanical transmission mechanism, a constant load
+vehicle, a driver and a vehicle controller. Figure 5 shows the simulation model of a fuel
+cell hybrid electric vehicle. This paper mainly focuses on the simulation and performance
+analysis of the fuel cell hybrid electric system composed of a fuel cell, a battery, a PMSM
+and a motor control system.
+The adopted parameters of the main components are the system’s default parameters.
+For the main parameters of the vehicle, i.e., the fuel cell and the battery, we reset the
+parameters, as shown in Tables 1–4. Moreover, the efficiency of the PMSM is complex
+and affected by multiple factors. The simulation model of the PMSM considers AC loss in
+default mode. In this paper, the standard New European Driving Cycle (NEDC) is used
+to simulate the actual conditions of urban roads. Figure 6 shows a single NEDC cycle
+diagram.
+Table 1. Main parameters of the vehicle.
+Item
+Unit
+Value
+Vehicle type
+Vehicle configuration
+Null
+Null
+Constant load Road
+Longitudinal slip configuration
+Null
+Without slip
+Total vehicle mass
+Ton
+1.36
+Maximum current for fuel cell
+A
+500
+Mass distribution
+%
+50
+Drag coefficient
+Null
+0.29
+Frontal area
+m2
+2.09
+Table 2. Default parameters of the fuel cell.
+Item
+Unit
+Value
+Electric motor potential
+V
+444.463
+Lower SOC limit for battery
+%
+60
+Upper SOC limit for battery
+%
+70
+Fuel specific heating value
+kJ/kg
+120,000
+Current with max. efficiency for fuel cell
+A
+108
+Power with max. efficiency for fuel cell
+kW
+40
+Inferior power limit for fuel cell
+kW
+5
+Maximum current for fuel cell
+A
+500
+
+World Electr. Veh. J. 2024, 15, 436
+6 of 13
+Figure 5. The simulation model of a fuel cell hybrid electric vehicle.
+Table 3. Default parameters of the battery.
+Item
+Unit
+Value
+Initial SOC
+%
+60
+Output voltage
+V
+250
+Number of cells in series in one branch
+Null
+114
+Number of cells in series per battery bank
+Null
+10
+Rated capacity of the battery
+Ah
+30
+Filtering capacitance
+mF
+50
+Table 4. Default parameters of the PMSM.
+Item
+Unit
+Value
+Rated power
+kW
+30
+Rated voltage
+V
+150
+Rated current
+A
+130
+Rated Speed
+rpm
+500
+Pole pairs
+Null
+3
+Stator resistance
+ohm
+0.07
+AC losses definition
+Null
+resistance factor
+
+World Electr. Veh. J. 2024, 15, 436
+7 of 13
+ 
+Figure 6. Single NEDC cycle diagram.
+3.2. Simulation Process of a Single NEDC Cycle
+We set the battery’s SOCmin = 60%, the SOCmax = 70% and the initial value of the
+battery’s SOC0 = 60%. We set the maximum efficiency of the charging battery PFCmax =
+40 kw. If the battery must be charged, then the fuel cell is operated with a maximum
+efficiency. If the power demand of the motor exceeds PFCmax, then the fuel cell ceases to
+charge the battery. In this simulation, the default IPLFC is PFCmin = 5 kw. When the power
+demand of the motor is less than PFCmin, the battery will power the motor alone, and the
+fuel cell will charge the battery to ensure the efficient and stable operation of the vehicle
+under different driving conditions. It considers the optimal utilization of both the fuel
+cell and battery energy to achieve the best energy efficiency. However, the energy control
+strategy in 2.4 must be followed.
+With the initial parameters, we first conducted the simulation of the model of the
+hybrid electric vehicle with the fuel cell under a single NEDC cycle. Figure 7 shows the
+power inputs and outputs of the fuel cells, batteries and motors/generators. Figure 8 shows
+the battery power, the battery power loss and the battery’s SOC in a single NEDC cycle.
+Figure 9 shows the PMSM power output of a single NEDC cycle. Figure 10 shows the fuel
+consumption per second and the total fuel consumption in a single NEDC cycle.
+ 
+Figure 7. Power diagrams of the main components in a single NEDC cycle: (a) fuel cell, (b) fuel cell
+accessories, (c) battery.
+
+World Electr. Veh. J. 2024, 15, 436
+8 of 13
+ 
+Figure 8. Battery power, battery power loss and battery’s SOC chart of a single NEDC cycle: (a) battery
+power, (b) battery power loss, (c) battery SOC.
+ 
+Figure 9. PMSM power output of a single NEDC cycle.
+ 
+Figure 10. Energy consumption of the fuel cell.
+
+World Electr. Veh. J. 2024, 15, 436
+9 of 13
+4. Simulation Results Analysis
+This chapter mainly examines the influence of three key parameter changes on the
+total hydrogen consumption of the fuel cell. The three key parameters include the IPLFC,
+SIB and RCB. First, we analyzed the influence of variations in a single key parameter by the
+default parameters. Second, we analyzed the influence of variations in multiple parameters.
+To ensure the reliability and validity of the analysis data, our simulation adopted five
+NEDC working cycles.
+4.1. The Influence of Variations in a Single Parameter
+4.1.1. IPLFC
+The simulation results show that different IPLFCs significantly influence the total fuel
+consumption of the fuel cell. In this simulation, the maximum efficiency of the fuel cell is
+set at 40 kW. We selected a range of the IPLFC to be from 5 kW to 40 kW to analyze the
+influence of the fuel cell power floor on fuel cell consumption, as shown in Figure 11. The
+simulation results show that the total fuel consumption value is 376.15 g when the IPLFC is
+5 kW. As the IPLFC rises, the total fuel consumption continues to decline. When the IPLFC
+is greater than 15 kW, the fuel consumption value remains below 330 g, indicating that the
+higher IPLFC can improve fuel cell efficiency. As the IPLFC increases, the battery provides
+more power to the motor, and the fuel cell charges the battery with the highest efficiency.
+ 
+Figure 11. Relationship between the IPLFC and the total fuel consumption.
+4.1.2. SIB
+When the SOC is less than the lower SOC limit (LSL), the battery is charged by the
+fuel cell or the generator. When the SOC exceeds the upper SOC limit (USL), the battery
+does not charge and provides electricity to the motor. When the SOC is between the LSL
+and the USL, the battery can charge or provide power, as needed. We set the default value
+of the SOC to 60% and changed the USL to analyze the influence of the SIB on the total fuel
+consumption. As the USL increases, the total fuel consumption continues to rise when the
+USL is 80%, and the total fuel consumption is 434.52 g, as shown in Figure 12. The analysis
+of the results shows that the smaller SIB can reduce fuel consumption. However, if the SIB
+is too small, then the battery charge/discharge times will increase and the battery life will
+be reduced.
+
+World Electr. Veh. J. 2024, 15, 436
+10 of 13
+ 
+Figure 12. Influence of the SIB on the total fuel consumption.
+4.1.3. RCB
+The RCB represents the capacity of the battery, which directly affects the discharging
+time and the length of charge. In Figure 13, the RCB is set to the range. Through the
+simulation results, when the RCB is 5 Ah, the total fuel consumption value is 324.26 g,
+which is the minimum value in this simulation. As with the SIB, the fuel consumption
+increases with an increase in the RCB.
+ 
+Figure 13. The influence of the RCB on the total fuel consumption.
+4.2. The Influence of Multiparameter Variations
+The fuel consumption of the IPLFC, SIB and RCB under different parameters at the
+same time is also studied. For convenience, we set the RCB as a fixed value each time.
+Figure 14a–d show the contour color-filling diagrams for RCB values of 10 Ah, 20 Ah, 30 Ah
+and 40 Ah, respectively. The dark blue area indicates the lowest energy consumption, while
+the deep red region indicates the highest energy consumption. Although the minimum
+and maximum energy consumption values of the four graphs are different, the trend is
+consistent; that is, the maximum amount of fuel consumption appears in the region above
+IPFLC > 35 kW. When the IPFLC is between 15 kW and 20 kW, a lower energy consumption
+value is obtained, but the minimum energy consumption area is different. In Figure 14,
+for the parameter SIB, the effect of its change on the fuel consumption is not obvious. In
+Figure 12, when the default parameter is used, the energy consumption increases as the SIB
+increases. For the parameter RCB, if the total energy consumption threshold is set at 336 g,
+an increase in the RCB results in a gradual decrease in the area under the threshold level,
+indicating that fuel consumption is directly proportional to the RCB.
+
+World Electr. Veh. J. 2024, 15, 436
+11 of 13
+ 
+Figure 14.
+The total fuel consumption under multiparameter variations: (a) RCB = 10 Ah;
+(b) RCB = 20 Ah; (c) RCB = 30 Ah; and (d) RCB = 40 Ah.
+5. Conclusions
+Fuel cell-powered vehicles have long been considered the most promising low-carbon
+vehicles. However, because of the many shortcomings of fuel cells, they cannot be used
+as a single source of power. At the same time, fuel cell systems are expensive, which
+greatly increases the cost of establishing an experimental platform and ultimately limits
+the scope of their research. In this paper, we built a simulation model of a general-purpose
+fuel cell hybrid electric vehicle based on AMESim. We analyzed the key parameters of
+the model, such as the IPFLC, SIB and RCB, to assess their impact on the overall energy
+consumption of the fuel cell hybrid vehicles. We found that when the IPFLC was between
+15 kW and 20 kW, better energy consumption was obtained. The influence of the SIB on
+energy consumption was not obvious. When the RCB was between 20 Ah and 30 Ah, the
+maximum energy consumption area was obtained. We hope that by studying the results,
+we can improve the efficiency of fuel cells and reduce the total energy consumption of fuel
+cell hybrid electric vehicles.
+Author Contributions: Conceptualization, Y.J. and X.H.; writing, Y.J. and X.H.; supervision, X.H.;
+project administration, Y.J. All authors have read and agreed to the published version of the manuscript.
+Funding: This work was funded by the Scientific Research Project of the Hunan Provincial Depart-
+ment of Education (Grant number 21A0190) and the Hunan Provincial Natural Science Foundation
+of China (Grant number 2022JJ30595).
+
+World Electr. Veh. J. 2024, 15, 436
+12 of 13
+Data Availability Statement: The original contributions presented in the study are included in the
+article; further inquiries can be directed to the corresponding author.
+Acknowledgments: We would like to thank He Shanghong of Changsha University of Science and
+Technology for his suggestions regarding this paper.
+Conflicts of Interest: The authors declare no conflicts of interest.
+References
+1.
+Tie, S.F.; Tan, C.W. A review of energy sources and energy management system in electric vehicles. Renew. Sustain. Energy Rev.
+2013, 20, 82–102. [CrossRef]
+2.
+Ge, L.; Quan, L.; Li, Y.; Zhang, X.; Yang, J. A novel hydraulic excavator boom driving system with high efficiency and potential
+energy regeneration capability. Energy Convers. Manag. 2018, 166, 308–317. [CrossRef]
+3.
+Khalil, A.; Rajab, Z.; Alfergani, A.; Mohamed, O. The impact of the time delay on the load frequency control system in microgrid
+with plug-in-electric vehicles. Sustain. Cities Soc. 2017, 35, 365–377. [CrossRef]
+4.
+He, X.; Liu, H.; He, S.; Hu, B.; Xiao, G. Research on the energy efficiency of energy regeneration systems for a battery-powered
+hydrostatic vehicle. Energy 2019, 178, 400–418. [CrossRef]
+5.
+He, X.; Jiang, Y. Review of hybrid electric systems for construction machinery. Autom. Constr. 2018, 92, 286–296. [CrossRef]
+6.
+Cawthorne, W.R.; Hubbard, G.A. Method of Determining Engine Output Power in a Hybrid Electric Vehicle. U.S. Patent
+US007653474B2, 26 January 2010.
+7.
+Weldon, P.; Morrissey, P.; O’Mahony, M. Long-term cost of ownership comparative analysis between electric vehicles and internal
+combustion engine vehicles. Sustain. Cities Soc. 2018, 39, 578–591. [CrossRef]
+8.
+Jiang, Y.; He, X. Overview of Applications of the Sensor Technologies for Construction Machinery. IEEE Access 2020, 8, 110324–
+110335. [CrossRef]
+9.
+Zhang, J.; Yan, S.; Qu, H. Recent progress in magnesium hydride modified through catalysis and nanoconfinement. Int. J.
+Hydrogen Energy 2018, 43, 1545–1565. [CrossRef]
+10.
+Ge, L.; Quan, L.; Zhang, X.; Dong, Z.; Yang, J. Power matching and energy efficiency improvement of hydraulic excavator driven
+with speed and displacement variable power source. Chin. J. Mech. Eng. 2019, 32, 100. [CrossRef]
+11.
+Wang, X.; Quan, L.; Luan, S.; Xu, X. Dynamic and Static Characteristics of Double Push Rods Electromechanical Converter. Chin.
+J. Mech. Eng. 2019, 32, 62. [CrossRef]
+12.
+Cigolotti, V.; Genovese, M.; Fragiacomo, P. Comprehensive review on fuel cell technology for stationary applications as sustainable
+and efficient poly-generation energy systems. Energies 2021, 14, 4963. [CrossRef]
+13.
+Qasem, N.A.A.; Abdulrahman, G.A.Q. A Recent Comprehensive Review of Fuel Cells: History, Types, and Applications. Int. J.
+Energy Res. 2024, 2024, 7271748. [CrossRef]
+14.
+Hua, T.; Ahluwalia, R.; Eudy, L.; Singer, G.; Jermer, B.; Asselin-Miller, N.; Wessel, S.; Patterson, T.; Marcinkoski, J. Status of
+hydrogen fuel cell electric buses worldwide. J. Power Sources 2014, 269, 975–993. [CrossRef]
+15.
+Fu, S.; Wang, L.; Lin, T. Control of electric drive powertrain based on variable speed control in construction machinery. Autom.
+Constr. 2020, 119, 103281. [CrossRef]
+16.
+Zhao, B.; Quan, Z.; Li, Y.W.; Quan, L.; Hao, Y.; Ding, L. A Hybrid-Driven Elevator System With Energy Regeneration and Safety
+Enhancement. IEEE Trans. Ind. Electron. 2019, 67, 7715–7726. [CrossRef]
+17.
+China produces first hydrogen fuel cell tram, with Ballard unit. Fuel Cells Bull. 2015, 2015, 5. [CrossRef]
+18.
+Hosseinzadeh, E. Modeling and Design of Hybrid PEM Fuel Cell Systems for Lift Trucks. Ph.D. Thesis, Technical University of
+Denmark, Kongens Lyngby, Denmark, 2012.
+19.
+Lin, T.; Lin, Y.; Ren, H.; Chen, H.; Chen, Q.; Li, Z. Development and key technologies of pure electric construction machinery.
+Renew. Sustain. Energy Rev. 2020, 132, 110080. [CrossRef]
+20.
+McCabe, P.P.; Gregory, B.A.; Day, R.M. Lift Truck with Hybrid Power Source. U.S. Patent 20070090808A1, 8 June 2010.
+21.
+Li, T.; Liu, H.; Ding, D. Predictive energy management of fuel cell supercapacitor hybrid construction equipment. Energy 2018,
+149, 718–729. [CrossRef]
+22.
+Ge, L.; Quan, L.; Zhang, X.; Zhao, B.; Yang, J. Efficiency improvement and evaluation of electric hydraulic excavator with speed
+and displacement variable pump. Energy Convers. Manag. 2017, 150, 62–71. [CrossRef]
+23.
+Oman, H. Fuel-cell powered airplane propulsion. IEEE Aerosp. Electron. Syst. Mag. 2004, 19, 12–13. [CrossRef]
+24.
+He, X.; Xiao, G.; Hu, B.; Tan, L.; Tang, H.; He, S.; He, Z. The applications of energy regeneration and conversion technologies
+based on hydraulic transmission systems: A review. Energy Convers. Manag. 2020, 205, 112413. [CrossRef]
+25.
+Eshani, M.; Gao, Y.; Gay, S.E.; Emadi, A. Modern Electric, Hybrid Electric, and Fuel Cell Vehicles; CRC Press: Boca Raton, FL, USA,
+2009.
+26.
+Payman, A.; Pierfederici, S.; Meibody-Tabar, F. Energy control of supercapacitor/fuel cell hybrid power source. Energy Convers.
+Manag. 2008, 49, 1637–1644. [CrossRef]
+27.
+Gharibeh, H.F.; Yazdankhah, A.S.; Azizian, M.R. Improved energy management for a power-split multi-source fuel cell vehicle
+based on optimal source sizing and regenerative braking. In Proceedings of the Environment and Electrical Engineering (EEEIC),
+Florence, Italy, 7–10 June 2016; pp. 1–6.
+
+World Electr. Veh. J. 2024, 15, 436
+13 of 13
+28.
+Bagotsky, V.S.; Skundin, A.M.; Volfkovich, Y.M. Electrochemical Power Sources: Batteries, Fuel Cells, and Supercapacitors; John Wiley &
+Sons: Hoboken, NJ, USA, 2015.
+29.
+Odeim, F.; Roes, J.; Heinzel, A. Power management optimization of a fuel cell/battery/supercapacitor hybrid system for transit
+bus applications. IEEE Trans. Veh. Technol. 2016, 65, 5783–5788. [CrossRef]
+30.
+Salim, R.; Noura, H.; Fardoun, A. Fault diagnosis of a commercial PEM Fuel cell system using LMS AMESim. In Proceedings of
+the 2017 7th International Conference on Modeling, Simulation, and Applied Optimization (ICMSAO), Sharjah, United Arab
+Emirates, 4–6 April 2017; pp. 1–6.
+31.
+Husain, I. Electric and Hybrid Vehicles: Design Fundamentals; CRC Press: Boca Raton, FL, USA, 2011.
+32.
+Jeong, C.-L.; Kim, Y.-K.; Hur, J. Optimized design of PMSM with hybrid type permanent magnet for improving performance
+and reliability. In Proceedings of the 2017 IEEE Energy Conversion Congress and Exposition (ECCE), Cincinnati, OH, USA, 1–5
+October 2017; pp. 2439–2444.
+Disclaimer/Publisher’s Note: The statements, opinions and data contained in all publications are solely those of the individual
+author(s) and contributor(s) and not of MDPI and/or the editor(s). MDPI and/or the editor(s) disclaim responsibility for any injury to
+people or property resulting from any ideas, methods, instructions or products referred to in the content.

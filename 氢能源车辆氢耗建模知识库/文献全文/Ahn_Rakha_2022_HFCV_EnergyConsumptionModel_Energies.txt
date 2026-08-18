@@ -1,0 +1,742 @@
+
+
+Citation: Ahn, K.; Rakha, H.A.
+Developing a Hydrogen Fuel Cell
+Vehicle (HFCV) Energy Consumption
+Model for Transportation
+Applications. Energies 2022, 15, 529.
+https://doi.org/10.3390/en15020529
+Academic Editors: Antonio Zuorro
+and Alok Kumar Patel
+Received: 22 November 2021
+Accepted: 4 January 2022
+Published: 12 January 2022
+Publisher’s Note: MDPI stays neutral
+with regard to jurisdictional claims in
+published maps and institutional afﬁl-
+iations.
+Copyright:
+© 2022 by the authors.
+Licensee MDPI, Basel, Switzerland.
+This article is an open access article
+distributed
+under
+the
+terms
+and
+conditions of the Creative Commons
+Attribution (CC BY) license (https://
+creativecommons.org/licenses/by/
+4.0/).
+energies
+Article
+Developing a Hydrogen Fuel Cell Vehicle (HFCV) Energy
+Consumption Model for Transportation Applications
+Kyoungho Ahn 1
+and Hesham A. Rakha 2,*
+1
+Virginia Tech Transportation Institute, Blacksburg, VA 24061, USA; kahn@vt.edu
+2
+Department of Civil and Environmental Engineering, Virginia Tech, Blacksburg, VA 24061, USA
+*
+Correspondence: hrakha@vt.edu
+Abstract: This paper presents a simple hydrogen fuel cell vehicle (HFCV) energy consumption model.
+Simple fuel/energy consumption models have been developed and employed to estimate the energy
+and environmental impacts of various transportation projects for internal combustion engine vehicles
+(ICEVs), battery electric vehicles (BEVs), and hybrid electric vehicles (HEVs). However, there are
+few published results on HFCV energy models that can be simply implemented in transportation
+applications. The proposed HFCV energy model computes instantaneous energy consumption
+utilizing instantaneous vehicle speed, acceleration, and roadway grade as input variables. The mode
+accurately estimates energy consumption, generating errors of 0.86% and 2.17% relative to laboratory
+data for the fuel cell estimation and the total energy estimation, respectively. Furthermore, this work
+validated the proposed model against independent data and found that the new model accurately
+estimated the energy consumption, producing an error of 1.9% and 1.0% relative to empirical data for
+the fuel cell and the total energy estimation, respectively. The results demonstrate that transportation
+engineers, policy makers, automakers, and environmental engineers can use the proposed model to
+evaluate the energy consumption effects of transportation projects and connected and automated
+vehicle (CAV) transportation applications within microscopic trafﬁc simulation models.
+Keywords: hydrogen fuel cell vehicle (HFCV); energy consumption model; microscopic energy model
+1. Introduction
+The objective of this study is to develop a microscopic energy consumption model of
+hydrogen fuel cell vehicles (HFCVs) that can accommodate real-time connected automated
+vehicle (CAV) transportation applications. Based on a recent United States Environmental
+Protection Agency (US EPA) report, a typical internal combustion engine passenger ve-
+hicle emits about 4.6 metric tons of carbon dioxide per year [1]. Many governments and
+vehicle manufacturers around the world are promoting the development and support of
+alternative fuel vehicles, which do not use traditional petroleum fuels, to address these
+environmental concerns. The HFCV is an alternative fuel vehicle that relies on hydrogen
+fuel for vehicle power.
+An HFCV is an electric car since it uses an electric powertrain. Similar to a battery
+electric vehicle (BEV), HFCVs utilize electric motors for propulsion as opposed to more
+“traditional” internal combustion engine vehicles (ICEVs). The fuel cell generates electricity
+to power the vehicle and charges a battery. Fuel cells in the HFCV generate electricity
+through a chemical reaction process that utilizes oxygen and a fuel source of compressed
+hydrogen gas.
+A major benefit of HFCVs compared to BEVs is the refueling time. BEVs can take from
+20 min to overnight to recharge, depending on the charger type and battery size. Level 1
+chargers, typical home outlet chargers (110 volts) in the US, take 17–20 h to charge a 100-mile-
+range car battery. Level 2 chargers that use a 240-volt outlet reduce the charging time to 4–5 h
+for the same range. If a BEV can handle a fast charging outlet, the charging time can be less
+Energies 2022, 15, 529. https://doi.org/10.3390/en15020529
+https://www.mdpi.com/journal/energies
+
+Energies 2022, 15, 529
+2 of 15
+than 30 min to charge up to 80% of full range using DC fast charging stations. However, for
+an HFCV, the fueling time is similar to gasoline or diesel vehicles. The fueling time of HFCVs
+is approximately 5 min or less to fully refuel a tank of hydrogen [2].
+A typical HFCV has a battery pack that stores energy generated from regenerative
+braking. It also provides supplemental power to the electric traction motor similar to
+hybrid electric vehicles (HEVs). The HFCV battery can also power auxiliary loads and
+reduce engine idling when fuel cells are not used. Although an HFCV can be designed as a
+plug-in hybrid hydrogen vehicle that can charge the battery, most HFCVs do not have a
+charging function and use a smaller battery compared to a BEV battery. The driving range
+of BEVs is determined by the size of the battery. An HFCV’s driving range, as well as the
+amount of power and energy consumed for the vehicle’s operations, is instead determined
+by the hydrogen fuel tank size.
+The energy consumption patterns of different vehicles, including ICEVs and BEVs, are
+signiﬁcantly different with regard to driving cycles. A previous study found that ICEVs
+are more fuel-efﬁcient in high-speed freeway operational conditions, while BEVs are more
+energy efﬁcient on low-speed arterial trips. Furthermore, the study found that a test ICEV
+had similar fuel consumption rates on a Freeway G cycle and a Local cycle but that BEV’s
+energy consumption rates on these two cycles were signiﬁcantly different due to the BEV’s
+regenerative braking system [3,4]. We expect that HFCVs will have a different energy
+consumption pattern due to their regenerative braking system.
+The proposed fuel consumption model estimates an HFCV’s instantaneous energy con-
+sumption using vehicle operational input variables, including the vehicle’s instantaneous
+speed, acceleration, and roadway grade, which can be easily obtained from stand-alone
+Global Positioning System (GPS) loggers or various smartphone applications. The pro-
+posed model ﬁlls a void in the state-of-the-art given that it develops a simple model that
+can be applied in smartphone applications and microscopic trafﬁc simulators.
+The remainder of the paper is organized as follows: the next section reports the
+state-of-the art of HFCV energy consumption modeling efforts. Subsequently, the paper
+describes the HFCV fuel consumption data that were utilized for this study. The next
+sections explain the proposed model development and the validation results. Finally, the
+conclusions of the study are summarized.
+2. Literature Review
+Acar and Dincer investigated the role of hydrogen as a sustainable transportation fuel
+to reduce transportation emissions [5]. The study compared ICEVs, HEVs, BEVs, biofuel
+vehicles, HFCVs, and hydrogen-fueled ICE vehicles for their CO2 and SO2 emissions, social
+cost of carbon, energy and exergy efﬁciencies, fuel consumption, fuel price, and driving
+range. The study concluded that fuel cell vehicles have the highest average performance
+ranking for a sustainable transportation option and emphasized that hydrogen should be
+produced from renewable energy and material resources with zero or minimal emissions at
+high efﬁciencies in order to become a truly sustainable and clean fuel. Kurtz et al. reviewed
+transportation hydrogen infrastructure performance and reliability [6]. The study inves-
+tigated the engineering and deployment of modern hydrogen infrastructure, including
+the costs, beneﬁts, and operational considerations, as well as technical difﬁculties for the
+expansion of hydrogen infrastructure. The study identiﬁed the low reliability, high mainte-
+nance costs, and limited availability of modern hydrogen stations as the major technical
+hurdles to large-scale hydrogen system commercialization. The study recommended that
+to achieve the economic and sustainability goals for more widespread hydrogen-fueled
+transportation, the industry must overcome near-term hydrogen infrastructure challenges
+by supporting hydrogen stations with low cost, high reliability, and high availability.
+Li et al. evaluated a Kriging-based bi-objective constrained optimization (KBCO)
+algorithm for the fuel economy of HFCVs [7]. An HFCV has a complex electro-mechanical
+and hydraulic control system that includes a number of control parameters. The study
+developed a KBCO algorithm that can be used for the parameter optimization of HFCV
+
+Energies 2022, 15, 529
+3 of 15
+control to improve HFCV performance. The study utilized the automotive simulation
+platform ADVISOR (ADvanced VehIcle SimulatOR) that was created by the US Department
+of Energy’s National Renewable Energy Laboratory [8,9] to perform simulation analysis of
+an HFCV. The study claimed that the proposed algorithm is effective in solving constrained
+optimization problems for the energy control strategy of hydrogen fuel cells and battery,
+and minimizing the hydrogen consumption under the constraints of velocity, accelerating
+performance, and battery charge state.
+Xu et al. developed a dynamic model for fuel cell electric vehicles to improve both
+energy efﬁciency and system durability [10]. The study deﬁned a multi-objective optimiza-
+tion problem for the fuel cell electric vehicle control system and adapted a quasi-optimal
+solution using a two-loop framework based on a dynamic programming algorithm and
+the Pareto optimal principle. The study tested the algorithm on a fuel cell city bus, ﬁnding
+the optimum battery capacity and a fuel cell maximal net output for the fuel economy and
+system durability of that bus.
+Kaya and Hames also investigated control strategies for HFCVs to save energy [11].
+The study considered two different control strategies developed on HFCVs and compared
+them with the state machine control strategy. Additionally, the study examined system
+efﬁciency, fuel consumption, lifespan of vehicle technology, and vehicle performance by
+working with different HFCV control mechanisms. The study claimed that the proposed
+control strategies could be easily applied to different HFCVs with minor changes due to the
+simplicity of their structure and parameters. Shusheng et al. analyzed the basic structure of
+an onboard hydrogen-producing fuel cell electric vehicle and tested a hybrid drive model
+and a pure fuel cell drive model on the ADVISOR simulation platform [12]. The study
+found that fuel cells and lithium batteries work in a highly efﬁcient manner but the output
+power of fuel cells has smaller ﬂuctuations, improving energy utilization efﬁciency and
+extending the service life of the fuel cell in the hybrid drive model.
+Caux et al. investigated energy management strategies for a hybrid fuel cell vehi-
+cle [13]. The study proposed an energy management model that solves a combinatorial
+optimization problem for the storage element and discretization of the space of the fuel cell
+to improve the quality of decisions for the energy management system. The approach repli-
+cates the operation of the HFCV energy chain to provide an optimal solution for hydrogen
+consumption. Simulation studies found that the proposed energy management strategies
+could signiﬁcantly improve the solution quality and computational time compared to other
+approaches.
+A previous study demonstrated that a fuel/energy model was developed with a
+special interest in measuring fuel/energy consumption for transportation planning, trans-
+portation impact assessments, vehicle technology evaluations, trafﬁc simulation models,
+and speciﬁc control conditions [14]. In order to be utilized for real-time CAV transporta-
+tion applications, there are several requirements for an ideal fuel/energy consumption
+model. Rakha et al. recommended four major criteria: real-time computation, accuracy,
+model structure, and model calibration simplicity [15]. The model should have a simple
+structure that does not require resource-demanding computations and which can be used
+for real-time computations using instantaneous vehicle operational data. In addition, the
+model should provide reasonable accuracy with the fewest input variables and should be
+applicable for general vehicle populations. In this paper, we attempt to develop an HFCV
+energy model that can accommodate these requirements.
+A number of studies developed and investigated the power management models
+of HFCVs to improve the energy consumption and efﬁciencies of the fuel cell system.
+However, there is little previous research on HFCV energy consumption models that
+can be implemented into transportation applications, while a number of such energy
+consumption models are available for ICEVs, BEVs, and HEVs. This study develops an
+energy consumption model that can be utilized in various transportation applications.
+The contribution of the study is to develop a microscopic energy consumption model
+for HFCVs to quantify their energy impacts on real-time CAV transportation applications
+
+Energies 2022, 15, 529
+4 of 15
+within trafﬁc simulation models. Unlike previous work, the HFCV energy consumption
+model uses the vehicle’s instantaneous speed, acceleration, and roadway grade data as
+input variables, given that they can be easily obtained from stand-alone GPS loggers
+or various smartphone applications. Because of its simplicity, the model can be easily
+integrated within microscopic trafﬁc simulation models and in-vehicle and smartphone
+applications to quantify HFCV energy consumption.
+3. Hydrogen Energy Consumption Data
+This study utilized a test dataset that was collected in a controlled laboratory en-
+vironment at the Argonne National Laboratory. The test vehicle, a 2017 Toyota Mirai,
+includes a 114 kW hydrogen fuel cell stack and 1.6 kWh nickel–metal hydride battery
+to control the allocation of energy between the fuel cell electric and the battery power
+paths. The hydrogen storage of the test vehicle is 10,000 psi, 5 kg of H2. The study
+used public data that are available on the Downloadable Dynamometer Database (https:
+//www.anl.gov/es/downloadable-dynamometer-database, access data: 4 November 2021).
+The data were collected by the Fuel Cell Technologies Ofﬁce at the US Department of Energy
+(US DOE), and tested in collaboration with Transport Canada’s Innovation Centre. This
+study utilized the 10-hertz energy consumption data of the 2017 Toyota Mirai to develop
+an HFCV energy consumption model.
+We utilized three driving data cycles, including the Urban Dynamometer Driving
+Schedule (UDDS), the Highway Fuel Economy Test (HWFET), and the New European
+Driving Cycle (NEDC). Table 1 shows the driving characteristics of the three driving cycles.
+The UDDS (also called LA-4 cycle) simulates an urban route with frequent stops. The
+driving cycle is typically used for light duty vehicle testing. The HWFET was developed
+by the US EPA to simulate highway driving conditions for light duty vehicles. NEDC was
+developed to represent the typical usage of a car in Europe. The driving cycle consists
+of four repeated ECE-15 urban driving cycles (UDC) and one extra-urban driving cycle
+(EUDC). The cycle was designed to assess the emission levels of car engines and fuel
+economy in passenger cars. However, NEDC is also used to estimate the electric power
+consumption and driving range of HEVs and BEVs. This study utilized the data collected
+with hot-stabilized conditions without using air condition and used neither cold-start data
+nor the data collected under hot and cold weather conditions. Figure 1 shows the speed
+proﬁles of the three driving cycles. The study utilized two repeated driving cycle data of
+the Highway cycle and NEDC cycle.
+Table 1. Driving cycle characteristics.
+UDDS
+Highway
+NEDC
+Distance (km)
+12.07
+16.45
+10.93
+Total time (s)
+1372
+756
+1180
+Idle time (s)
+266
+6
+267
+Average speed including stops (km/h)
+31.5
+77.23
+33.35
+Average driving speed (km/h)
+38.90
+77.70
+43.10
+Maximum speed (km/h)
+91.25
+95.95
+120
+Maximum acceleration (m/s2)
+1.76
+1.67
+1.04
+
+Energies 2022, 15, 529
+5 of 15
+(a) 
+(b) 
+(c) 
+Figure 1. Driving cycles used for hydrogen vehicle energy modeling: (a) UDDS (city) cycle; (b) high-
+way cycle; (c) NEDC cycle.
+4. HFCV Energy Consumption Modeling
+It is difﬁcult to estimate the energy consumption of HFCVs due to the complexity of
+their fuel cell and battery components. The powertrain of an HFCV includes a fuel cell
+stack, a battery pack, a power electronic controller, an electric traction motor, and a DC/DC
+converter [16]. The fuel cell stack is an assembly of individual fuel cells that use hydrogen
+and oxygen to produce electricity. The battery pack is a battery that stores energy generated
+from regenerative braking and provides supplemental power to the electric traction motor.
+The power electronics controller manages the ﬂow of electrical energy delivered by the
+fuel cell and the traction battery, controlling the speed of the electric traction motor and
+
+Energies 2022, 15, 529
+6 of 15
+the torque it produces. The electric traction motor drives the vehicle’s wheels using power
+from the fuel cell and the battery pack. The DC/DC converter converts higher-voltage DC
+power from the traction battery pack to the lower-voltage DC power needed to run vehicle
+accessories and recharge the auxiliary battery.
+Figure 2 illustrates the relationship between an HFCV’s vehicle speed and energy con-
+sumption. As illustrated in the ﬁgure, the vehicle’s energy consumption rates and fuel cell
+power consumption are signiﬁcantly affected by vehicle speed. The ﬁgure demonstrates
+that the power generated by the fuel cell is signiﬁcantly higher than the power generated
+by the battery. It also demonstrates that the battery provides limited supplemental power
+to the electric traction motor. Figure 3 illustrates the battery and the fuel cell power con-
+sumption for a low-speed section and a high-speed section of the NEDC cycle. Figure 3a,b
+demonstrate that the vehicle is mostly powered by the battery during idling and low-speed
+conditions and the fuel cell powers the motor only during acceleration events. Figure 3c,d
+demonstrate that the vehicle utilizes the battery as supplemental power during acceleration
+events and the fuel cell provides the main power to the electric motor on the high-speed
+section. The ﬁgure demonstrates that the HFCV uses the battery mode when signiﬁcant
+vehicle power is not required, as shown in the low-speed case.
+(a) 
+(b) 
+Figure 2. Cont.
+
+Energies 2022, 15, 529
+7 of 15
+(c) 
+Figure 2. Relationship of vehicle speed and energy consumption: (a) total energy consumption;
+(b) fuel cell energy consumption; (c) battery energy consumption.
+ 
+(a) 
+ 
+(b) 
+ 
+(c) 
+Figure 3. Cont.
+
+Energies 2022, 15, 529
+8 of 15
+ 
+(d) 
+Figure 3. Relationship of fuel cell power consumption vs. NEDC cycle power consumption: (a) bat-
+tery energy consumption—low speed; (b) fuel cell energy consumption—low speed; (c) battery
+energy consumption—high speed; (d) fuel cell energy consumption—high speed.
+Vehicle fuel/energy consumption rates are typically derived from a relationship be-
+tween instantaneous fuel/energy consumption rates and instantaneous measurements of
+various explanatory variables such as vehicle power, force (or tractive effort), acceleration,
+speed, and/or roadway conditions. Figure 4 illustrates the relationship between fuel cell en-
+ergy consumption and the power at the wheels from the Toyota Mirai data. Figures 4 and 5
+demonstrate that the vehicle power at the wheels is highly correlated with the fuel cell
+power consumption.
+ 
+Figure 4. Fuel cell energy consumption vs. the power at the wheels.
+ 
+Figure 5. FHCV power consumption modeling diagram.
+
+Energies 2022, 15, 529
+9 of 15
+This study found the following HFCV energy consumption behaviors. First, vehicle
+speed and power affects FHCV energy consumption; second, when the vehicle power
+(Pwheels) is lower than a speciﬁc value (Pa), the HFCV utilizes the battery mode; third, when
+the speed is lower than a speciﬁc speed (va) and the power at the wheels is between Pa
+and Pb, the HFCV is operated in battery mode; fourth, the HFCV utilizes only the fuel
+cell mode when the speed is greater than a battery mode speed (va) and the power at the
+wheels is between Pa and Pb; and ﬁfth, the HFCV utilizes both the fuel cell and battery
+modes when the power (Pwheels) is greater than a speciﬁc power (Pb). The power at the
+wheels (Pwheels) is computed using Equation (1). The proposed HFCV energy consumption
+model is formulated in Equations (2)–(5).
+PWheels(t) = max
+
+
+0,
+
+ma(t) + mg
+Cr
+1000(c1v(t) + c2) +
+1
+2×3.62 ρAirA f CDv2(t) + mg θ
+
+v(t)
+3.6
+
+
+,
+(1)
+Pbattery(t) =
+
+
+
+
+
+
+
+PWheels(t) + Paux
+for PWheels ≤Pa
+PWheels(t) + Paux
+for Pa < PWheels ≤Pb and v(t) ≤va
+Pidle + Paux
+for Pa < PWheels ≤Pb and v(t) > va
+PWheels(t) ∗α + Paux
+for PWheels ≥Pb
+,
+(2)
+PFuelCell(t) =
+
+
+
+
+
+
+
+Pidle
+for PWheels ≤Pa
+Pidle
+for Pa < PWheels ≤Pb and v(t) ≤va
+PWheels(t) ∗β for Pa < PWheels ≤Pb and v(t) > va
+PWheels(t) ∗β
+for PWheels ≥Pb
+,
+(3)
+PHFCV(t) = Pbattery(t) + PFuelCell(t),
+(4)
+EC(t) = PHFCV(t) × ∆t
+(5)
+The proposed model is general and is applied to the 2017 Toyota Mirai for illustration
+purposes. Here, m is the vehicle mass (m = 1928 kg for the curb weight of the test Toyota
+Mirai), a(t) = dv(t)/dt is the acceleration of the vehicle in m/s2 after ensuring that the
+vehicle speed is converted to m/s (a(t) takes negative values when the vehicle decelerates),
+g = 9.8066 m/s2 is the gravitational acceleration, θ is the road grade, Cr = 1.75, c1 = 0.0328
+and c2 = 4.575 are the rolling resistance parameters that vary as a function of the road
+surface type, road condition, and vehicle tire type. The typical values of vehicle coefﬁcients
+are reported in. ρAir = 1.2256 kg/m3 is the air mass energy density of hydrogen which is
+equal to 33.6 kWh of usable energy per kg, A f = 2.3316 m2 is the frontal area of the vehicle,
+CD is the aerodynamic drag coefﬁcient of the vehicle (taken to be 0.28), and v(t) is the
+vehicle speed in km/h [17–19]. Paux is the power consumed by the auxiliary system. The
+energy produced by the fuel cell ( PFuelCell(t)) is computed, given the power at the wheels,
+assuming a vehicle efﬁciency of β = 93% considering a driveline efﬁciency and the electric
+motor efﬁciency. The energy produced from the battery ( PBattery(t)) is computed, assuming
+an efﬁciency of α = 20%. This parameter was calibrated using the HFCV battery energy
+consumption data. PHFCV(t) is the instantaneous total power exerted in kilowatts. Statistical
+analysis found that va is 32 km/h, Pa is 2.5 kW, and Pb is 5 kW for the speciﬁc test vehicle. In
+this study, we assume the vehicle weight is a constant variable. A signiﬁcant vehicle mass
+change can affect the energy consumption. The proposed model estimates the vehicle’s
+energy consumption (EC) (kWh) over a time step ∆t (Equation (5)), the instantaneous
+power consumed (kW), and hydrogen consumed (kg); the hydrogen storage of the test
+Toyota Mirai is 5 kg. The modeling diagram is presented in Figure 5.
+5. Model Validation
+The model validation results demonstrate that the proposed model estimates fuel
+cell energy consumption with reasonable accuracy for three representative driving cycles.
+In particular, the model estimates the energy consumption with errors of 13.88%, 0.61%,
+and −3.45% for the UDDS, Highway, and NEDC cycles, respectively, as demonstrated in
+
+Energies 2022, 15, 529
+10 of 15
+Table 2. We found that the model overestimates the fuel cell energy consumption for the
+UDDS cycle. We also found that the model slightly underestimates the fuel cell energy
+consumption for the NEDC cycle when both driving cycles have similar average speeds
+(31.5 km/h for UDDS and 33.35 km/h for NEDC). It seems the model was calibrated for
+high speed and aggressive driving conditions, which reduced overall model accuracy. The
+results showed that the overall model accuracy combining all urban and freeway driving
+cycles is 0.86%.
+Table 2. HFCV energy model results.
+Fuel Cell Estimation
+Fuel Cell and Battery Estimation
+Raw Data
+(kWh/km)
+Estimated
+(kWh/km)
+Error Rate
+(%)
+Raw Data
+(kWh/km)
+Estimated
+(kWh/km)
+Error Rate
+(%)
+UDDS
+0.135
+0.150
+13.83
+0.135
+0.150
+−3.21
+Highway
+0.278
+0.276
+0.61
+0.278
+0.276
+9.36
+NEDC
+0.295
+0.285
+−3.45
+0.295
+0.285
+−3.64
+Total
+0.238
+0.240
+0.86
+0.238
+0.240
+2.17
+The study also found that the proposed model estimates the total fuel cell and battery
+energy consumption with errors of −3.21%, 9.36%, and −3.64% for the three driving cycles:
+UDDS, Highway, and NEDC cycles, respectively. The results demonstrate that the proposed
+model accurately estimates the energy consumptions with errors of 2.17% compared to
+experimental data for the total energy consumption.
+Figure 6 illustrates the instantaneous fuel cell energy consumption rate and total
+energy consumption rate, including both fuel cell and battery energy consumption for
+the NEDC driving cycle compared to the test vehicle’s measured instantaneous energy
+consumption rate. Superimposed on the ﬁgures are the proposed model’s estimates of
+vehicle energy consumption rates based on instantaneous power and vehicle speed. As
+illustrated in the ﬁgure, the predicted power consumption generally follows the peaks and
+valleys of the measured vehicle energy consumption. The results clearly demonstrate a
+good agreement between the instantaneous energy consumption estimates and laboratory
+measurements. The proposed model slightly overestimates or underestimates some fuel
+consumption rates for the NEDC. In particular, the proposed model underestimates fuel
+consumption rates in the ﬁrst section of the driving cycle and at time 1110 s. While the
+proposed model simpliﬁes the conditional battery mode, the battery mode also depends on
+the battery’s state of charge (SOC). The research team will further investigate the impacts
+of SOC to improve the accuracy of the energy consumption model. The test vehicle data do
+not include SOC data. In general, the model predictions follow the laboratory-collected
+fuel measurements of the NEDC cycle with high correlation coefﬁcients (0.942 for fuel
+cell estimation, 0.975 for total energy consumption). The ﬁgure illustrates that, in general,
+the model’s predictions follow the fuel measurements, demonstrating the applicability of
+the model for assessing the effects of transportation projects, including eco-driving and
+real-time CAV applications.
+The study validated the proposed model against an independent dataset. We utilized
+worldwide harmonized light vehicles test procedures (WLTPs) data that was collected
+at the Argonne National Laboratory, using the same test vehicle: a 2017 Toyota Mirai.
+The WLTP is a chassis dynamometer test driving cycle for the determination of emissions
+and fuel consumption from light-duty vehicles, including ICEVs, HEVs, and BEVs. The
+worldwide harmonized light vehicles test cycles (WLTC) and WLTP are sometimes used
+interchangeably. The WLTC cycle is part of the WLTP cycle. The cycle was developed to
+replace NEDC to better match the laboratory estimates of fuel/energy consumption and
+emissions with on-road driving conditions. The WLTP is also used for vehicle certiﬁcation
+in Japan. The WLTP cycle includes four subsections: low speed, medium speed, high speed,
+and extra-high speed to represent real-world driving conditions. A detailed description of
+the cycle characteristics is presented in Table 3.
+
+Energies 2022, 15, 529
+11 of 15
+(a) 
+(b) 
+Figure 6. NEDC cycle model estimation: (a) fuel cell consumption estimation; (b) fuel cell and battery
+consumption estimation.
+Table 3. WLTC cycle characteristics.
+Low Speed
+Medium Speed
+High Speed
+Extra-High Speed
+Total
+Distance (m)
+3095
+4756
+7162
+8254
+23,266
+Total time (s)
+589
+433
+455
+323
+1800
+Idle time (s)
+156
+48
+31
+7
+242
+Average speed including stops (km/h)
+18.9
+39.5
+56.7
+92
+45.4
+Average driving speed (km/h)
+25.7
+44.5
+60.8
+94
+53.2
+Maximum speed (km/h)
+56.6
+76.6
+97.4
+131.3
+131.3
+Maximum acceleration (m/s2)
+1.47
+1.57
+1.58
+1.003
+1.58
+Figure 7 compares the estimated energy consumption rates of HFCV and the laboratory-
+collected data of WLTP cycle. The proposed model predicted that the fuel cell model
+estimated 3.98 kWh while the test vehicle consumed 3.91 kWh in the laboratory, which rep-
+resents a 1.9% error rate. For the total energy consumption, the model predicted 4.92 kWh
+and the test vehicle consumed 4.87 kWh, which is a 1.0% error rate. A second-by-second
+analysis of the fuel cell estimation and the total energy consumption is illustrated in Fig-
+ure 7b. The ﬁgure demonstrates that the proposed model accurately estimates the fuel cell
+energy consumption and the total energy consumption for the WLTC trip compared to the
+test vehicle’s measured energy consumption rate.
+
+Energies 2022, 15, 529
+12 of 15
+(a) 
+(b) 
+Figure 7. NEDC cycle model estimation: (a) fuel cell consumption estimation; (b) fuel cell and battery
+consumption estimation.
+Figure 8 illustrates the detailed instantaneous model prediction results for low-speed
+and high-speed sections. The ﬁgure illustrates that the HFCV energy model estimates
+accurately follow the laboratory-collected data for both low- and high-speed sections. In
+particular, the model estimated 0.41 kWh for the low-speed section and 1.05 kWh for the
+high-speed section, and the test vehicle consumed 0.45 kWh for the low-speed section and
+1.09 kWh for the high-speed section from the fuel cell, which represent 7.9% and 4.7% errors,
+respectively. The results demonstrate that the proposed model can effectively estimate the
+HFCV energy consumption on both low- and high-speed sections.
+
+Energies 2022, 15, 529
+13 of 15
+(a) 
+(b) 
+Figure 8. HFCV energy model validation for low- and high-speed sections: (a) low-speed section;
+(b) high-speed section.
+6. Conclusions
+This study developed a simple HFCV energy consumption model that can be im-
+plemented in CAV and smartphone applications and/or trafﬁc simulation software. A
+number of studies investigated the power management models of HFCVs. However, only
+a few studies have focused on microscopic HFCV energy consumption models that can
+be implemented in CAV, smartphone, and transportation applications, while a number of
+such energy consumption models are available for ICEVs, BEVs, and HEVs.
+The proposed HFCV energy model utilizes instantaneous vehicle speed, acceleration,
+and roadway grade as input variables to compute instantaneous hydrogen vehicle energy
+consumption and total energy consumption rates. The results demonstrate that the model
+estimates are generally consistent with empirical data. Speciﬁcally, the model estimates
+are within 0.86% and 2.17% of the empirically observed data for the fuel cell and the
+total energy consumption estimates, respectively. Furthermore, the study validated the
+proposed model against independent data and found that the model accurately estimated
+the energy consumption, producing an error of 1.9% and 1.0% relative to empirical data
+for the fuel cell and the total energy estimation, respectively. The results provide the
+opportunity for transportation engineers, policy makers, automakers, and environmental
+
+Energies 2022, 15, 529
+14 of 15
+engineers to quantify the energy consumption effects of transportation projects, real-time
+CAV applications, and can be incorporated in microscopic trafﬁc simulation models.
+In terms of future work, we recommend a further study to investigate the optimum
+parameters for other HFCVs. The current model does not consider the impacts of the
+battery’s SOC, given that this information was not provided in the empirical data currently
+available. We suspect that the battery mode energy consumption depends on the battery’s
+SOC and, thus, recommend investigating the impact of the battery’s SOC and incorporating
+it in the model to enhance the model accuracy.
+Author Contributions: Conceptualization, K.A., H.A.R.; methodology, K.A., H.A.R.; validation, K.A.,
+H.A.R.; data analysis, K.A.; writing—original draft preparation, K.A.; writing—review and editing,
+K.A., H.A.R. All authors have read and agreed to the published version of the manuscript.
+Funding: This research was funded by United State Federal Highway Administration, grant number
+69A3551747123.
+Institutional Review Board Statement: Not applicable.
+Informed Consent Statement: Not applicable.
+Data Availability Statement: Not applicable.
+Conﬂicts of Interest: The authors declare no conﬂict of interest.
+Nomenclature
+a(t)
+Acceleration of the vehicle
+A f
+Frontal area of the vehicle
+CD
+Aerodynamic drag coefﬁcient of the vehicle
+Cr, c1 and c2
+Rolling resistance parameters
+g
+Gravitational acceleration
+m
+Vehicle mass
+Paux
+Power due to the auxiliary systems
+Pa
+Speciﬁc power
+Pb
+Speciﬁc power
+Pidle
+idle power
+Pbattery(t)
+Power from battery
+PFuelCell(t)
+Power from fuel cell
+PWheels(t)
+Power at the wheels
+v(t)
+Vehicle speed
+va
+Speciﬁc vehicle speed
+α, β
+Vehicle-speciﬁc parameters
+ρAir
+Air mass density
+θ
+Road grade
+References
+1.
+U.S. Environmental Protection Agency (EPA). Greenhouse Gas Emissions from a Typical Passenger Vehicle. 2021. Available
+online: https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle (accessed on 23 July 2021).
+2.
+U.S. Department of Energy. 5 Things to Know When Filling Up Your Fuel Cell Electric Vehicle. 2016. Available online:
+https://www.energy.gov/eere/articles/5-things-know-when-ﬁlling-your-fuel-cell-electric-vehicle (accessed on 4 November
+2021).
+3.
+Fiori, C.; Ahn, K.; Rakha, H.A. Power-based electric vehicle energy consumption model: Model development and validation.
+Appl. Energy 2016, 168, 257–268. [CrossRef]
+4.
+Fiori, C.; Ahn, K.; Rakha, H.A. Optimum routing of battery electric vehicles: Insights using empirical data and microsimulation.
+Transp. Res. Part D Transp. Environ. 2018, 64, 262–272. [CrossRef]
+5.
+Acar, C.; Dincer, I. The potential role of hydrogen as a sustainable transportation fuel to combat global warming. Int. J. Hydrogen
+Energy 2020, 45, 3396–3406. [CrossRef]
+6.
+Kurtz, J.; Sprik, S.; Bradley, T.H. Review of transportation hydrogen infrastructure performance and reliability. Int. J. Hydrogen
+Energy 2019, 44, 12010–12023. [CrossRef]
+
+Energies 2022, 15, 529
+15 of 15
+7.
+Li, Y.H.; Wu, Y.Z.; Zhang, Y.M.; Wang, S.T. A Kriging-based bi-objective constrained optimization method for fuel economy of
+hydrogen fuel cell vehicle. Int. J. Hydrogen Energy 2019, 44, 29658–29670. [CrossRef]
+8.
+Markel, T.; Brooker, A.; Hendricks, T.; Johnson, V.; Kelly, K.; Kramer, B.; O’Keefe, M.; Sprik, S.; Wipke, K. ADVISOR: A systems
+analysis tool for advanced vehicle modeling. J. Power Sources 2002, 110, 255–266. [CrossRef]
+9.
+Wipke, K.B.; Cuddy, M.R.; Burch, S.D. ADVISOR 2.1: A user-friendly advanced powertrain simulation using a combined
+backward/forward approach. Veh. Technol. IEEE Trans. 1999, 48, 1751–1761. [CrossRef]
+10.
+Xu, L.F.; Mueller, C.D.; Li, J.Q.; Ouyang, M.G.; Hu, Z.Y. Multi-objective component sizing based on optimal energy management
+strategy of fuel cell electric vehicles. Appl. Energy 2015, 157, 664–674. [CrossRef]
+11.
+Kaya, K.; Hames, Y. Two new control strategies: For hydrogen fuel saving and extend the life cycle in the hydrogen fuel cell
+vehicles. Int. J. Hydrogen Energy 2019, 44, 18967–18980. [CrossRef]
+12.
+Shusheng, X.; Qiujie, S.; Baosheng, G.; Encong, Z.; Zhankuan, W. Research and development of on-board hydrogenproducing
+fuel cell vehicles. Int. J. Hydrogen Energy 2020, 45, 17844–17857. [CrossRef]
+13.
+Caux, S.; Gaoua, Y.; Lopez, P. A combinatorial optimisation approach to energy management strategy for a hybrid fuel cell vehicle.
+Energy 2017, 133, 219–230. [CrossRef]
+14.
+Ahn, K.; Rakha, H.A. A Simple Hybrid Electric Vehicle Fuel Consumption Model for Transportation Applications. In Electric and
+Hybrid Vehicles; IntechOpen: London, UK, 2019.
+15.
+Rakha, H.A.; Ahn, K.; Moran, K.; Saerens, B.; van den Bulck, E. Virginia Tech Comprehensive Power-Based Fuel Consumption
+Model: Model development and testing. Transp. Res. Part D Transp. Environ. 2011, 16, 492–503. [CrossRef]
+16.
+U.S. Department of Energy. How Do Fuel Cell Electric Vehicles Work Using Hydrogen? 2021. Available online: https://afdc.
+energy.gov/vehicles/how-do-fuel-cell-electric-cars-work (accessed on 22 July 2021).
+17.
+De Gennaro, M.; Paffumi, E.; Martini, G.; Manfredi, U.; Vianelli, S.; Ortenzi, F.; Genovese, A. Experimental Test Campaign on a
+Battery Electric Vehicle: Laboratory Test Results (Part 1). SAE Int. J. Altern. Powertrains 2015, 4, 100–114. [CrossRef]
+18.
+Department of Energy (DOE). Advanced Vehicle Testing Activity (AVTA) of the Idaho Nation Laboratory (INL). 2013. Available
+online: http://avt.inel.gov/pdf/fsev/fact2013nissanleaf.pdf (accessed on 30 June 2015).
+19.
+Nissan Leaf. Nissan Leaf Characteristiscs. 2015. Available online: http://www.nissanusa.com/electric-cars/leaf/ (accessed on
+30 June 2015).
