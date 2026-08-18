@@ -1,6 +1,7 @@
 /** 路段数据分析面板：选路 → 点「开始测算」→ 真实进度条 → 表格/可视化/AI 评估 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types'
+import { expectedStopCount } from '../route/segment'
 import { DistributionBars, LineAreaChart, StackedBar } from './Charts'
 import MarkdownLight from './MarkdownLight'
 
@@ -27,6 +28,21 @@ const TRAFFIC_LABEL: Record<string, string> = {
 }
 const TRAFFIC_COLOR: Record<string, string> = {
   smooth: '#2ca02c', slow: '#f0ad4e', congested: '#d62728', severe: '#7b1fa2', unknown: '#ccc',
+}
+
+const MOTION_LABEL: Record<string, string> = {
+  cruise: '巡航', toll: '收费站', intersection: '路口', ramp: '匝道', turn: '转弯', serviceArea: '服务区', urbanStopStart: '城市起停',
+}
+const MOTION_COLOR: Record<string, string> = {
+  cruise: '#9aa', toll: '#d62728', intersection: '#ff7f0e', ramp: '#2c7fb8', turn: '#9467bd', serviceArea: '#2ca02c', urbanStopStart: '#8c564b',
+}
+const MOTION_MARK: Record<string, { label: string; color: string }> = {
+  toll: { label: '费', color: '#d62728' },
+  intersection: { label: '口', color: '#ff7f0e' },
+  ramp: { label: '匝', color: '#2c7fb8' },
+  turn: { label: '弯', color: '#9467bd' },
+  serviceArea: { label: '服', color: '#2ca02c' },
+  urbanStopStart: { label: '起停', color: '#8c564b' },
 }
 
 type SortKey = 'index' | 'distanceKm' | 'gradePercent' | 'elevationM' | 'avgSpeedKmh'
@@ -170,6 +186,19 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     return { distKm, elevM }
   }, [segments])
 
+  const motionMarkers = useMemo(() => {
+    let cum = 0
+    const markers: Array<{ x: number; label: string; color: string }> = []
+    for (const s of segments) {
+      const mk = MOTION_MARK[s.motionBehavior]
+      if (mk && s.motionBehavior !== 'cruise') markers.push({ x: Math.round(cum * 10) / 10, label: mk.label, color: mk.color })
+      cum += s.distanceKm
+    }
+    return markers
+  }, [segments])
+
+  const totalStops = useMemo(() => segments.reduce((a, s) => a + expectedStopCount(s), 0), [segments])
+
   const speedPts = useMemo(() => {
     let cum = 0
     return segments.map((s) => {
@@ -306,12 +335,22 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         <div className="stat-card"><b>{totalLoss} m</b><span>累计下降</span></div>
         <div className="stat-card"><b>{maxElev} m</b><span>最高点</span></div>
         <div className="stat-card"><b>{minElev} m</b><span>最低点</span></div>
+        <div className="stat-card"><b>{totalStops.toFixed(1)}</b><span>期望停车/启停次数</span></div>
       </div>
 
       <div className="charts-grid">
         <div className="chart-card chart-wide">
           <h4>海拔剖面</h4>
-          <LineAreaChart points={profile.distKm.map((x, i) => ({ x, y: profile.elevM[i] }))} color="#1e7a54" yLabel="海拔" unit="m" />
+          <LineAreaChart points={profile.distKm.map((x, i) => ({ x, y: profile.elevM[i] }))} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
+          {segments.some((s) => s.motionBehavior !== 'cruise') && (
+            <div className="motion-legend">
+              {(['toll', 'intersection', 'ramp', 'turn', 'serviceArea', 'urbanStopStart'] as const)
+                .filter((b) => segments.some((s) => s.motionBehavior === b))
+                .map((b) => (
+                  <span key={b}><i style={{ background: MOTION_COLOR[b] }} />{MOTION_LABEL[b]}</span>
+                ))}
+            </div>
+          )}
         </div>
         <div className="chart-card">
           <h4>道路等级分布（km）</h4>
@@ -348,6 +387,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <th className="sortable" onClick={() => headerSort('elevationM')}>海拔 m{sortArrow('elevationM')}</th>
                 <th>爬升 m</th>
                 <th>下降 m</th>
+                <th>变速情况</th>
+                <th>变速概率/期望</th>
                 <th>路况</th>
                 <th>停车次/km</th>
                 <th>时长 h</th>
@@ -367,6 +408,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   <td className="mono">{s.elevationM != null ? s.elevationM : '—'}</td>
                   <td className="mono">{s.elevationGainM != null ? s.elevationGainM : '—'}</td>
                   <td className="mono">{s.elevationLossM != null ? s.elevationLossM : '—'}</td>
+                  <td><span className="motion-chip" style={{ background: MOTION_COLOR[s.motionBehavior] }}>{MOTION_LABEL[s.motionBehavior]}</span></td>
+                  <td className="mono motion-events">{s.motionEvents.length ? s.motionEvents.map((e) => `${e.label ?? e.type}×${e.expectedCount}`).join(' ') : '—'}</td>
                   <td><span className="traffic-dot" style={{ background: TRAFFIC_COLOR[s.trafficStatus] }} />{TRAFFIC_LABEL[s.trafficStatus]}</td>
                   <td className="mono">{s.stopDensity}</td>
                   <td className="mono">{s.durationH}</td>

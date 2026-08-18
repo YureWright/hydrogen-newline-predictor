@@ -27,6 +27,8 @@
 | `elevationM` | number|null | m | 平均海拔（修正空气密度 ρ） | SRTM DEM（A2） | - | ⏳ A2 |
 | `trafficStatus` | enum | - | 畅通/缓行/拥堵/严重/未知 | tmcs 距离加权主导 | - | ✅ |
 | `stopDensity` | number | 次/km | 停车/怠速密度 | 道路等级×路况系数推断 | - | ✅ |
+| `motionBehavior` | enum | - | 变速行为：巡航/收费站/路口/匝道/转弯/服务区/城市起停 | 高德指令关键词+航向角（L1） | - | ✅ |
+| `motionEvents` | MotionEvent[] | - | 变速事件（stop/start/decel/turn + 概率 + 期望次数） | 同 L1 | - | ✅ |
 | `temperatureC` | number|null | ℃ | 气温（影响辅助功耗/电堆效率） | 高德天气/区间插值（A3） | - | ⏳ A3 |
 | `coordsWgs84` | [lng,lat][] | ° | 本段坐标序列（WGS-84） | 高德 GCJ-02 逆转换 | - | ✅ |
 | `durationH` | number | h | 本段时长（distance/avgSpeed） | step.duration | cyc_secs | ✅ |
@@ -36,6 +38,10 @@
 `RoadLevel`: `highway`（高速）| `national`（国道）| `provincial`（省道）| `city`（城市/快速路）| `other`（其他）
 
 `TrafficStatus`: `smooth`（畅通）| `slow`（缓行）| `congested`（拥堵）| `severe`（严重拥堵）| `unknown`（未知）
+
+`MotionBehavior`: `cruise`（巡航）| `toll`（收费站）| `intersection`（红绿灯路口）| `ramp`（匝道）| `turn`（急转弯/掉头）| `serviceArea`（服务区）| `urbanStopStart`（城市起停）
+
+`MotionEvent`: `{ type: stop|start|decel|turn; expectedCount; probability; label? }`
 
 ## 3. 路段是怎么切出来的（buildSegments）
 
@@ -54,7 +60,29 @@
 5. `avgSpeedKmh` = distance / duration（含路况影响；无 duration 时用等级巡航速度兜底）；
 6. `coordsWgs84` = polyline 逐点 `gcj02ToWgs84` 逆转换（高德 GCJ-02 → 国际 WGS-84，供 DEM/天气匹配）。
 
-验证：`npm run verify:segment`（32 项纯函数自测 + 真实线路）。细分逻辑见 demFetch.ts（合并碎段 + 坡度变号切分）。
+验证：`npm run verify:segment`（纯函数自测 + 真实线路）+ `npm run verify:split`（行为区 + 坡度切分 26 项断言）。
+
+### 3.1 L1 行为区标注（变速情况 + 变速概率）
+
+`detectMotionBehavior(instruction, roadLevel, coords)` 按优先级：收费站 > 服务区 > 匝道 > 红绿灯路口 > 一般路口(城市) > 转弯(指令/航向角>40°) > 城市起停/巡航。概率默认值集中在 `MOTION_PROB`（可配置）：
+
+| 事件 | 停车 P | 减速 P | 说明 |
+| --- | --- | --- | --- |
+| 收费站 ETC | 0.1 | 0.9 | 基本不停，减速通过 |
+| 收费站 人工 | 0.95 | 0.99 | 指令含"人工/MTC" |
+| 红绿灯路口 | 0.4 | 1.0 | 停车是概率事件 |
+| 匝道 | 0.05 | 0.85 | 减速并线 |
+| 急转弯/掉头 | 0/0.3 | 0.7/1.0 | 掉头接近停车 |
+| 服务区 | 0.1 | 0.9 | 概率停车 |
+
+### 3.2 L2 坡度自适应切分（demFetch.ts）
+
+对所有 ≥1km 的段沿 DEM 剖面切分，条件（`splitGradeProfile`）：
+1. 坡度变号（峰/谷）必切 → 每子段只上坡或只下坡；
+2. 坡度带阈值：滑动窗口 500m 平均坡度偏离当前段均值 > ±1.5% → 切；
+3. 长度上限 10km、巡航段最小 0.5km；尾部过短且坡度接近才并入前片。
+
+碎段策略：只有"同路 + 无变速事件 + <0.2km"的纯延续碎段才并入前段（`mergeContinuationFragments`），行为区短段一律保留；离散变速事件只挂到事件段的首个子段（避免地形切分后重复计数）。
 
 ## 4. 企业模型 adapter 示例
 
@@ -71,6 +99,8 @@ export function toEnterpriseInput(segments: SegmentData[]) {
     T_degC: s.temperatureC ?? 20,
     road_class: s.roadLevel,
     stop_per_km: s.stopDensity,
+    motion: s.motionBehavior,
+    stop_expected: segments_expected_stop(s), // = Σ motionEvents.stop.expectedCount 或 stopDensity×distanceKm
     traffic: s.trafficStatus,
   }))
 }

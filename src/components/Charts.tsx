@@ -6,11 +6,12 @@ const H = 200
 const PAD = { l: 46, r: 14, t: 18, b: 28 }
 
 /** 通用折线/面积图（x=km，y=数值） */
-export function LineAreaChart({ points, color, yLabel, unit }: {
+export function LineAreaChart({ points, color, yLabel, unit, markers }: {
   points: Array<{ x: number; y: number }>
   color: string
   yLabel: string
   unit: string
+  markers?: Array<{ x: number; label: string; color?: string }>
 }) {
   if (points.length < 2) return <div className="chart-empty">数据不足</div>
   const xs = points.map((p) => p.x)
@@ -47,6 +48,12 @@ export function LineAreaChart({ points, color, yLabel, unit }: {
       <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
       {[0, points.length - 1].map((i) => (
         <circle key={i} cx={X(points[i].x)} cy={Y(points[i].y)} r="3.2" fill={color} />
+      ))}
+      {markers?.filter((m) => m.x >= xMin && m.x <= xMax).map((m, i) => (
+        <g key={'m' + i}>
+          <line x1={X(m.x)} y1={PAD.t} x2={X(m.x)} y2={H - PAD.b} stroke={m.color ?? '#d62728'} strokeDasharray="3 3" opacity="0.65" />
+          <text x={X(m.x)} y={H - 14} fontSize="9" fill={m.color ?? '#d62728'} textAnchor="middle">{m.label}</text>
+        </g>
       ))}
       <text x={W - PAD.r} y={PAD.t - 4} fontSize="10" fill="#667" textAnchor="end">{yLabel}（{unit}）</text>
     </svg>

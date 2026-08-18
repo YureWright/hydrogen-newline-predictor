@@ -5,10 +5,11 @@
  */
 import { fetchRouteWithSegments } from '../src/route/amapRoute'
 import { enrichSegmentsWithDem } from '../src/route/demFetch'
-import { summarizeSegments } from '../src/route/segment'
+import { expectedStopCount, summarizeSegments } from '../src/route/segment'
 
 const ROAD_LEVEL: Record<string, string> = { highway: '高速', national: '国道', provincial: '省道', city: '城市', other: '其他' }
 const TRAFFIC: Record<string, string> = { smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重拥堵', unknown: '未知' }
+const MOTION_LABEL: Record<string, string> = { cruise: '巡航', toll: '收费站', intersection: '路口', ramp: '匝道', turn: '转弯', serviceArea: '服务区', urbanStopStart: '城市起停' }
 
 async function main() {
   const args = process.argv.slice(2)
@@ -29,11 +30,11 @@ async function main() {
     高速km: sum.roadLevelKm.highway, 城市km: sum.roadLevelKm.city,
   }))
   console.log('')
-  console.log('路段 | 道路 | 等级 | 里程km | 均速 | 坡度% | 海拔m | 爬升 | 下降 | 路况')
+  console.log('路段 | 道路 | 等级 | 里程km | 均速 | 坡度% | 海拔m | 变速 | 期望停车 | 路况')
   for (const s of enriched.segments) {
     console.log(
       [s.index, s.roadName || '-', ROAD_LEVEL[s.roadLevel], s.distanceKm, s.avgSpeedKmh,
-        s.gradePercent ?? '-', s.elevationM ?? '-', s.elevationGainM ?? '-', s.elevationLossM ?? '-', TRAFFIC[s.trafficStatus],
+        s.gradePercent ?? '-', s.elevationM ?? '-', MOTION_LABEL[s.motionBehavior], expectedStopCount(s), TRAFFIC[s.trafficStatus],
       ].join(' | '),
     )
   }

@@ -67,6 +67,37 @@ export interface NearbyStation {
 /** 道路等级（影响巡航速度基准、停车密度、滚动阻力微调） */
 export type RoadLevel = 'highway' | 'national' | 'provincial' | 'city' | 'other'
 
+
+/** 路段变速行为类型（L1 行为区标注）
+ * - toll：收费站（ETC 减速不停 / 人工停车）
+ * - intersection：红绿灯/信号灯路口（停车为概率事件）
+ * - ramp：高速出入口匝道（减速→并线→加速）
+ * - turn：急转弯/环岛/掉头（重卡过弯必减速）
+ * - serviceArea：服务区/停车区（概率停车）
+ * - urbanStopStart：城市起停（无明确事件，按 stopDensity 折算）
+ * - cruise：巡航（匀速，无结构事件）
+ */
+export type MotionBehavior =
+  | 'cruise'
+  | 'toll'
+  | 'intersection'
+  | 'ramp'
+  | 'turn'
+  | 'serviceArea'
+  | 'urbanStopStart'
+
+/** 变速事件（单次概率 + 期望次数；供工况合成计算启停能量） */
+export interface MotionEvent {
+  /** 事件类型：stop=停车 / start=启动 / decel=减速 / turn=转弯 */
+  type: 'stop' | 'start' | 'decel' | 'turn'
+  /** 期望次数（= Σ 概率；概率事件按概率计入，如 3 个路口 × P=0.4 → 1.2 次） */
+  expectedCount: number
+  /** 单次发生概率 0~1（红绿灯停车等为概率事件） */
+  probability: number
+  /** 说明（如 "ETC收费站" "红绿灯路口"） */
+  label?: string
+}
+
 /**
  * 路段数据 —— 物理仿真模型的标准输入契约（对标 NREL FASTSim 命名惯例）
  *
@@ -97,6 +128,10 @@ export interface SegmentData {
   trafficStatus: TrafficStatus
   /** 停车/怠速密度 次/km（由道路等级×路况推断，供工况合成起停） */
   stopDensity: number
+  /** 变速行为类型（L1 行为区标注：收费站/路口/匝道/转弯/服务区/城市起停/巡航） */
+  motionBehavior: MotionBehavior
+  /** 变速事件清单（单次概率 + 期望次数；供工况合成计算启停能量） */
+  motionEvents: MotionEvent[]
   /** 气温 ℃（预留：高德天气 API / 线路区间插值，未获取为 null） */
   temperatureC: number | null
   /** 本段坐标序列（WGS-84，[lng,lat]；已由高德 GCJ-02 逆转换，供 DEM/天气采样） */

@@ -1,7 +1,7 @@
 /** A1 分段切片验证：纯函数自测 + 真实线路分段（需 AMAP_KEY） */
 import type { AmapRawPath } from '../src/route/types'
 import {
-  buildSegments, dominantTrafficStatus, extractRoadName,
+  buildSegments, detectMotionBehavior, dominantTrafficStatus, expectedStopCount, extractRoadName,
   inferRoadLevel, inferStopDensity, summarizeSegments,
 } from '../src/route/segment'
 import { decodePolyline, gcj02ToWgs84, outOfChina, wgs84ToGcj02 } from '../src/route/coords'
@@ -94,6 +94,11 @@ async function main() {
   assert('stopDensity: 城区+拥堵=6', inferStopDensity('city', 'congested') === 6)
   assert('stopDensity: 高速+严重=0.1', inferStopDensity('highway', 'severe') === 0.1)
 
+  // 行为区标注（L1）
+  assert('motion: 收费站→toll', detectMotionBehavior('进入收费站', 'highway', []).behavior === 'toll')
+  assert('motion: 红绿灯→intersection', detectMotionBehavior('直行通过红绿灯路口', 'city', []).behavior === 'intersection')
+  assert('motion: 城市兜底→urbanStopStart', detectMotionBehavior('沿幸福路行驶', 'city', []).behavior === 'urbanStopStart')
+
   // 分段切片（夹具）
   const segs = buildSegments(makeFixturePath())
   assert('buildSegments: 3 段', segs.length === 3, String(segs.length))
@@ -101,6 +106,9 @@ async function main() {
   assert('buildSegments: 里程合计 36km', Math.abs(totalKm - 36) < 0.01, String(totalKm))
   assert('buildSegments: 段0 roadLevel=highway', segs[0].roadLevel === 'highway')
   assert('buildSegments: 段0 路况=smooth（加权）', segs[0].trafficStatus === 'smooth')
+  assert('buildSegments: 段0 高速巡航→cruise', segs[0].motionBehavior === 'cruise')
+  assert('buildSegments: 段1 北六环→urbanStopStart', segs[1].motionBehavior === 'urbanStopStart')
+  assert('expectedStopCount: 巡航段按密度(0.02×20km)=0.4', Math.abs(expectedStopCount(segs[0]) - 0.4) < 1e-9)
   assert('buildSegments: 段1 路况=congested', segs[1].trafficStatus === 'congested')
   assert('buildSegments: 段0 均速=80km/h', Math.abs(segs[0].avgSpeedKmh - 80) < 0.5, String(segs[0].avgSpeedKmh))
   assert('buildSegments: 段2 均速=24km/h(4000m/600s)', Math.abs(segs[2].avgSpeedKmh - 24) < 0.5, String(segs[2].avgSpeedKmh))

@@ -7,21 +7,25 @@
  *
  * 缓存：瓦片写入 data/dem-cache/z_x_y.png（已 gitignore），同一走廊一次下载后复用。
  *
- * —— 路段自适应细分（创新点）——
+ * —— 路段自适应切分（创新点：行为区 + 坡度带）——
  * 高德按"导航动作"切 step：高速上连续 90km 不拐弯只给 1 段、城区几米也给 1 段，
  * 直接用于氢耗仿真会"平均掉坡度"。本模块在高程填充前做两件事：
- *   ① 合并碎段：<0.3km 的段并入前一段（清掉起终点几米的垃圾行）；
- *   ② 细分长段：>10km 的段沿 DEM 高程剖面在"坡度变号点（峰/谷）"切开，
- *      每子段 2~10km，继承父段的路名/等级/路况，重新计算各自坡度/海拔/爬升下降。
+ *   ① 行为感知合并：只有"同路 + 无变速事件 + <0.2km"的纯延续碎段才并入前一段，
+ *      收费站/路口/匝道/转弯等行为区短段一律保留（短段不再一律合并）；
+ *   ② 坡度自适应切分（对所有 ≥1km 的段）：
+ *      - 坡度变号（峰/谷）必切 → 每子段只上坡或只下坡；
+ *      - 坡度带阈值：滑动窗口平均坡度偏离当前段均值 > ±1.5% → 切（控制段内坡度幅度）；
+ *      - 长度上限 10km、巡航段最小 0.5km；
+ *      子段继承父段路名/等级/路况/变速行为，重新计算各自坡度/海拔/爬升下降。
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SegmentData } from './types'
 import {
-  decodePng, resampleCoords, sampleElevationInTile,
+  decodePng, haversineM, resampleCoords, sampleElevationInTile,
   tileXY, type ProfilePoint,
 } from './dem'
-import { round2 } from './parse'
+import { round1, round2 } from './parse'
 
 export interface DemTile {
   x: number
@@ -52,6 +56,10 @@ export interface DemOptions {
   terrariumBase?: string
   /** 进度回调（下载瓦片阶段逐张上报） */
   onProgress?: (p: DemProgress) => void
+  /** 采样步长（米，默认 200；opentopodata 兜底固定 500） */
+  sampleM?: number
+  /** 坡度切分参数（覆盖默认值） */
+  split?: SplitParams
 }
 
 export interface EnrichResult {
@@ -62,13 +70,28 @@ export interface EnrichResult {
   source: 'terrarium' | 'opentopodata'
 }
 
-/* ===== 路段自适应细分参数 ===== */
-/** 长段细分阈值：超过 10km 就按坡度变号切开 */
+/* ===== 路段自适应切分参数（可配置） ===== */
+/** 段长上限：超过 10km 必切 */
 export const MAX_SEGMENT_KM = 10
-/** 子段最小长度：避免切出过碎的小段 */
-export const MIN_SUB_KM = 2
-/** 碎段合并阈值：小于 0.3km 并入前一段 */
-export const MERGE_TINY_KM = 0.3
+/** 巡航段最小长度：小于此长度不再细分（事件段可更短） */
+export const MIN_SEGMENT_KM = 0.5
+/** 参与地形切分的最小段长：短于此的段（多为行为区/城市短段）不切分 */
+export const MIN_SPLIT_KM = 1.0
+/** 坡度带阈值（%）：滑动窗口平均坡度偏离当前段均值超过该值 → 切分 */
+export const GRADE_BAND_PCT = 1.5
+/** 滑动窗口（m）：用于平滑 DEM 噪声、判定"坡度带变化" */
+export const GRADE_WINDOW_M = 500
+/** 纯延续碎段合并阈值：<0.2km 且同路、无变速事件才并入前段 */
+export const MERGE_TINY_KM = 0.2
+
+/** 坡度切分参数（覆盖默认值用） */
+export interface SplitParams {
+  maxKm?: number
+  minKm?: number
+  minSplitKm?: number
+  bandPct?: number
+  windowM?: number
+}
 
 const DEFAULT_TERRARIUM = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium'
 
@@ -188,15 +211,31 @@ interface ProfileSlice {
 }
 
 /** ① 合并碎段：<MERGE_TINY_KM 的段并入前一段（首段无法并入则保留） */
-function mergeTinySegments(segments: SegmentData[]): SegmentData[] {
+/** 段是否携带离散变速事件（收费站/路口/匝道等） */
+function hasDiscreteEvents(s: SegmentData): boolean {
+  return (s.motionEvents ?? []).some((e) => e.expectedCount > 0)
+}
+
+/**
+ * ① 行为感知合并：只合并"纯延续碎段"——<0.2km、与前段同路名/同等级/同变速行为、无离散事件。
+ * 收费站/路口/匝道等行为区短段、城市起停短段一律保留（短段不再一律合并）。
+ */
+export function mergeContinuationFragments(segments: SegmentData[]): SegmentData[] {
   const out: SegmentData[] = []
   for (const s of segments) {
     const last = out[out.length - 1]
-    if (s.distanceKm < MERGE_TINY_KM && last) {
+    const isContinuation =
+      last &&
+      s.distanceKm < MERGE_TINY_KM &&
+      !hasDiscreteEvents(s) &&
+      s.roadName === last.roadName &&
+      s.roadLevel === last.roadLevel &&
+      s.motionBehavior === last.motionBehavior
+    if (isContinuation) {
       last.distanceKm = round2(last.distanceKm + s.distanceKm)
       last.durationH = round2(last.durationH + s.durationH)
       last.coordsWgs84 = last.coordsWgs84.concat(s.coordsWgs84)
-      last.avgSpeedKmh = last.durationH > 0 ? round1v(last.distanceKm / last.durationH) : last.avgSpeedKmh
+      if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
     } else {
       out.push({ ...s, coordsWgs84: [...s.coordsWgs84] })
     }
@@ -204,41 +243,128 @@ function mergeTinySegments(segments: SegmentData[]): SegmentData[] {
   return out
 }
 
-function round1v(n: number): number {
-  return Math.round(n * 10) / 10
-}
+/**
+ * ② 坡度自适应切分：坡度变号（峰/谷）必切 + 坡度带阈值 + 长度上限。
+ * 目标：每子段"内部匀质"——只上坡或只下坡、段内坡度幅度 ≈ bandPct、长度在 min~max。
+ * 返回按切分点切开的剖面子集（每个子集为一段）。
+ */
+export function splitGradeProfile(
+  pts: ProfilePoint[],
+  elevs: number[],
+  o: SplitParams = {},
+): ProfileSlice[] {
+  const maxKm = o.maxKm ?? MAX_SEGMENT_KM
+  const minKm = o.minKm ?? MIN_SEGMENT_KM
+  const minSplitKm = o.minSplitKm ?? MIN_SPLIT_KM
+  const bandPct = o.bandPct ?? GRADE_BAND_PCT
+  const windowM = o.windowM ?? GRADE_WINDOW_M
+  const n = pts.length
+  if (n < 3) return [rebaseSlice(pts, elevs, 0, n - 1)]
+  const totalM = pts[n - 1].cumM
+  if (totalM < minSplitKm * 1000) return [rebaseSlice(pts, elevs, 0, n - 1)]
 
-/** ② 长段按"坡度变号点"切开：子段长度控制在 MIN_SUB_KM~MAX_SEGMENT_KM */
-function splitLongProfile(pts: ProfilePoint[], elevs: number[]): ProfileSlice[] {
-  const maxM = MAX_SEGMENT_KM * 1000
-  const minM = MIN_SUB_KM * 1000
-  const slices: ProfileSlice[] = []
+  // 每采样间隔的坡度（%）
+  const grade: number[] = new Array(n).fill(0)
+  for (let i = 1; i < n; i++) {
+    const d = pts[i].cumM - pts[i - 1].cumM
+    if (d >= 1 && Number.isFinite(elevs[i]) && Number.isFinite(elevs[i - 1])) {
+      grade[i] = ((elevs[i] - elevs[i - 1]) / d) * 100
+    }
+  }
+  // 前向滑动窗口平均坡度（平滑 DEM 噪声）
+  const stepM = totalM / (n - 1)
+  const winLen = Math.max(2, Math.round(windowM / stepM))
+  const winGrade: number[] = new Array(n).fill(0)
+  for (let k = 0; k < n; k++) {
+    let sum = 0
+    let cnt = 0
+    const end = Math.min(n, k + winLen)
+    for (let j = k; j < end; j++) {
+      if (Number.isFinite(grade[j])) {
+        sum += grade[j]
+        cnt++
+      }
+    }
+    winGrade[k] = cnt ? sum / cnt : 0
+  }
+
+  const minIdxStep = Math.ceil((minKm * 1000) / Math.max(stepM, 1))
+  const cuts: number[] = []
   let start = 0
-  let lastSign = 0
   let i = 1
-  while (i < pts.length) {
-    const d = pts[i].cumM - pts[start].cumM
-    if (d >= maxM) {
-      slices.push(rebaseSlice(pts, elevs, start, i))
-      start = i
-      lastSign = 0
-    } else if (d >= minM) {
-      const dh = elevs[i] - elevs[i - 1]
-      const sign = dh > 0 ? 1 : dh < 0 ? -1 : 0
-      if (sign !== 0) {
-        if (lastSign !== 0 && sign !== lastSign) {
-          // 坡度变号（上坡→下坡 或 下坡→上坡，即山峰/山谷）→ 在此切开
-          slices.push(rebaseSlice(pts, elevs, start, i))
-          start = i
-          lastSign = 0
-        } else {
-          lastSign = sign
+  while (i < n - 1) {
+    const lenM = pts[i].cumM - pts[start].cumM
+    if (lenM >= minKm * 1000) {
+      // 当前候选段 [start, i] 的平均坡度
+      let gsum = 0
+      let gcnt = 0
+      for (let j = start + 1; j <= i; j++) {
+        if (Number.isFinite(grade[j])) {
+          gsum += grade[j]
+          gcnt++
         }
+      }
+      const gMean = gcnt ? gsum / gcnt : 0
+      // ① 长度上限：在最近一段窗口内找 |坡度| 最大处切，保证新段 ≥ minKm
+      if (lenM >= maxKm * 1000) {
+        const lo = Math.max(start + minIdxStep, i - winLen)
+        let best = i
+        let bestD = -1
+        for (let j = lo; j <= i; j++) {
+          if (Number.isFinite(grade[j]) && Math.abs(grade[j]) > bestD) {
+            bestD = Math.abs(grade[j])
+            best = j
+          }
+        }
+        if (best <= start) best = i
+        cuts.push(best)
+        start = best
+        i = start + 1
+        continue
+      }
+      // ② 坡度带：前方窗口均值偏离当前段均值超过 band → 切（把"新坡度带"开出来）
+      if (Math.abs(winGrade[i] - gMean) > bandPct) {
+        cuts.push(i)
+        start = i
+        i = start + 1
+        continue
+      }
+      // ③ 变号（峰/谷）：前方窗口均值符号与当前段均值相反，且都足够陡（滤噪声）
+      if (
+        gMean !== 0 &&
+        winGrade[i] !== 0 &&
+        Math.sign(winGrade[i]) !== Math.sign(gMean) &&
+        Math.abs(gMean) > 0.3 &&
+        Math.abs(winGrade[i]) > 0.3
+      ) {
+        cuts.push(i)
+        start = i
+        i = start + 1
+        continue
       }
     }
     i++
   }
-  if (start < pts.length - 1) slices.push(rebaseSlice(pts, elevs, start, pts.length - 1))
+
+  // 组装切片
+  const idxs = [0, ...cuts, n - 1]
+  const slices: ProfileSlice[] = []
+  for (let k = 0; k < idxs.length - 1; k++) {
+    const a = idxs[k]
+    const b = idxs[k + 1]
+    if (b > a) slices.push(rebaseSlice(pts, elevs, a, b))
+  }
+  // 尾部过短（< 0.5×minKm）且坡度接近 → 并入前一片（唯一允许的"合并"）
+  if (slices.length > 1) {
+    const tailKm = slices[slices.length - 1].pts.length
+      ? slices[slices.length - 1].pts[slices[slices.length - 1].pts.length - 1].cumM
+      : 0
+    if (tailKm < minKm * 500) {
+      const a = idxs[idxs.length - 3]
+      slices[slices.length - 2] = rebaseSlice(pts, elevs, a, n - 1)
+      slices.pop()
+    }
+  }
   return slices
 }
 
@@ -251,7 +377,7 @@ function rebaseSlice(pts: ProfilePoint[], elevs: number[], a: number, b: number)
 }
 
 /** ③ 由父段 + 剖面子集生成一个子段（含坡度/海拔/爬升下降/剖面） */
-function finalizeSub(parent: SegmentData, slice: ProfileSlice): SegmentData {
+function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): SegmentData {
   const { pts, elevs } = slice
   const totalM = pts.length ? pts[pts.length - 1].cumM : 0
   const valid = elevs.filter((v) => Number.isFinite(v))
@@ -281,6 +407,8 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice): SegmentData {
     elevationM,
     trafficStatus: parent.trafficStatus,
     stopDensity: parent.stopDensity,
+    motionBehavior: parent.motionBehavior,
+    motionEvents: sliceIndex === 0 ? (parent.motionEvents ?? []) : [],
     temperatureC: parent.temperatureC,
     coordsWgs84: pts.map((p) => [p.lng, p.lat] as [number, number]),
     durationH: round2(distanceKm / (avgSpeedKmh || 1)),
@@ -309,20 +437,40 @@ function scaleSubs(parent: SegmentData, subs: SegmentData[]): SegmentData[] {
   }))
 }
 
-/** terrarium 路径：合并碎段 → 采样剖面 → 细分长段 → 生成子段 */
-function enrichWithTiles(segments: SegmentData[], tiles: Map<string, DemTile>, z: number): SegmentData[] {
-  const merged = mergeTinySegments(segments)
+/** 剖面子集列表 → 子段（继承父段行为字段；离散事件只挂到首个子段，避免重复计数） */
+function slicesToSubs(parent: SegmentData, slices: ProfileSlice[]): SegmentData[] {
+  return slices.map((sl, k) => finalizeSub(parent, sl, k))
+}
+
+/** terrarium 路径：行为感知合并 → 采样剖面 → 坡度自适应切分 → 生成子段 */
+function enrichWithTiles(
+  segments: SegmentData[],
+  tiles: Map<string, DemTile>,
+  z: number,
+  o: DemOptions = {},
+): SegmentData[] {
+  const sampleM = o.sampleM ?? 200
+  const merged = mergeContinuationFragments(segments)
   const out: SegmentData[] = []
   for (const s of merged) {
-    const pts = resampleCoords(s.coordsWgs84, 200)
+    let pts = resampleCoords(s.coordsWgs84, sampleM)
+    if (pts.length < 2 && s.coordsWgs84.length >= 2) {
+      // 极短段（< 采样步长）：强制取首尾两点，保证不丢段
+      const first = s.coordsWgs84[0]
+      const last = s.coordsWgs84[s.coordsWgs84.length - 1]
+      pts = [
+        { lng: first[0], lat: first[1], cumM: 0 },
+        { lng: last[0], lat: last[1], cumM: haversineM(first, last) },
+      ]
+    }
     if (pts.length < 2) continue
     const elevs = pts.map((p) => {
       const [tx, ty] = tileXY(p.lng, p.lat, z)
       const tile = tiles.get(tx + ',' + ty)
       return tile ? sampleElevationInTile(tile, p.lng, p.lat) : NaN
     })
-    const slices = s.distanceKm > MAX_SEGMENT_KM ? splitLongProfile(pts, elevs) : [{ pts, elevs }]
-    const subs = slices.map((sl) => finalizeSub(s, sl))
+    const slices = splitGradeProfile(pts, elevs, o.split)
+    const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))
   }
   out.forEach((x, i) => { x.index = i })
@@ -338,7 +486,7 @@ export async function enrichSegmentsWithDem(
   try {
     const tiles = await loadDemTiles(segments, opts)
     opts.onProgress?.({ phase: 'compute', done: 1, total: 1, cached: tiles.size })
-    const refined = enrichWithTiles(segments, tiles, z)
+    const refined = enrichWithTiles(segments, tiles, z, opts)
     return { segments: refined, tilesUsed: tiles.size, z, source: 'terrarium' }
   } catch (e) {
     console.warn('[dem] terrarium 失败，改用 opentopodata 兜底:', (e as Error).message)
@@ -346,10 +494,21 @@ export async function enrichSegmentsWithDem(
   }
 }
 
-/** opentopodata 兜底：500m 重采样 + 同样的细分逻辑 */
+/** opentopodata 兜底：500m 重采样 + 同样的切分逻辑 */
 async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichResult> {
-  const merged = mergeTinySegments(segments)
+  const merged = mergeContinuationFragments(segments)
   const perSeg: ProfilePoint[][] = merged.map((s) => resampleCoords(s.coordsWgs84, 500))
+  // 极短段强制取首尾两点
+  for (let si = 0; si < merged.length; si++) {
+    if (perSeg[si].length < 2 && merged[si].coordsWgs84.length >= 2) {
+      const first = merged[si].coordsWgs84[0]
+      const last = merged[si].coordsWgs84[merged[si].coordsWgs84.length - 1]
+      perSeg[si] = [
+        { lng: first[0], lat: first[1], cumM: 0 },
+        { lng: last[0], lat: last[1], cumM: haversineM(first, last) },
+      ]
+    }
+  }
   const all = perSeg.flat()
   const elevs: number[] = []
   for (let i = 0; i < all.length; i += 90) {
@@ -371,8 +530,8 @@ async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichRes
     if (pts.length < 2) continue
     const segElevs: number[] = []
     for (let i = 0; i < pts.length; i++) segElevs.push(elevs[k++])
-    const slices = s.distanceKm > MAX_SEGMENT_KM ? splitLongProfile(pts, segElevs) : [{ pts, elevs: segElevs }]
-    const subs = slices.map((sl) => finalizeSub(s, sl))
+    const slices = splitGradeProfile(pts, segElevs)
+    const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))
   }
   out.forEach((x, i) => { x.index = i })

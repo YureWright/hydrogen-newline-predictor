@@ -9,7 +9,7 @@
  */
 import type {
   AmapRawPath, AmapRawStep, AmapRawTmcs,
-  RoadLevel, SegmentData, SegmentSummary, TrafficStatus,
+  MotionBehavior, MotionEvent, RoadLevel, SegmentData, SegmentSummary, TrafficStatus,
 } from './types'
 import { mapTrafficStatus, round1, round2 } from './parse'
 import { decodePolyline, gcj02ToWgs84 } from './coords'
@@ -104,6 +104,137 @@ export const TRAFFIC_STOP_FACTOR: Record<TrafficStatus, number> = {
   unknown: 1.0,
 }
 
+/* ============================ L1 行为区标注（变速情况 + 变速概率） ============================ */
+
+/** 变速事件概率默认表（可配置；后续可用红绿灯配时/轨迹数据校准） */
+export const MOTION_PROB: Record<string, { stop: number; decel: number }> = {
+  toll: { stop: 0.1, decel: 0.9 }, // ETC 默认：基本不停，减速通过
+  tollMtc: { stop: 0.95, decel: 0.99 }, // 人工收费车道：几乎必停
+  service: { stop: 0.1, decel: 0.9 },
+  intersection: { stop: 0.4, decel: 1.0 }, // 红绿灯：停车是概率事件（默认 P=0.4）
+  intersectionMinor: { stop: 0.35, decel: 1.0 }, // 一般路口（城市，无信号灯关键词）
+  ramp: { stop: 0.05, decel: 0.85 },
+  turn: { stop: 0.0, decel: 0.7 },
+  uTurn: { stop: 0.3, decel: 1.0 }, // 掉头：接近停车
+}
+
+/** 指令关键词 → 行为（优先级：收费站 > 服务区 > 匝道 > 路口 > 转弯） */
+const TOLL_RE = /收费站|ETC|人工收费/
+const MTC_RE = /人工|MTC/
+const SERVICE_RE = /服务区|停车区/
+const RAMP_RE = /匝道|进入高速|驶出高速|靠右前方|靠左前方|向右前方|向左前方/
+const INTERSECTION_RE = /红绿灯|信号灯/
+const MINOR_INTERSECTION_RE = /路口/
+const TURN_RE = /左转|右转|掉头|转弯|环岛/
+const UTURN_RE = /掉头/
+
+/** 几何转弯判定阈值：polyline 相邻航向角最大变化（度）超过该值视为急转弯 */
+export const TURN_HEADING_DEG = 40
+
+/** 两点航向角（度，0~360，正北为 0） */
+export function bearingDeg(a: [number, number], b: [number, number]): number {
+  const [lng1, lat1] = a
+  const [lng2, lat2] = b
+  const phi1 = (lat1 * Math.PI) / 180
+  const phi2 = (lat2 * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const y = Math.sin(dLng) * Math.cos(phi2)
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLng)
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360
+}
+
+/** 折线上相邻航向角的最大变化（度，0~180） */
+export function maxHeadingChange(coords: Array<[number, number]>): number {
+  if (coords.length < 3) return 0
+  let max = 0
+  for (let i = 1; i < coords.length - 1; i++) {
+    const b1 = bearingDeg(coords[i - 1], coords[i])
+    const b2 = bearingDeg(coords[i], coords[i + 1])
+    let d = Math.abs(b2 - b1)
+    if (d > 180) d = 360 - d
+    if (d > max) max = d
+  }
+  return max
+}
+
+/** 行为检测结果 */
+export interface MotionDetection {
+  behavior: MotionBehavior
+  events: MotionEvent[]
+}
+
+function event(type: MotionEvent['type'], probability: number, label: string): MotionEvent {
+  return { type, expectedCount: round2(probability), probability: round2(probability), label }
+}
+
+/**
+ * L1 行为区检测：由导航指令关键词 + 折线航向角 + 道路等级推断变速行为与变速概率。
+ * 优先级：收费站 > 服务区 > 匝道 > 红绿灯路口 > 一般路口(城市) > 转弯(指令/几何) > 城市起停/巡航。
+ */
+export function detectMotionBehavior(
+  instruction: string | undefined,
+  roadLevel: RoadLevel,
+  coordsWgs84: Array<[number, number]>,
+): MotionDetection {
+  const s = instruction ?? ''
+  // ① 收费站
+  if (TOLL_RE.test(s)) {
+    const mtc = MTC_RE.test(s)
+    const p = mtc ? MOTION_PROB.tollMtc : MOTION_PROB.toll
+    const evs: MotionEvent[] = [event('stop', p.stop, mtc ? '人工收费' : 'ETC收费站')]
+    if (p.decel > 0) evs.push(event('decel', p.decel, '过站减速'))
+    return { behavior: 'toll', events: evs }
+  }
+  // ② 服务区
+  if (SERVICE_RE.test(s)) {
+    const p = MOTION_PROB.service
+    const evs: MotionEvent[] = [event('stop', p.stop, '服务区')]
+    if (p.decel > 0) evs.push(event('decel', p.decel, '进区减速'))
+    return { behavior: 'serviceArea', events: evs }
+  }
+  // ③ 匝道
+  if (RAMP_RE.test(s)) {
+    const p = MOTION_PROB.ramp
+    const evs: MotionEvent[] = [event('decel', p.decel, '匝道减速')]
+    if (p.stop > 0) evs.push(event('stop', p.stop, '匝道停车(排队)'))
+    return { behavior: 'ramp', events: evs }
+  }
+  // ④ 红绿灯路口（明确关键词）
+  if (INTERSECTION_RE.test(s)) {
+    const p = MOTION_PROB.intersection
+    return { behavior: 'intersection', events: [event('stop', p.stop, '红绿灯路口'), event('decel', p.decel, '路口减速')] }
+  }
+  // ⑤ 一般路口（城市道路指令含"路口"）
+  if (roadLevel === 'city' && MINOR_INTERSECTION_RE.test(s)) {
+    const p = MOTION_PROB.intersectionMinor
+    return { behavior: 'intersection', events: [event('stop', p.stop, '路口'), event('decel', p.decel, '路口减速')] }
+  }
+  // ⑥ 转弯（指令）
+  if (TURN_RE.test(s)) {
+    if (UTURN_RE.test(s)) {
+      const p = MOTION_PROB.uTurn
+      return { behavior: 'turn', events: [event('stop', p.stop, '掉头'), event('decel', p.decel, '掉头减速')] }
+    }
+    const p = MOTION_PROB.turn
+    return { behavior: 'turn', events: [event('decel', p.decel, '转弯减速')] }
+  }
+  // ⑦ 转弯（几何：航向角突变，指令无关键词时兜底）
+  if (maxHeadingChange(coordsWgs84) >= TURN_HEADING_DEG) {
+    const p = MOTION_PROB.turn
+    return { behavior: 'turn', events: [event('decel', p.decel, '急弯减速(几何)')] }
+  }
+  // ⑧ 城市起停 / 巡航
+  if (roadLevel === 'city') return { behavior: 'urbanStopStart', events: [] }
+  return { behavior: 'cruise', events: [] }
+}
+
+/** 段内期望停车次数：事件段取事件期望次数；巡航/城市起停按停车密度 × 里程折算 */
+export function expectedStopCount(seg: SegmentData): number {
+  const stopEvs = (seg.motionEvents ?? []).filter((e) => e.type === 'stop')
+  if (stopEvs.length > 0) return round2(stopEvs.reduce((a, e) => a + e.expectedCount, 0))
+  return round2((seg.stopDensity ?? 0) * seg.distanceKm)
+}
+
 /** 停车/怠速密度（次/km）= 道路等级基准 × 路况系数 */
 export function inferStopDensity(roadLevel: RoadLevel, traffic: TrafficStatus): number {
   return round2(STOP_DENSITY_BASE[roadLevel] * TRAFFIC_STOP_FACTOR[traffic])
@@ -131,6 +262,7 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
       : round2(distanceM / 1000 / (avgSpeed || 1))
     const coordsGcj = decodePolyline(step.polyline ?? '')
     const coordsWgs84 = coordsGcj.map(([lng, lat]) => gcj02ToWgs84(lng, lat))
+    const motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84)
     segments.push({
       index: i,
       roadName,
@@ -141,6 +273,8 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
       elevationM: null,
       trafficStatus,
       stopDensity: inferStopDensity(roadLevel, trafficStatus),
+      motionBehavior: motion.behavior,
+      motionEvents: motion.events,
       temperatureC: null,
       coordsWgs84,
       durationH,
