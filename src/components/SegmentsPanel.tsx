@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types'
 import { expectedStopCount } from '../route/segment'
-import { DistributionBars, LineAreaChart, StackedBar } from './Charts'
+import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
 
 interface DemInfo { z: number; tiles: number; source: string }
@@ -213,6 +213,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     return { distKm, elevM }
   }, [segments])
 
+  // 剖面折线点（memo：避免每次渲染重建数千点数组触发图表重算）
+  const profilePoints = useMemo(
+    () => profile.distKm.map((x, i) => ({ x, y: profile.elevM[i] })),
+    [profile],
+  )
+
   const motionMarkers = useMemo(() => {
     let cum = 0
     const markers: Array<{ x: number; label: string; color: string }> = []
@@ -225,6 +231,33 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   }, [segments])
 
   const totalStops = useMemo(() => segments.reduce((a, s) => a + expectedStopCount(s), 0), [segments])
+
+  // 导出 CSV（所见即所得：按当前排序导出行；\uFEFF BOM 保证 Excel 打开中文不乱码）
+  const exportCsv = useCallback(() => {
+    if (!segments.length) return
+    const esc = (v: string | number | null | undefined): string => {
+      const s = v == null ? '' : String(v)
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
+    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '爬升m', '下降m', '变速情况', '变速概率/期望', '路况', '停车次/km', '时长h', '期望停车次数']
+    const rows = sorted.map((s) => [
+      s.index, s.roadName ?? '', ROAD_LEVEL_LABEL[s.roadLevel], s.distanceKm, s.avgSpeedKmh,
+      s.gradePercent ?? '', s.elevationM ?? '', s.elevationGainM ?? '', s.elevationLossM ?? '',
+      MOTION_LABEL[s.motionBehavior],
+      s.motionEvents.length ? s.motionEvents.map((e) => `${EVENT_TYPE_LABEL[e.type]}${e.expectedCount}`).join(';') : '',
+      TRAFFIC_LABEL[s.trafficStatus], s.stopDensity, s.durationH, expectedStopCount(s),
+    ].map(esc).join(','))
+    const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `路段数据_${origin}_${destination}_route${routeIndex + 1}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [segments, sorted, origin, destination, routeIndex])
 
   const speedPts = useMemo(() => {
     let cum = 0
@@ -371,7 +404,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       <div className="charts-grid">
         <div className="chart-card chart-wide">
           <h4>海拔剖面</h4>
-          <LineAreaChart points={profile.distKm.map((x, i) => ({ x, y: profile.elevM[i] }))} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
+          <LineAreaChartMemo points={profilePoints} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
           {segments.some((s) => s.motionBehavior !== 'cruise') && (
             <div className="motion-legend">
               {(['toll', 'intersection', 'ramp', 'turn', 'serviceArea', 'urbanStopStart'] as const)
@@ -384,11 +417,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </div>
         <div className="chart-card">
           <h4>道路等级分布（km）</h4>
-          <DistributionBars items={roadLevelItems} total={summary?.totalKm ?? 1} unit="" />
+          <DistributionBarsMemo items={roadLevelItems} total={summary?.totalKm ?? 1} unit="" />
         </div>
         <div className="chart-card">
           <h4>实时路况分布</h4>
-          <StackedBar items={[
+          <StackedBarMemo items={[
             { label: TRAFFIC_LABEL.smooth, value: trafficItems.smoothKm, color: TRAFFIC_COLOR.smooth },
             { label: TRAFFIC_LABEL.slow, value: trafficItems.slowKm, color: TRAFFIC_COLOR.slow },
             { label: TRAFFIC_LABEL.congested, value: trafficItems.congestedKm, color: TRAFFIC_COLOR.congested },
@@ -398,12 +431,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </div>
         <div className="chart-card chart-wide">
           <h4>分段均速（km/h）</h4>
-          <LineAreaChart points={speedPts} color="#2c7fb8" yLabel="均速" unit="km/h" />
+          <LineAreaChartMemo points={speedPts} color="#2c7fb8" yLabel="均速" unit="km/h" />
         </div>
       </div>
 
       <div className="table-card">
-        <h4>路段数据表 <span className="table-tip">☑ 勾选或点击行可多选路段，左侧地图同时高亮；点击表头排序（# = 起点→终点顺序，字段可切换升降）</span></h4>
+        <div className="table-head">
+          <h4>路段数据表</h4>
+          <span className="table-tip">☑ 勾选/点击行多选高亮；点击表头排序（# = 起点→终点顺序）</span>
+          <button className="btn-export" onClick={exportCsv} disabled={!segments.length} title="按当前排序导出 CSV（含期望停车次数）">⬇ 导出 CSV</button>
+        </div>
         <div className="table-scroll">
           <table className="seg-table">
             <thead>

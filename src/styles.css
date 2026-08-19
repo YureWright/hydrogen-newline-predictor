@@ -146,3 +146,20 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 /* 多选勾选框 */
 .seg-table .chk-th, .seg-table .chk-cell { width: 30px; text-align: center; padding: 4px 2px; }
 .seg-table .chk-cell input, .seg-table .chk-th input { cursor: pointer; width: 15px; height: 15px; }
+
+/* 表格头：标题 + 提示 + 导出按钮 */
+.table-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.table-head h4 { margin: 0; }
+.btn-export {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid #2c7fb8;
+  background: #fff;
+  color: #2c7fb8;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all .15s;
+}
+.btn-export:hover:not(:disabled) { background: #2c7fb8; color: #fff; }
+.btn-export:disabled { opacity: .45; cursor: not-allowed; }

@@ -48,25 +48,27 @@ interface Props {
 export default function MapView({ routes, selectedIndex, onSelect, from, to, stations, highlight }: Props) {
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const layersRef = useRef<L.LayerGroup | null>(null)
+  const baseRef = useRef<L.LayerGroup | null>(null)
+  const hlRef = useRef<L.LayerGroup | null>(null)
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return
     const map = L.map(divRef.current, { zoomControl: true, attributionControl: false, minZoom: 3, maxZoom: 18 })
     L.tileLayer(TILE_URL, { maxZoom: 18 }).addTo(map)
-    layersRef.current = L.layerGroup().addTo(map)
+    baseRef.current = L.layerGroup().addTo(map)
+    hlRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, [])
 
+  // 基础层：路线 + 起终点 + 加氢站（只在路线/选中/站点变化时重画——571 个 marker 很贵，不能跟着勾选高亮一起刷）
   useEffect(() => {
     const map = mapRef.current
-    const layers = layersRef.current
+    const layers = baseRef.current
     if (!map || !layers) return
     layers.clearLayers()
 
     const colors = ['#1f77b4', '#2ca02c', '#ff7f0e']
-    const bounds: L.LatLngExpression[] = []
     routes.forEach((r, i) => {
       const coords = polylineToCoords(r.polyline).map(([lng, lat]) => [lat, lng] as [number, number])
       if (coords.length > 1) {
@@ -75,15 +77,36 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
         }).addTo(layers)
         line.on('click', () => onSelect(i))
         line.bindTooltip(`路线${i + 1}: ${r.distanceKm}km ${r.durationH}h 高速${(r.highwayRatio * 100).toFixed(0)}%`, { sticky: true })
-        bounds.push(coords[0], coords[coords.length - 1])
       }
     })
     if (from) L.circleMarker([from.lat, from.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#0b3d2e', fillOpacity: 1 }).addTo(layers).bindTooltip('起点 ' + from.name)
     if (to) L.circleMarker([to.lat, to.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#d62728', fillOpacity: 1 }).addTo(layers).bindTooltip('终点 ' + to.name)
 
-    // 高亮路段（表格多选）：WGS-84 → GCJ-02 显示，多条用色板区分
-    const highlightCoords: Array<Array<[number, number]>> = []
+    const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
+    for (const s of stations) {
+      const dist = selCoords.length ? pointToPolylineKm(s.lng, s.lat, selCoords) : Infinity
+      const near = dist <= 20
+      L.circleMarker([s.lat, s.lng], {
+        radius: near ? 5 : 2.5, color: '#fff', weight: near ? 1 : 0.5,
+        fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
+      }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
+    }
+  }, [routes, selectedIndex, from, to, stations, onSelect])
+
+  // 高亮层：表格多选路段（只在高亮集合变化时重画——勾选/取消是高频操作，不能拖上基础层）
+  useEffect(() => {
+    const map = mapRef.current
+    const layers = hlRef.current
+    if (!map || !layers) return
+    layers.clearLayers()
+
     const HL_COLORS = ['#ffd700', '#ff8c00', '#e91e63', '#9b59b6', '#00bcd4', '#f44336', '#4caf50', '#3f51b5']
+    const highlightCoords: Array<Array<[number, number]>> = []
+    const bounds: L.LatLngExpression[] = []
+    routes.forEach((r) => {
+      const c = polylineToCoords(r.polyline)
+      if (c.length > 1) bounds.push([c[0][1], c[0][0]], [c[c.length - 1][1], c[c.length - 1][0]])
+    })
     if (highlight) {
       highlight.forEach((coords, hi) => {
         if (!coords || coords.length < 2) return
@@ -96,23 +119,13 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
         L.circleMarker(gcj[gcj.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).addTo(layers)
       })
     }
-
-    const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
-    for (const s of stations) {
-      const dist = selCoords.length ? pointToPolylineKm(s.lng, s.lat, selCoords) : Infinity
-      const near = dist <= 20
-      L.circleMarker([s.lat, s.lng], {
-        radius: near ? 5 : 2.5, color: '#fff', weight: near ? 1 : 0.5,
-        fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
-      }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
-    }
     if (highlightCoords.length > 0) {
       const all = highlightCoords.flat()
       if (all.length >= 2) map.fitBounds(L.latLngBounds(all).pad(0.2))
     } else if (bounds.length) {
       map.fitBounds(L.latLngBounds(bounds).pad(0.15))
     }
-  }, [routes, selectedIndex, from, to, stations, onSelect, highlight])
+  }, [highlight, routes])
 
   return <div ref={divRef} style={{ height: '100%', width: '100%' }} />
 }

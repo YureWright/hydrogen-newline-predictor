@@ -1,12 +1,12 @@
 /** 轻量图表组件（零依赖 SVG/CSS，用于路段数据分析区） */
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 
 const W = 760
 const H = 200
 const PAD = { l: 46, r: 14, t: 18, b: 28 }
 
 /** 通用折线/面积图（x=km，y=数值） */
-export function LineAreaChart({ points, color, yLabel, unit, markers }: {
+function LineAreaChart({ points, color, yLabel, unit, markers }: {
   points: Array<{ x: number; y: number }>
   color: string
   yLabel: string
@@ -61,7 +61,7 @@ export function LineAreaChart({ points, color, yLabel, unit, markers }: {
 }
 
 /** CSS 横向分布条（道路等级 / 路况） */
-export function DistributionBars({ items, total, unit }: {
+function DistributionBars({ items, total, unit }: {
   items: Array<{ label: string; value: number; color: string }>
   total: number
   unit: string
@@ -83,7 +83,7 @@ export function DistributionBars({ items, total, unit }: {
 }
 
 /** 堆叠条 + 图例（用于实时路况） */
-export function StackedBar({ items }: { items: Array<{ label: string; value: number; color: string }> }) {
+function StackedBar({ items }: { items: Array<{ label: string; value: number; color: string }> }) {
   const total = items.reduce((a, b) => a + b.value, 0) || 1
   return (
     <div>
@@ -100,3 +100,8 @@ export function StackedBar({ items }: { items: Array<{ label: string; value: num
     </div>
   )
 }
+
+/** React.memo：勾选/排序等高频交互不重算 SVG 路径 */
+export const LineAreaChartMemo = memo(LineAreaChart)
+export const DistributionBarsMemo = memo(DistributionBars)
+export const StackedBarMemo = memo(StackedBar)
