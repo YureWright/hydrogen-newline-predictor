@@ -17,10 +17,12 @@ export default function MarkdownLight({ text }: { text: string }) {
   const flushList = (key: string) => {
     if (list.length) {
       out.push(
+        // key 加 'list-' 前缀，与标题/段落的 key 分属不同命名空间：
+        // "要点列表 + ### 小标题" 是 AI 输出的高频结构，两者用同一个 'h'+idx 会撞 key
         listType === 'ol' ? (
-          <ol key={key}>{list}</ol>
+          <ol key={'list-' + key}>{list}</ol>
         ) : (
-          <ul key={key}>{list}</ul>
+          <ul key={'list-' + key}>{list}</ul>
         ),
       )
       list = []

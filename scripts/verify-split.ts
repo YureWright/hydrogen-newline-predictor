@@ -1,11 +1,12 @@
 /** 路段切分算法验证：行为区检测 + 坡度自适应切分（纯函数，无需联网） */
-import type { AmapRawPath, MotionBehavior, SegmentData } from '../src/route/types'
+import type { AmapRawPath, MotionBehavior, RoadLevel, SegmentData } from '../src/route/types'
 import {
-  buildIntersectionEvents, buildSegments, detectMotionBehavior, expectedStopCount,
-  extractRoadName, inferRoadLevel, maxHeadingChange,
+  applyRoadLevelChange, buildIntersectionEvents, buildSegments, detectMotionBehavior,
+  expectedStopCount, extractRoadName, inferRoadLevel, inferStopDensity, maxHeadingChange,
+  CRUISE_SPEED_BY_LEVEL, INTERSECTION_DENSITY_PER_KM, ROAD_LEVEL_LABEL, STOP_DENSITY_BASE,
 } from '../src/route/segment'
 import {
-  enrichWithTiles, mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile,
+  denoiseElevations, enrichWithTiles, mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile,
   GRADE_BAND_PCT, MAX_SEGMENT_KM,
 } from '../src/route/demFetch'
 import { resampleCoords, type ProfilePoint } from '../src/route/dem'
@@ -181,10 +182,13 @@ function main() {
   assert('合并后全段期望停车 = 0.1（一座广场只计一次）', Math.abs(expectedStopCount(tollSegs[0]) - 0.1) < 1e-9)
 
   console.log('— 长事件 step 拆分（尾部事件段） —')
+  // 折线必须与声明里程几何自洽（每点间隔 0.009°≈1.0km，共 10km），
+  // 否则切分点会落在离目标很远的位置，测出来的不是真实行为
+  const rampPolyline = Array.from({ length: 11 }, (_, i) => '117.0,' + (39 + i * 0.009).toFixed(3)).join(';')
   const longRamp: AmapRawPath = {
     distance: '10000', duration: '500', tolls: '20', toll_distance: '10000',
     steps: [
-      { instruction: '沿S15京津高速途径XX桥向东南行驶10千米向右前方行驶进入匝道', distance: '10000', duration: '500', tolls: '20', toll_distance: '10000', polyline: '117.0,39.0;117.1,39.1;117.2,39.2;117.3,39.3;117.4,39.4;117.5,39.5' },
+      { instruction: '沿S15京津高速途径XX桥向东南行驶10千米向右前方行驶进入匝道', distance: '10000', duration: '500', tolls: '20', toll_distance: '10000', polyline: rampPolyline },
     ],
   }
   const longSegs = buildSegments(longRamp)
@@ -194,9 +198,32 @@ function main() {
   assert('事件只挂在尾部（一次计数）', longSegs[1].motionEvents.some(e => e.type === 'decel') && longSegs[0].motionEvents.length === 0)
   const kmSum = longSegs.reduce((a, s) => a + s.distanceKm, 0)
   assert('里程守恒（合计≈10km）', Math.abs(kmSum - 10) < 0.5, String(kmSum))
-  assert('尾部匝道段均速 = 事件典型速度(35km/h)', Math.abs(longSegs[1].avgSpeedKmh - 35) < 0.1, String(longSegs[1].avgSpeedKmh))
-  assert('头部巡航段均速 = 整步均速', longSegs[0].avgSpeedKmh > 35, String(longSegs[0].avgSpeedKmh))
-  assert('尾部时长 = 尾部里程/事件速度（自洽）', Math.abs(longSegs[1].durationH - longSegs[1].distanceKm / 35) < 0.005, 'dur=' + longSegs[1].durationH + ' km=' + longSegs[1].distanceKm)
+  // 时长守恒：拆分只是在段内重新分配时间，不能凭空多出来。
+  // 旧实现给尾段按固定速度另算一份时间加在主体段后面，实测让全程时长虚增 7%（京津线 +8.4 分钟）
+  const stepAvg = 10 / (500 / 3600) // 整步均速 72km/h
+  const hSum = longSegs.reduce((a, s) => a + s.durationH, 0)
+  assert('时长守恒：拆分后合计 = 整步时长(500s)', Math.abs(hSum - 500 / 3600) < 0.005, 'sum=' + hSum.toFixed(4))
+  assert('头部均速高于整步均速（末尾减速被单独摘出去了）', longSegs[0].avgSpeedKmh > stepAvg,
+    longSegs[0].avgSpeedKmh + ' vs ' + stepAvg.toFixed(1))
+  assert('尾部匝道段明显慢于主体段', longSegs[1].avgSpeedKmh < stepAvg * 0.7,
+    String(longSegs[1].avgSpeedKmh))
+  // 速度按名义时间等比分配 → 头尾速度比恒等于名义速度比（72:35），
+  // 不会像"从主体段扣时间"那样把误差全挤给主体段（实测出过 372km/h 的段）
+  assert('头尾速度比 = 名义速度比（不失真）',
+    Math.abs(longSegs[0].avgSpeedKmh / longSegs[1].avgSpeedKmh - stepAvg / 35) < 0.05,
+    (longSegs[0].avgSpeedKmh / longSegs[1].avgSpeedKmh).toFixed(3) + ' vs ' + (stepAvg / 35).toFixed(3))
+  assert('两段均速都不超过整步均速的 1.3 倍（不产生物理上不可能的段）',
+    longSegs.every(s => s.avgSpeedKmh <= stepAvg * 1.3), longSegs.map(s => s.avgSpeedKmh).join('/'))
+  // 拥堵时整步均速已低于事件典型速度，事件区不能反而比主路还快
+  const jamRamp: AmapRawPath = {
+    distance: '10000', duration: '1800', tolls: '20', toll_distance: '10000',
+    steps: [{ ...longRamp.steps![0], duration: '1800' }],
+  }
+  const jamSegs = buildSegments(jamRamp)
+  const jamSum = jamSegs.reduce((a, s) => a + s.durationH, 0)
+  assert('拥堵路段时长同样守恒', Math.abs(jamSum - 1800 / 3600) < 0.005, 'sum=' + jamSum.toFixed(4))
+  assert('拥堵时事件区不会比主路更快', jamSegs[1].avgSpeedKmh <= jamSegs[0].avgSpeedKmh + 0.1,
+    jamSegs.map(s => s.avgSpeedKmh).join('/'))
 
   console.log('— 城市红绿灯事件 —')
   const cityRun: AmapRawPath = {
@@ -290,8 +317,91 @@ function main() {
   assert('turn 不切分', shouldSplitByGrade('turn') === false)
   assert('serviceArea 不切分', shouldSplitByGrade('serviceArea') === false)
 
+  console.log('— 高程去噪：DEM 采样噪声不能被当成真实爬升 —')
+  // ① 纯平路 + ±3m 随机抖动：真实爬升应为 0，去噪前会把抖动全累加成假爬升
+  const flat = profile([{ lenKm: 10, gradePct: 0 }])
+  const jitter = flat.elevs.map((e, i) => e + [0, 2.5, -3, 1.5, -2, 3, -1.5, 2][i % 8])
+  const rawGain = cumulativeGain(jitter)
+  const cleanGain = cumulativeGain(denoiseElevations(flat.pts, jitter))
+  assert('平路噪声：去噪前有大量假爬升', rawGain > 40, 'gain=' + rawGain.toFixed(0))
+  assert('平路噪声：去噪后假爬升基本清零', cleanGain < 5, 'gain=' + cleanGain.toFixed(0))
+
+  // ② 真实长上坡：信号必须保住，不能被死区吃掉
+  const climb = profile([{ lenKm: 10, gradePct: 3 }])
+  const climbClean = cumulativeGain(denoiseElevations(climb.pts, climb.elevs))
+  assert('真实 3% 长上坡（应爬升 300m）去噪后保留 ≥95%', climbClean >= 285,
+    'gain=' + climbClean.toFixed(0))
+
+  // ③ 去噪后剖面在转折点之间单调线性 → 切成几段都不改变爬升总量（与切分无关性）
+  const mixed = profile([{ lenKm: 4, gradePct: 2 }, { lenKm: 4, gradePct: -2 }])
+  const mixedJit = mixed.elevs.map((e, i) => e + [0, 2, -2.5, 1][i % 4])
+  const den = denoiseElevations(mixed.pts, mixedJit)
+  const denWhole = cumulativeGain(den)
+  const half = Math.floor(den.length / 2)
+  const pieces = cumulativeGain(den.slice(0, half + 1)) + cumulativeGain(den.slice(half))
+  assert('去噪剖面：整段爬升 = 切两半后之和（切分不改变势能）', Math.abs(denWhole - pieces) < 0.01,
+    denWhole.toFixed(2) + ' vs ' + pieces.toFixed(2))
+  assert('deadbandM=0 时关闭去噪（原样返回）',
+    cumulativeGain(denoiseElevations(flat.pts, jitter, 0)) === rawGain)
+
+  console.log('— OSM 改写道路等级后必须重算启停口径 —')
+  // 规则推断成城区（3 路口/km），OSM 实测是快速路（0.05 路口/km）：
+  // 只改 roadLevel 不重算，就会出现"标着快速路却背着城区红绿灯"的段
+  const cityGuess: SegmentData = {
+    ...seg(5, 'urbanStopStart'),
+    roadLevel: 'city',
+    trafficStatus: 'smooth',
+    stopDensity: inferStopDensity('city', 'smooth'),
+    motionEvents: buildIntersectionEvents(5, 'city', 'smooth'),
+  }
+  const cityStops = expectedStopCount(cityGuess)
+  cityGuess.roadLevel = 'expressway'
+  applyRoadLevelChange(cityGuess)
+  assert('等级改判后 stopDensity 跟着重算',
+    cityGuess.stopDensity === inferStopDensity('expressway', 'smooth'),
+    String(cityGuess.stopDensity))
+  assert('等级改判后期望停车显著下降（不再背着城区红绿灯）',
+    expectedStopCount(cityGuess) < cityStops * 0.1,
+    cityStops.toFixed(2) + ' → ' + expectedStopCount(cityGuess).toFixed(2))
+  assert('等级改判后停车口径与新等级自洽',
+    Math.abs(expectedStopCount(cityGuess)
+      - buildIntersectionEvents(5, 'expressway', 'smooth').reduce((a, e) => a + e.expectedCount, 0)) < 0.01)
+
+  // 场站型事件（收费站）与道路等级无关，改判时必须原样保留
+  const plazaSeg: SegmentData = {
+    ...seg(2, 'toll'),
+    roadLevel: 'other',
+    trafficStatus: 'smooth',
+    motionEvents: detectMotionBehavior('进入收费站', 'other', [], 'smooth').events,
+  }
+  const plazaBefore = plazaSeg.motionEvents.filter(e => e.cause === 'plaza').length
+  plazaSeg.roadLevel = 'highway'
+  applyRoadLevelChange(plazaSeg)
+  assert('等级改判不动收费站等场站型事件',
+    plazaSeg.motionEvents.filter(e => e.cause === 'plaza').length === plazaBefore && plazaBefore > 0,
+    String(plazaBefore))
+
+  console.log('— 道路等级标签表必须覆盖全部等级（漏一档就会有里程凭空消失） —')
+  const allLevels: RoadLevel[] = ['highway', 'national', 'provincial', 'expressway', 'city', 'county', 'other']
+  assert('ROAD_LEVEL_LABEL 覆盖全部 ' + allLevels.length + ' 档',
+    allLevels.every(l => !!ROAD_LEVEL_LABEL[l]) && Object.keys(ROAD_LEVEL_LABEL).length === allLevels.length,
+    Object.keys(ROAD_LEVEL_LABEL).join(','))
+  assert('每档都有巡航速度基准', allLevels.every(l => (CRUISE_SPEED_BY_LEVEL[l] ?? 0) > 0))
+  assert('每档都有停车密度基准', allLevels.every(l => STOP_DENSITY_BASE[l] != null))
+  assert('每档都有路口密度定义', allLevels.every(l => INTERSECTION_DENSITY_PER_KM[l] != null))
+
   console.log(failed === 0 ? '\n✅ 全部通过' : '\n❌ ' + failed + ' 项失败')
   process.exit(failed === 0 ? 0 : 1)
+}
+
+/** 逐点累加正向高差（测试用：模拟物理模型消费 elevationGainM 的口径） */
+function cumulativeGain(elevs: number[]): number {
+  let g = 0
+  for (let i = 1; i < elevs.length; i++) {
+    const d = elevs[i] - elevs[i - 1]
+    if (d > 0) g += d
+  }
+  return g
 }
 
 main()

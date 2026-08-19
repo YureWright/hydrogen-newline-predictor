@@ -96,6 +96,14 @@ export interface MotionEvent {
   probability: number
   /** 说明（如 "ETC收费站" "红绿灯路口"） */
   label?: string
+  /**
+   * 事件成因：
+   * - 'plaza'  收费站/服务区/匝道等场站型事件，只跟导航指令有关，与道路等级无关；
+   * - 'intersection' 平面路口型事件（背景红绿灯、路口、转弯让行），期望次数由道路等级 + 路况推出。
+   * OSM 把道路等级从规则推断值改写成真实等级后，必须只重算 'intersection' 这一类，
+   * 否则等级与启停口径会各说各话。
+   */
+  cause?: 'plaza' | 'intersection'
 }
 
 /**

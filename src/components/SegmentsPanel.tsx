@@ -1,25 +1,34 @@
 /** 路段数据分析面板：选路 → 点「开始测算」→ 真实进度条 → 表格/可视化/AI 评估 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types'
-import { expectedStopCount } from '../route/segment'
+import { ROAD_LEVEL_LABEL, expectedStopCount } from '../route/segment'
 import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
 
 interface DemInfo { z: number; tiles: number; source: string }
+interface OsmInfo { queries: number; coveredKm: number; fallbackKm: number }
+/** 天气抓取状态：必须上屏，否则"全线天气没抓到"和"这段恰好没数据"在界面上长得一模一样 */
+interface WeatherInfo {
+  provider: string
+  sampled: number
+  unmatched: number
+  bySource: Record<string, number>
+  queries: number
+  windySegments: number
+}
 interface SegmentsResponse {
   ok: boolean
   candidate?: RouteCandidate
   segments?: SegmentData[]
   summary?: SegmentSummary
   dem?: DemInfo
+  osm?: OsmInfo
+  weather?: WeatherInfo
   msg?: string
 }
 interface JobStatus { ok: boolean; status?: string; phase?: string; done?: number; total?: number; cached?: number; error?: string; msg?: string }
 interface AiResponse { ok: boolean; text?: string; model?: string; msg?: string }
 
-const ROAD_LEVEL_LABEL: Record<string, string> = {
-  highway: '高速', national: '国道', provincial: '省道', expressway: '快速路', city: '市区', county: '县乡道', other: '其他',
-}
 const ROAD_LEVEL_COLOR: Record<string, string> = {
   highway: '#1e7a54', national: '#2c7fb8', provincial: '#f0ad4e', expressway: '#17a2b8', city: '#9467bd', county: '#8d6e63', other: '#bbb',
 }
@@ -53,6 +62,9 @@ const MOTION_MARK: Record<string, { label: string; color: string }> = {
 
 type SortKey = 'index' | 'distanceKm' | 'gradePercent' | 'elevationM' | 'avgSpeedKmh'
 type Stage = 'idle' | 'running' | 'done' | 'error'
+
+/** 模块级常量：无数据时的稳定空数组引用（见下方 segments 的说明） */
+const EMPTY_SEGMENTS: SegmentData[] = []
 
 const PHASE_TEXT: Record<string, string> = {
   route: '获取路线分段…',
@@ -99,31 +111,36 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearTimer = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null } }
+  /** 测算轮次：每次 start / 取消 / 卸载都自增。
+   * jobId 要等 start 请求返回后才拿得到，在这之前用户点「取消」或切换路线的话，
+   * 只靠 jobIdRef 判断会漏掉——它还是空串，取消请求带不上 id，后台任务照跑，
+   * 而且轮询守卫恰好成立，结果会在用户已经回到首页后自己弹出来。 */
+  const runIdRef = useRef(0)
+
+  const cancelJob = useCallback((jobId: string) => {
+    if (!jobId) return
+    fetch('/api/segments/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId }),
+    }).catch(() => {})
+  }, [])
 
   // 卸载/换路线时取消任务
   useEffect(() => {
     return () => {
       clearTimer()
-      if (jobIdRef.current) {
-        fetch('/api/segments/cancel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId: jobIdRef.current }),
-        }).catch(() => {})
-      }
+      runIdRef.current += 1
+      cancelJob(jobIdRef.current)
+      jobIdRef.current = ''
     }
-  }, [])
+  }, [cancelJob])
 
   const backToSelect = useCallback(() => {
     clearTimer()
-    if (jobIdRef.current) {
-      fetch('/api/segments/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: jobIdRef.current }),
-      }).catch(() => {})
-      jobIdRef.current = ''
-    }
+    runIdRef.current += 1
+    cancelJob(jobIdRef.current)
+    jobIdRef.current = ''
     setStage('idle')
     setData(null)
     setError('')
@@ -131,9 +148,10 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     setAiText('')
     setAiModel('')
     setAiError('')
-  }, [])
+  }, [cancelJob])
 
   const start = useCallback(async () => {
+    const runId = ++runIdRef.current
     setStage('running')
     setError('')
     setProgress({ phase: 'route', done: 0, total: 0, cached: 0 })
@@ -144,14 +162,17 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         body: JSON.stringify({ origin, destination, index: routeIndex, departureTime }),
       })
       const j = await r.json()
+      // 请求在途期间用户已经取消/切走：把刚建好的后台任务停掉，别让它白跑几分钟
+      if (runIdRef.current !== runId) { if (j.ok && j.jobId) cancelJob(j.jobId); return }
       if (!j.ok || !j.jobId) { setError(j.msg || '启动测算失败'); setStage('error'); return }
       jobIdRef.current = j.jobId
       poll(j.jobId)
     } catch (e: any) {
+      if (runIdRef.current !== runId) return
       setError('启动测算失败：' + (e.message || e))
       setStage('error')
     }
-  }, [origin, destination, routeIndex, departureTime])
+  }, [origin, destination, routeIndex, departureTime, cancelJob])
 
   const poll = useCallback((jobId: string) => {
     clearTimer()
@@ -182,7 +203,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     }, 800)
   }, [])
 
-  const segments = data?.segments ?? []
+  // 无数据时必须复用同一个空数组：`?? []` 每次渲染都会新建引用，被下面的 effect 依赖后
+  // 会触发 onHighlight → App.setHighlight → 重渲染 → 又一个新引用的无限循环
+  const segments = data?.segments ?? EMPTY_SEGMENTS
   const summary = data?.summary
 
   // 勾选集合变化 → 通知地图同时高亮多条路段
@@ -196,9 +219,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   const sorted = useMemo(() => {
     const arr = [...segments]
+    // 无数据（null）一律沉到末尾，不参与数值比较。
+    // 用 `?? 0` 会把"没取到高程"钉在 0 的位置：按坡度降序找最陡上坡时，
+    // 缺数据的段会排在所有下坡段前面，单元格里却显示"—"；按海拔升序时又会假装是全线最低点。
     arr.sort((a, b) => {
-      const av = a[sortKey] ?? 0
-      const bv = b[sortKey] ?? 0
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
       return (av < bv ? -1 : av > bv ? 1 : 0) * (sortDesc ? -1 : 1)
     })
     return arr
@@ -280,13 +309,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   }, [segments])
 
   const trafficItems = candidate.traffic
-  const roadLevelItems = summary ? [
-    { label: '高速', value: summary.roadLevelKm.highway, color: ROAD_LEVEL_COLOR.highway },
-    { label: '国道', value: summary.roadLevelKm.national, color: ROAD_LEVEL_COLOR.national },
-    { label: '省道', value: summary.roadLevelKm.provincial, color: ROAD_LEVEL_COLOR.provincial },
-    { label: '城市', value: summary.roadLevelKm.city, color: ROAD_LEVEL_COLOR.city },
-    { label: '其他', value: summary.roadLevelKm.other, color: ROAD_LEVEL_COLOR.other },
-  ] : []
+  // 由 ROAD_LEVEL_LABEL 生成而不是手写清单：手写会漏档（曾漏掉快速路/县乡道），
+  // 图表里程加不满、和「总里程」卡片对不上
+  const roadLevelItems = useMemo(() => {
+    if (!summary) return []
+    return (Object.keys(ROAD_LEVEL_LABEL) as Array<keyof typeof ROAD_LEVEL_LABEL>).map((k) => ({
+      label: ROAD_LEVEL_LABEL[k],
+      value: summary.roadLevelKm[k] ?? 0,
+      color: ROAD_LEVEL_COLOR[k],
+    }))
+  }, [summary])
 
   const aiPayload = useMemo(() => ({
     origin,
@@ -387,10 +419,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   /* ---------- 完成：结果面板 ---------- */
   if (!data || !segments.length) return <div className="note">该路线暂无分段数据</div>
-  const maxElev = profile.elevM.length ? Math.max(...profile.elevM) : 0
-  const minElev = profile.elevM.length ? Math.min(...profile.elevM) : 0
+  // 没有任何有效高程时显示 "—"：写成 0 会让人以为这条线真的是海拔 0 米的平路，
+  // 而同一排卡片里的"平均坡度/平均海拔"走的是 != null 判断、显示 "-"，两种口径并存更容易误读
+  const hasElev = profile.elevM.length > 0
+  const maxElev = hasElev ? Math.max(...profile.elevM) : null
+  const minElev = hasElev ? Math.min(...profile.elevM) : null
+  const elevMissingSegs = segments.filter((s) => s.elevationGainM == null).length
   const totalGain = segments.reduce((a, s) => a + (s.elevationGainM ?? 0), 0)
   const totalLoss = segments.reduce((a, s) => a + (s.elevationLossM ?? 0), 0)
+  const weather = data.weather
 
   return (
     <div className="segments-panel">
@@ -404,18 +441,42 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           {data.dem?.source === 'terrarium'
             ? `高程源：terrarium z${data.dem.z}（${data.dem.tiles} 张瓦片）`
             : `高程源：opentopodata SRTM90m（terrarium 不可用时兜底）`}
+          {data.osm && (
+            <>
+              {' · '}
+              <span className={data.osm.coveredKm <= 0 ? 'src-warn' : undefined}>
+                {data.osm.coveredKm > 0
+                  ? `道路等级：OSM 实测 ${data.osm.coveredKm.toFixed(0)}km / 规则推断 ${data.osm.fallbackKm.toFixed(0)}km`
+                  : 'OSM 路网不可用，道路等级全部为规则推断'}
+              </span>
+            </>
+          )}
+          {weather && (
+            <>
+              {' · '}
+              <span className={weather.provider === 'none' || weather.unmatched > 0 ? 'src-warn' : undefined}>
+                {weather.provider === 'none'
+                  ? '未配置天气 Key，沿线温度/风速为空'
+                  : `天气源：${weather.provider}（已匹配 ${weather.sampled}/${segments.length} 段${weather.unmatched > 0 ? `，${weather.unmatched} 段未匹配` : ''}）`}
+              </span>
+            </>
+          )}
         </span>
       </div>
 
       <div className="stat-cards">
         <div className="stat-card"><b>{summary?.totalKm ?? candidate.distanceKm} km</b><span>总里程</span></div>
-        <div className="stat-card"><b>{summary?.avgSpeedKmh ?? '-'}</b><span>加权均速 km/h</span></div>
+        <div className="stat-card"><b>{summary?.avgSpeedKmh ?? '-'}</b><span>全程均速 km/h</span></div>
         <div className="stat-card"><b>{summary?.avgGradePercent != null ? summary.avgGradePercent + '%' : '-'}</b><span>平均坡度</span></div>
         <div className="stat-card"><b>{summary?.avgElevationM != null ? summary.avgElevationM + ' m' : '-'}</b><span>平均海拔</span></div>
-        <div className="stat-card"><b>{totalGain} m</b><span>累计爬升</span></div>
-        <div className="stat-card"><b>{totalLoss} m</b><span>累计下降</span></div>
-        <div className="stat-card"><b>{maxElev} m</b><span>最高点</span></div>
-        <div className="stat-card"><b>{minElev} m</b><span>最低点</span></div>
+        <div className="stat-card" title={elevMissingSegs > 0 ? `${elevMissingSegs} 段无高程数据，未计入` : undefined}>
+          <b>{hasElev ? totalGain + ' m' : '—'}{elevMissingSegs > 0 && <sup className="warn-sup">*</sup>}</b><span>累计爬升</span>
+        </div>
+        <div className="stat-card" title={elevMissingSegs > 0 ? `${elevMissingSegs} 段无高程数据，未计入` : undefined}>
+          <b>{hasElev ? totalLoss + ' m' : '—'}{elevMissingSegs > 0 && <sup className="warn-sup">*</sup>}</b><span>累计下降</span>
+        </div>
+        <div className="stat-card"><b>{maxElev != null ? maxElev + ' m' : '—'}</b><span>最高点</span></div>
+        <div className="stat-card"><b>{minElev != null ? minElev + ' m' : '—'}</b><span>最低点</span></div>
         <div className="stat-card"><b>{totalStops.toFixed(1)}</b><span>期望停车/启停次数</span></div>
       </div>
 
@@ -515,11 +576,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   </td>
                   <td className="mono">{s.elevationM != null ? s.elevationM : '—'}</td>
                   <td>{s.terrain ? <span className="terrain-chip" style={{ background: TERRAIN_COLOR[s.terrain] }}>{TERRAIN_LABEL[s.terrain]}</span> : '—'}</td>
-                  <td className={"mono" + (s.windAffects ? " windy" : "")} title={s.windAffects ? '风速≥阈值，计入风阻' : ''}>{s.temperatureC != null ? s.temperatureC : '—'}</td>
-                  <td className={"mono" + (s.windAffects ? " windy" : "")} title={s.windDirText ? '风向 ' + s.windDirText : ''}>{s.windSpeedKmh != null ? s.windSpeedKmh + (s.windAffects ? ' 💨' : '') : '—'}</td>
+                  {/* 标红只加在风速列：加在温度列会让大风路段的温度数字变红，被读成"高温预警" */}
+                  <td className="mono">{s.temperatureC != null ? s.temperatureC : '—'}</td>
+                  <td
+                    className={"mono" + (s.windAffects ? " windy" : "")}
+                    title={[s.windDirText ? '风向 ' + s.windDirText : '', s.windAffects ? '风速≥阈值，计入风阻' : ''].filter(Boolean).join(' · ')}
+                  >{s.windSpeedKmh != null ? s.windSpeedKmh + (s.windAffects ? ' 💨' : '') : '—'}</td>
                   <td className="mono">{s.humidityPct != null ? s.humidityPct : '—'}</td>
                   <td className="mono">{s.precipMm != null ? s.precipMm : '—'}</td>
-                  <td className="mono">{s.weatherText || (s.weatherSource ? '—' : '—')}</td>
+                  <td className="mono">{s.weatherText || '—'}</td>
                   <td className="mono">{s.elevationGainM != null ? s.elevationGainM : '—'}</td>
                   <td className="mono">{s.elevationLossM != null ? s.elevationLossM : '—'}</td>
                   <td><span className="motion-chip" style={{ background: MOTION_COLOR[s.motionBehavior] }}>{MOTION_LABEL[s.motionBehavior]}</span></td>

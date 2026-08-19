@@ -21,6 +21,11 @@ export default function App() {
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
 
+  /** 空 → 空 的高亮更新直接忽略：避免下游传入新引用的空数组时白白触发一轮重渲染 */
+  const applyHighlight = useCallback((list: Array<Array<[number, number]>>) => {
+    setHighlight((prev) => (prev.length === 0 && list.length === 0 ? prev : list))
+  }, [])
+
   useEffect(() => {
     fetch('/api/stations').then((r) => r.json()).then((j) => {
       if (j.ok) setStations(j.stations as H2Station[])
@@ -108,7 +113,7 @@ export default function App() {
             destination={to.lng + ',' + to.lat}
             routeIndex={selected}
             candidate={routes[selected]}
-            onHighlight={setHighlight}
+            onHighlight={applyHighlight}
           />
         )}
       </main>

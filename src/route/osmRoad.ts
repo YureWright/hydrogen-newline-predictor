@@ -30,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { RoadLevel, SegmentData } from './types'
 import { haversineM } from './dem'
+import { applyRoadLevelChange } from './segment'
 
 /* ============================ 类型 ============================ */
 
@@ -541,11 +542,15 @@ export async function enrichSegmentsWithOsmRoads(
     }
     if (!topWay) continue
     const level = osmTagsToRoadLevel(topWay.tags)
+    const prevLevel = s.roadLevel
     s.roadLevel = level
     s.osmHighway = topWay.tags.highway
     s.osmRef = topWay.tags.ref || ''
     s.osmName = topWay.tags.name || ''
     s.roadSource = 'osm'
+    // 等级变了就必须重算随等级而定的启停口径，否则会出现"标着快速路、却背着城区
+    // 3 个/km 红绿灯"这种自相矛盾的段——停车次数直接决定启停能耗
+    if (level !== prevLevel) applyRoadLevelChange(s)
     matched += 1
   }
 

@@ -120,6 +120,20 @@ export const MOTION_PROB: Record<string, { stop: number; decel: number }> = {
 /** 一般路口（无信号灯，让行通过为主）相对信号灯路口的停车概率折减 */
 export const MINOR_INTERSECTION_FACTOR = 0.8
 
+/** 道路等级中文标签 —— RoadLevel 展示口径的唯一真源。
+ * 新增等级时只改这里，AI 提示词、等级分布图、路段表会一起跟上；
+ * 各处各写一份的做法已经出过事：新增 expressway/county 后 AI 提示词漏列，
+ * 京津线 38.6km 快速路凭空消失，喂给模型的各等级里程之和对不上总里程。 */
+export const ROAD_LEVEL_LABEL: Record<RoadLevel, string> = {
+  highway: '高速',
+  national: '国道',
+  provincial: '省道',
+  expressway: '快速路',
+  city: '市区',
+  county: '县乡道',
+  other: '其他',
+}
+
 /** 红绿灯路口密度（个/km）：高速无路口；国道/省道/城市按实际路口密度 */
 export const INTERSECTION_DENSITY_PER_KM: Record<RoadLevel, number> = {
   highway: 0,
@@ -163,7 +177,7 @@ export function buildIntersectionEvents(
   const n = distanceKm * density - excludeCount
   if (n <= 0) return []
   const p = INTERSECTION_STOP_PROB[traffic] ?? 0.35
-  return [{ type: 'stop', expectedCount: round2(n * p), probability: p, label: '红绿灯路口' }]
+  return [{ type: 'stop', expectedCount: round2(n * p), probability: p, label: '红绿灯路口', cause: 'intersection' }]
 }
 
 /** 指令关键词 → 行为（优先级：收费站 > 服务区 > 匝道 > 路口 > 转弯） */
@@ -214,8 +228,13 @@ export interface MotionDetection {
   events: MotionEvent[]
 }
 
-function event(type: MotionEvent['type'], probability: number, label: string): MotionEvent {
-  return { type, expectedCount: round2(probability), probability: round2(probability), label }
+function event(
+  type: MotionEvent['type'],
+  probability: number,
+  label: string,
+  cause: MotionEvent['cause'] = 'plaza',
+): MotionEvent {
+  return { type, expectedCount: round2(probability), probability: round2(probability), label, cause }
 }
 
 /**
@@ -256,14 +275,14 @@ export function detectMotionBehavior(
   if (INTERSECTION_RE.test(s)) {
     const p = MOTION_PROB.intersection
     const evs: MotionEvent[] = [event('decel', p.decel, '路口减速')]
-    if (interP > 0) evs.unshift(event('stop', interP, '红绿灯路口'))
+    if (interP > 0) evs.unshift(event('stop', interP, '红绿灯路口', 'intersection'))
     return { behavior: 'intersection', events: evs }
   }
   // ⑤ 一般路口（城市道路指令含"路口"）
   if (roadLevel === 'city' && MINOR_INTERSECTION_RE.test(s)) {
     const p = MOTION_PROB.intersectionMinor
     const evs: MotionEvent[] = [event('decel', p.decel, '路口减速')]
-    if (interP > 0) evs.unshift(event('stop', interP * MINOR_INTERSECTION_FACTOR, '路口'))
+    if (interP > 0) evs.unshift(event('stop', interP * MINOR_INTERSECTION_FACTOR, '路口', 'intersection'))
     return { behavior: 'intersection', events: evs }
   }
   // ⑥ 转弯（指令）
@@ -276,14 +295,14 @@ export function detectMotionBehavior(
     const evs: MotionEvent[] = [event('decel', p.decel, '转弯减速')]
     // 城市/国道/省道上的左右转发生在平面路口，转向车流需让行，停车概率与路口同口径；
     // 高速上的"转弯"只是几何弯道，不产生停车。
-    if (interP > 0) evs.push(event('stop', interP, '转弯路口'))
+    if (interP > 0) evs.push(event('stop', interP, '转弯路口', 'intersection'))
     return { behavior: 'turn', events: evs }
   }
   // ⑦ 转弯（几何：航向角突变，指令无关键词时兜底）
   if (maxHeadingChange(coordsWgs84) >= TURN_HEADING_DEG) {
     const p = MOTION_PROB.turn
     const evs: MotionEvent[] = [event('decel', p.decel, '急弯减速(几何)')]
-    if (interP > 0) evs.push(event('stop', interP, '转弯路口'))
+    if (interP > 0) evs.push(event('stop', interP, '转弯路口', 'intersection'))
     return { behavior: 'turn', events: evs }
   }
   // ⑧ 城市起停 / 巡航
@@ -354,6 +373,30 @@ export function isEventBehavior(b: MotionBehavior): boolean {
 /** 该行为的显式事件已经代表了几个平面路口（用于扣减背景路口，避免同一路口计两次） */
 export function intersectionsRepresentedBy(b: MotionBehavior): number {
   return b === 'intersection' || b === 'turn' ? 1 : 0
+}
+
+/**
+ * 道路等级被改写后（OSM 真实路网覆盖规则推断值），重算所有随等级而定的启停口径。
+ *
+ * 停车密度和平面路口事件都是从道路等级 + 路况推出来的，只改 roadLevel 不重算，
+ * 就会出现"标着快速路、却背着城区 3 个/km 红绿灯"的段——而停车次数直接决定启停能耗。
+ * 收费站/服务区/匝道等场站型事件（cause='plaza'）与等级无关，原样保留。
+ */
+export function applyRoadLevelChange(seg: SegmentData): void {
+  seg.stopDensity = inferStopDensity(seg.roadLevel, seg.trafficStatus)
+  const kept = (seg.motionEvents ?? []).filter((e) => e.cause !== 'intersection')
+  const interP = intersectionStopProb(seg.roadLevel, seg.trafficStatus)
+  const explicit = intersectionsRepresentedBy(seg.motionBehavior)
+  const rebuilt: MotionEvent[] = []
+  // 该段本身就是一个路口/转弯事件段 → 保留这一个显式路口，概率按新等级
+  if (explicit > 0 && interP > 0) {
+    rebuilt.push(
+      event('stop', interP, seg.motionBehavior === 'turn' ? '转弯路口' : '红绿灯路口', 'intersection'),
+    )
+  }
+  // 沿途背景路口 → 按新等级密度重算，扣掉上面已显式计入的那个
+  rebuilt.push(...buildIntersectionEvents(seg.distanceKm, seg.roadLevel, seg.trafficStatus, explicit))
+  seg.motionEvents = [...kept, ...rebuilt]
 }
 
 /** 事件段典型通过速度（km/h，重卡）：长 step 拆分出的尾部事件段用它，避免继承整步 90+km/h 的高速均速
@@ -436,15 +479,35 @@ function splitLongEventStep(args: {
   // 主体段行为：城市 → 城市起停（补红绿灯事件）；其余 → 巡航（非高速补红绿灯事件）
   const headBehavior: MotionBehavior = roadLevel === 'city' ? 'urbanStopStart' : 'cruise'
   const headEvents = buildIntersectionEvents(headKm, roadLevel, trafficStatus)
-  const tailSpeed = EVENT_SPEED_KMH[behavior] ?? 30
+  // 时长守恒 + 速度不失真：整步时长 durH 来自高德实测，拆分只是在段内重新分配，不能凭空多出时间。
+  //
+  // 做法是按"名义时间"等比分配：主体段名义速度取整步均速，尾部事件区取该事件的典型通过速度，
+  // 各自算出名义耗时后再统一缩放到 durH。两段速度会同比例伸缩，因此
+  //   ① 总时长恒等于 durH；
+  //   ② 主体段/尾部的速度比恒等于名义速度比，尾部一定慢于主体段；
+  //   ③ 两段速度都被整步均速锚住，不会出现离谱值。
+  // 早先的做法是尾段按固定速度独立计时、再加到主体段后面，全程时长凭空多出 7%（京津线 +8.4 分钟）；
+  // 改成"从主体段扣时间"又会把误差全挤给主体段，实测出现过 372km/h 的段——而风阻 ∝ v²，
+  // 一个假的高速段比时长差几分钟更伤氢耗。
+  // 拥堵时整步均速可能已低于事件典型速度，取 min 避免"事件区反而比主路还快"。
+  const nominalHead = avgSpeed
+  const nominalTail = Math.min(EVENT_SPEED_KMH[behavior] ?? 30, avgSpeed)
+  const nh = nominalHead > 0 ? headKm / nominalHead : 0
+  const nt = nominalTail > 0 ? tailKm / nominalTail : 0
+  const nSum = nh + nt
+  const headDur = nSum > 0 ? durH * (nh / nSum) : durH * headFrac
+  const tailDur = durH - headDur
+  const headSpeed = headDur > 0 ? round1(headKm / headDur) : avgSpeed
+  const tailSpeed = tailDur > 0 ? round1(tailKm / tailDur) : avgSpeed
   return [
     {
       ...base,
       distanceKm: round2(headKm),
+      avgSpeedKmh: headSpeed,
       motionBehavior: headBehavior,
       motionEvents: headEvents,
       coordsWgs84: headCoords,
-      durationH: round2(durH * headFrac),
+      durationH: round2(headDur),
     },
     {
       ...base,
@@ -456,7 +519,7 @@ function splitLongEventStep(args: {
         ...buildIntersectionEvents(tailKm, roadLevel, trafficStatus, intersectionsRepresentedBy(behavior)),
       ],
       coordsWgs84: tailCoords,
-      durationH: round2(tailKm / tailSpeed),
+      durationH: round2(tailDur),
     },
   ]
 }
@@ -537,11 +600,15 @@ export function summarizeSegments(segments: SegmentData[]): SegmentSummary {
   }
   const out: Record<string, number> = {}
   for (const [k, v] of Object.entries(roadLevelKm)) out[k] = round2(v)
+  // 全程均速只能用"总里程 ÷ 总时长"（调和平均）。按里程加权求速度的算术平均是错的：
+  // 慢段占用的时间被低估，结果系统性偏高——城区线路实测能高出 38%，而空气阻力 ∝ v²，误差还会再放大一倍。
+  // 只有拿不到时长时才退回里程加权，避免除零。
+  const avgSpeed = totalH > 0 ? totalKm / totalH : totalKm > 0 ? speedW / totalKm : 0
   return {
     totalKm: round1(totalKm),
     totalDurationH: round2(totalH),
     roadLevelKm: out as Record<RoadLevel, number>,
-    avgSpeedKmh: totalKm > 0 ? round1(speedW / totalKm) : 0,
+    avgSpeedKmh: round1(avgSpeed),
     avgGradePercent: hasGrade && totalKm > 0 ? round2(gradeW / totalKm) : null,
     avgElevationM: hasElev && totalKm > 0 ? Math.round(elevW / totalKm) : null,
     segmentCount: segments.length,

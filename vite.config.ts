@@ -32,6 +32,13 @@ function send(res: any, code: number, obj: unknown) {
   res.end(JSON.stringify(obj))
 }
 
+/** 加氢站是静态文件，进程内不会变：只读盘解析一次，避免每个请求都重新 parse 153KB geojson */
+let stationsCache: ReturnType<typeof loadStations> | null = null
+function cachedStations() {
+  if (!stationsCache) stationsCache = loadStations(join(__dirname, 'data', 'stations.geojson'))
+  return stationsCache
+}
+
 
 /* ===== DEM 提取任务管理（前端进度条用） ===== */
 interface DemJob {
@@ -61,11 +68,20 @@ function startDemJob(origin: string, destination: string, index: number, departu
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
   const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
   demJobs.set(id, job)
+  // 换阶段时把计数清零：只改 phase 会让新阶段沿用上一阶段的 done/total，
+  // 进度条先停在 100% 再跳回 0%，来回三四轮，看着像卡死了
+  const enterPhase = (phase: string) => {
+    if (job.status === 'cancelled') return
+    job.phase = phase
+    job.done = 0
+    job.total = 0
+    job.cached = 0
+  }
   ;(async () => {
     try {
       const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
       if (job.status === 'cancelled') return
-      job.phase = 'dem'
+      enterPhase('dem')
       const enriched = await enrichSegmentsWithDem(segments, {
         cacheDir: join(__dirname, 'data', 'dem-cache'),
         shouldCancel: () => job.status === 'cancelled',
@@ -79,7 +95,7 @@ function startDemJob(origin: string, destination: string, index: number, departu
       })
       if (job.status === 'cancelled') return
       // OSM 真实路网升级道路等级（无匹配/服务不可用时自动保留规则推断，不阻塞主流程）
-      job.phase = 'osm-query'
+      enterPhase('osm-query')
       const osmRes = await enrichSegmentsWithOsmRoads(enriched.segments, {
         cacheDir: join(__dirname, 'data', 'osm-cache'),
         shouldCancel: () => job.status === 'cancelled',
@@ -93,7 +109,7 @@ function startDemJob(origin: string, destination: string, index: number, departu
       })
       if (job.status === 'cancelled') return
       // 天气：按出发时间 + 位置 + 时刻匹配沿线温度/风速/湿度/降水（QWeather 主源，高德兜底；无 key 自动跳过）
-      job.phase = 'weather'
+      enterPhase('weather')
       const weatherRes = await enrichSegmentsWithWeather(osmRes.segments, {
         cacheDir: join(__dirname, 'data', 'weather-cache'),
         departureTime,
@@ -107,14 +123,14 @@ function startDemJob(origin: string, destination: string, index: number, departu
         },
       })
       if (job.status === 'cancelled') return
-      job.phase = 'compute'
+      enterPhase('compute')
       job.result = {
         candidate,
         segments: weatherRes.segments,
         summary: summarizeSegments(weatherRes.segments),
         dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
         osm: { queries: osmRes.queries, coveredKm: osmRes.osmCoveredKm, fallbackKm: osmRes.ruleFallbackKm },
-        weather: { provider: weatherRes.provider, sampled: weatherRes.sampled, bySource: weatherRes.bySource, queries: weatherRes.queries, windySegments: weatherRes.windySegments },
+        weather: { provider: weatherRes.provider, sampled: weatherRes.sampled, unmatched: weatherRes.unmatched, bySource: weatherRes.bySource, queries: weatherRes.queries, windySegments: weatherRes.windySegments },
       }
       job.status = 'done'
     } catch (e: any) {
@@ -173,6 +189,9 @@ export default defineConfig({
             }
             if (path === '/geocode') {
               const addr = (url.searchParams.get('address') || '').trim()
+              // 空地址必须直接挡掉：下面城市表匹配用的 city.includes(addr)，对空串恒为 true，
+              // 会静默命中表里第一项（北京），演示时清空输入框仍会规划出一条"从北京出发"的路线
+              if (!addr) return send(res, 200, { ok: false, msg: '请输入起点/终点地址' })
               // ① 优先高德地理编码：精确到门址/POI（实测 key 支持，返回 level=门牌号/门址/公交站点等）
               if (key) {
                 const r = await fetch('https://restapi.amap.com/v3/geocode/geo?address=' + encodeURIComponent(addr) + '&key=' + key, { signal: AbortSignal.timeout(15000) })
@@ -196,10 +215,11 @@ export default defineConfig({
               if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
               if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
               const plan = await fetchRoutePlan(origin, destination)
-              return send(res, 200, { ok: true, stations: loadStations(join(__dirname, 'data', 'stations.geojson')), routes: plan.routes })
+              // 加氢站由前端挂载时单独调 /stations 取一次；这里不再重复下发 571 座站点（约 79KB 白流量）
+              return send(res, 200, { ok: true, routes: plan.routes })
             }
             if (path === '/stations') {
-              return send(res, 200, { ok: true, stations: loadStations(join(__dirname, 'data', 'stations.geojson')) })
+              return send(res, 200, { ok: true, stations: cachedStations() })
             }
             if (path === '/segments') {
               const origin = url.searchParams.get('origin') || ''
