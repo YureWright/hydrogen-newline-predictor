@@ -194,6 +194,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     return arr
   }, [segments, sortKey, sortDesc])
 
+  /** 海拔剖面：采样不到高程的点（elevM=null）直接跳过，避免曲线掉到 0 米造成"假平路" */
   const profile = useMemo(() => {
     let cum = 0
     const distKm: number[] = []
@@ -201,8 +202,10 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     for (const s of segments) {
       if (s.profile && s.profile.distKm.length) {
         for (let i = 0; i < s.profile.distKm.length; i++) {
+          const e = s.profile.elevM[i]
+          if (e == null) continue
           distKm.push(Math.round((cum + s.profile.distKm[i]) * 10) / 10)
-          elevM.push(s.profile.elevM[i])
+          elevM.push(e)
         }
       }
       cum += s.distanceKm
