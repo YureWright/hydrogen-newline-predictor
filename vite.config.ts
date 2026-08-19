@@ -8,6 +8,7 @@ import { fetchRoutePlan, fetchRouteWithSegments } from './src/route/amapRoute'
 import { loadStations } from './src/route/stationLayer'
 import { enrichSegmentsWithDem } from './src/route/demFetch'
 import { enrichSegmentsWithOsmRoads } from './src/route/osmRoad'
+import { enrichSegmentsWithWeather } from './src/route/weather'
 import { summarizeSegments } from './src/route/segment'
 import { evaluateRoute, getAiConfig } from './src/route/ai'
 
@@ -56,7 +57,7 @@ function sweepDemJobs() {
   }
 }
 
-function startDemJob(origin: string, destination: string, index: number) {
+function startDemJob(origin: string, destination: string, index: number, departureTime?: string) {
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
   const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
   demJobs.set(id, job)
@@ -91,13 +92,29 @@ function startDemJob(origin: string, destination: string, index: number) {
         },
       })
       if (job.status === 'cancelled') return
+      // 天气：按出发时间 + 位置 + 时刻匹配沿线温度/风速/湿度/降水（QWeather 主源，高德兜底；无 key 自动跳过）
+      job.phase = 'weather'
+      const weatherRes = await enrichSegmentsWithWeather(osmRes.segments, {
+        cacheDir: join(__dirname, 'data', 'weather-cache'),
+        departureTime,
+        shouldCancel: () => job.status === 'cancelled',
+        onProgress: (p) => {
+          if (job.status === 'cancelled') return
+          job.phase = p.phase
+          job.done = p.done
+          job.total = p.total
+          job.cached = 0
+        },
+      })
+      if (job.status === 'cancelled') return
       job.phase = 'compute'
       job.result = {
         candidate,
-        segments: osmRes.segments,
-        summary: summarizeSegments(osmRes.segments),
+        segments: weatherRes.segments,
+        summary: summarizeSegments(weatherRes.segments),
         dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
         osm: { queries: osmRes.queries, coveredKm: osmRes.osmCoveredKm, fallbackKm: osmRes.ruleFallbackKm },
+        weather: { provider: weatherRes.provider, sampled: weatherRes.sampled, bySource: weatherRes.bySource, queries: weatherRes.queries, windySegments: weatherRes.windySegments },
       }
       job.status = 'done'
     } catch (e: any) {
@@ -188,19 +205,22 @@ export default defineConfig({
               const origin = url.searchParams.get('origin') || ''
               const destination = url.searchParams.get('destination') || ''
               const index = Number(url.searchParams.get('index') || 0)
+              const departureTime = url.searchParams.get('departureTime') || undefined
               if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
               if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
               const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
               const enriched = await enrichSegmentsWithDem(segments, { cacheDir: join(__dirname, 'data', 'dem-cache') })
               const osmRes = await enrichSegmentsWithOsmRoads(enriched.segments, { cacheDir: join(__dirname, 'data', 'osm-cache') })
-              const summary = summarizeSegments(osmRes.segments)
+              const weatherRes = await enrichSegmentsWithWeather(osmRes.segments, { cacheDir: join(__dirname, 'data', 'weather-cache'), departureTime })
+              const summary = summarizeSegments(weatherRes.segments)
               return send(res, 200, {
                 ok: true,
                 candidate,
-                segments: osmRes.segments,
+                segments: weatherRes.segments,
                 summary,
                 dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
                 osm: { queries: osmRes.queries, coveredKm: osmRes.osmCoveredKm, fallbackKm: osmRes.ruleFallbackKm },
+                weather: { provider: weatherRes.provider, sampled: weatherRes.sampled, bySource: weatherRes.bySource, queries: weatherRes.queries, windySegments: weatherRes.windySegments },
               })
             }
             if (path === '/ai/evaluate' && req.method === 'POST') {
@@ -225,9 +245,10 @@ export default defineConfig({
               const origin = payload.origin || ''
               const destination = payload.destination || ''
               const index = Number(payload.index || 0)
+              const departureTime = typeof payload.departureTime === 'string' && payload.departureTime ? payload.departureTime : undefined
               if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
               if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
-              const job = startDemJob(origin, destination, index)
+              const job = startDemJob(origin, destination, index, departureTime)
               return send(res, 200, { ok: true, jobId: job.id, status: job.status })
             }
             if (path === '/segments/status') {

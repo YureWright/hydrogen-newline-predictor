@@ -14,6 +14,7 @@ Thumbs.db
 
 data/dem-cache/
 data/osm-cache/
+data/weather-cache/
 
 # Python（如后续引入分析脚本）
 __pycache__/

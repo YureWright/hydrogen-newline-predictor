@@ -142,8 +142,26 @@ export interface SegmentData {
   motionEvents: MotionEvent[]
   /** 地形（DEM 高程剖面派生，A2 填充；对齐《公路路线设计规范》JTG D20：平原/微丘/重丘/山岭）——山区爬坡多，氢耗显著更高 */
   terrain?: 'plain' | 'hilly' | 'heavyHilly' | 'mountain' | null
-  /** 气温 ℃（预留：高德天气 API / 线路区间插值，未获取为 null） */
+  /** 气温 ℃（天气模块按"出发时间+位置+时刻"匹配，A3 填充；未获取为 null） */
   temperatureC: number | null
+  /** 风速 km/h（A3 天气；null=未获取） */
+  windSpeedKmh?: number | null
+  /** 风向角 0~360（北=0，顺时针；A3 天气） */
+  windDirDeg?: number | null
+  /** 风向中文（如"东南风"） */
+  windDirText?: string
+  /** 相对湿度 %（A3 天气） */
+  humidityPct?: number | null
+  /** 降水量 mm（A3 天气） */
+  precipMm?: number | null
+  /** 天气现象（晴/多云/小雨…） */
+  weatherText?: string
+  /** 天气来源：qweather / amap / openweather（A3） */
+  weatherSource?: 'qweather' | 'amap' | 'openweather' | null
+  /** 该样本对应的预报时刻（A3） */
+  weatherTime?: string | null
+  /** 风速 ≥ 阈值 → 物理模型计入风阻（A3，windThresholdKmh 默认 10.8km/h） */
+  windAffects?: boolean
   /** 本段坐标序列（WGS-84，[lng,lat]；已由高德 GCJ-02 逆转换，供 DEM/天气采样） */
   coordsWgs84: Array<[number, number]>
   /** 本段时长 h（step duration 实测；缺失时由 distance/avgSpeed 折算） */

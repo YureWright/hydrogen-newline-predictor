@@ -9,6 +9,7 @@
 import { fetchRouteWithSegments } from '../src/route/amapRoute'
 import { enrichSegmentsWithDem } from '../src/route/demFetch'
 import { enrichSegmentsWithOsmRoads } from '../src/route/osmRoad'
+import { enrichSegmentsWithWeather } from '../src/route/weather'
 import { expectedStopCount, summarizeSegments } from '../src/route/segment'
 
 const ROAD_LEVEL: Record<string, string> = { highway: '高速', national: '国道', provincial: '省道', expressway: '快速路', city: '市区', county: '县乡道', other: '其他' }
@@ -21,6 +22,7 @@ async function main() {
   const origin = args[0] || '113.13,40.99'
   const destination = args[1] || '117.19,39.13'
   const index = Number(args[2] || 0)
+  const departureTime = args[3] || undefined
   console.log('提取路段高程:', origin, '→', destination, '路线' + (index + 1))
   const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
   console.log('候选路线:', candidate.distanceKm + 'km', candidate.durationH + 'h')
@@ -32,16 +34,19 @@ async function main() {
   console.log('查询 OSM 真实路网（升级道路等级；首次较慢，之后走 data/osm-cache 缓存）…')
   const osm = await enrichSegmentsWithOsmRoads(enriched.segments, { cacheDir: 'data/osm-cache' })
   console.log('OSM 完成：请求 ' + osm.queries + ' 次，OSM 覆盖 ' + osm.osmCoveredKm.toFixed(1) + 'km / 兜底 ' + osm.ruleFallbackKm.toFixed(1) + 'km')
-  const sum = summarizeSegments(osm.segments)
+  console.log('抓取沿线天气（出发时间 ' + (departureTime || '当前时间') + '；QWeather 主源/高德兜底，未配置 key 自动跳过）…')
+  const wx = await enrichSegmentsWithWeather(osm.segments, { cacheDir: 'data/weather-cache', departureTime })
+  console.log('天气完成：源=' + wx.provider + ' 采样=' + wx.sampled + '段 请求=' + wx.queries + ' 大风段(≥阈值)=' + wx.windySegments + ' ' + JSON.stringify(wx.bySource))
+  const sum = summarizeSegments(wx.segments)
   console.log('汇总:', JSON.stringify({
     总里程km: sum.totalKm, 平均坡度: sum.avgGradePercent, 平均海拔m: sum.avgElevationM,
     高速km: sum.roadLevelKm.highway, 国道km: sum.roadLevelKm.national, 省道km: sum.roadLevelKm.provincial,
     快速路km: sum.roadLevelKm.expressway, 市区km: sum.roadLevelKm.city, 县乡道km: sum.roadLevelKm.county, 其他km: sum.roadLevelKm.other,
   }))
   console.log('')
-  console.log('路段 | 道路 | 等级(来源) | 里程km | 均速 | 坡度% | 海拔m | 地形 | 变速 | 期望停车 | 路况')
+  console.log('路段 | 道路 | 等级(来源) | 里程km | 均速 | 坡度% | 海拔m | 地形 | 温度℃ | 风速km/h | 湿度% | 变速 | 期望停车 | 路况')
   const behaviorStat = new Map<string, { count: number; km: number; stops: number }>()
-  for (const s of osm.segments) {
+  for (const s of wx.segments) {
     const b = s.motionBehavior
     const cur = behaviorStat.get(b) ?? { count: 0, km: 0, stops: 0 }
     cur.count += 1
@@ -55,13 +60,13 @@ async function main() {
     console.log('  ' + MOTION_LABEL[b] + ' | ' + v.count + ' | ' + v.km.toFixed(1) + ' | ' + v.stops.toFixed(2))
   }
   console.log('')
-  for (const s of osm.segments) {
+  for (const s of wx.segments) {
     const src = s.roadSource === 'osm'
       ? 'OSM:' + (s.osmRef || s.osmHighway || '?')
       : '规则'
     console.log(
       [s.index, s.roadName || '-', ROAD_LEVEL[s.roadLevel] + '(' + src + ')', s.distanceKm, s.avgSpeedKmh,
-        s.gradePercent ?? '-', s.elevationM ?? '-', s.terrain ? TERRAIN[s.terrain] : '-', MOTION_LABEL[s.motionBehavior], expectedStopCount(s), TRAFFIC[s.trafficStatus],
+        s.gradePercent ?? '-', s.elevationM ?? '-', s.terrain ? TERRAIN[s.terrain] : '-', s.temperatureC ?? '-', s.windSpeedKmh ?? '-', s.humidityPct ?? '-', MOTION_LABEL[s.motionBehavior], expectedStopCount(s), TRAFFIC[s.trafficStatus],
       ].join(' | '),
     )
   }

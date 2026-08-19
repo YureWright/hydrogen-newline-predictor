@@ -1,6 +1,6 @@
 # SegmentData 契约 —— 氢耗物理模型的标准输入（A1）
 
-> 里程碑：A1（分段切片 + 输入契约）· A2（DEM 高程/坡度填充）· A2.5（OSM 真实路网道路等级）
+> 里程碑：A1（分段切片 + 输入契约）· A2（DEM 高程/坡度填充）· A2.5（OSM 真实路网道路等级）· A3（沿线天气）
 > 日期：2026-08-17
 > 作用：这是"可插拔物理仿真模型"的**字段契约**。我们的模型、企业 MATLAB 模型都只认这一份输入结构。
 
@@ -31,7 +31,12 @@
 > ⚠️ **`gradePercent = null` 表示"这段没取到高程"，不是"平路"。** 消费方必须显式处理：跳过该段、用邻段插值、或标记结果不确定；直接 `?? 0` 会把坡度阻力算没，山区线路氢耗会被系统性低估。`elevationM` 与 `profile.elevM` 中的 `null` 同理。
 | `motionBehavior` | enum | - | 变速行为：巡航/收费站/路口/匝道/转弯/服务区/城市起停 | 高德指令关键词+航向角（L1） | - | ✅ |
 | `motionEvents` | MotionEvent[] | - | 变速事件（stop/start/decel/turn + 概率 + 期望次数） | 同 L1 | - | ✅ |
-| `temperatureC` | number|null | ℃ | 气温（影响辅助功耗/电堆效率） | 高德天气/区间插值（A3） | - | ⏳ A3 |
+| `temperatureC` | number|null | ℃ | 气温（影响辅助功耗/电堆效率） | 天气模块按出发时间+位置+时刻匹配（A3） | - | ✅ A3 |
+| `windSpeedKmh` / `windDirDeg` / `windDirText` | number/string|null | km/h / ° / 中文 | 风速风向（风阻计算输入） | 天气模块（A3） | - | ✅ A3 |
+| `humidityPct` | number|null | % | 相对湿度 | 天气模块（A3） | - | ✅ A3 |
+| `precipMm` | number|null | mm | 降水量 | 天气模块（A3） | - | ✅ A3 |
+| `weatherText` / `weatherSource` / `weatherTime` | string | - | 天气现象 / 来源(qweather·amap·openweather) / 预报时刻 | 天气模块（A3） | - | ✅ A3 |
+| `windAffects` | boolean | - | 风速 ≥ 阈值(默认10.8km/h) → 物理模型计入风阻 | 天气模块（A3） | - | ✅ A3 |
 | `coordsWgs84` | [lng,lat][] | ° | 本段坐标序列（WGS-84） | 高德 GCJ-02 逆转换 | - | ✅ |
 | `durationH` | number | h | 本段时长（distance/avgSpeed） | step.duration | cyc_secs | ✅ |
 | `roadSource` | 'osm'\|'rule' | - | 道路等级来源：OSM 匹配 / 规则推断兜底 | OSM 地图匹配（A2.5） | - | ✅ |
@@ -120,6 +125,21 @@
 
 验证：`npm run verify:osm`（纯函数映射 11 项 + 真实线路集成，需 AMAP_KEY + 网络）。
 
+
+
+### 3.4 沿线天气：按"出发时间 + 位置 + 时刻"匹配（weather.ts，A3）
+
+温度不是整条路线一个值：重卡跑 6 小时，出发地与目的地可能差 10℃，且沿途经过不同行政区天气各异。本模块让用户设定出发时间，逐段匹配天气：
+
+1. **时刻计算**：每段到达时刻 = 出发时间 + 累计时长（取段中点时刻）；段位置取段中点坐标；
+2. **坐标对齐**：SegmentData 存 WGS-84（供 DEM/OSM），天气查询前转回 GCJ-02 传给 QWeather/高德（以高德坐标系为主）；OpenWeather 用 WGS-84 自动转换；
+3. **主源 和风天气 QWeather**：免费 1000 次/天、逐小时 24h，一次调用返回 24 条小时数据，按"小时桶"取该段温度/风速(km/h)/风向(角度+中文)/湿度/降水；
+4. **兜底 高德天气**（复用 AMAP_KEY）：先逆地理编码 regeo 拿 adcode（高德天气 city 只认 adcode，不认经纬度），再查 4 天日预报 → 按"本地日期"匹配（取日最高/最低均值）；无逐小时，时间粒度到"日"；
+5. **可选 OpenWeather**（WGS-84）：48h 逐小时；
+6. **风速阈值**：windThresholdKmh（默认 10.8km/h ≈ 3m/s），风速 ≥ 阈值 → windAffects=true，物理模型才计风阻；风速/风向与温度同一次响应，不额外消耗调用；
+7. **调用优化**：0.05° 网格（≈5km）聚类位置去重 + 磁盘缓存 data/weather-cache（按网格+日期），一条 490km 路线约 6~10 次请求，二次运行秒回。
+
+> 数据源说明：ERA5（ECMWF 再分析）是**历史**数据非预报、需 CDS 授权；中国气象局/ECMWF 实时接口需机构授权，均不适合在线实时抓取，未接入；模块按 provider 接口设计，后续可扩展。
 
 
 ## 4. 企业模型 adapter 示例

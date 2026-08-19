@@ -59,6 +59,7 @@ const PHASE_TEXT: Record<string, string> = {
   dem: '下载高程瓦片…',
   'osm-query': '查询 OSM 真实路网…',
   'osm-match': 'OSM 道路匹配…',
+  weather: '抓取沿线天气（按出发时间匹配）…',
   compute: '计算坡度与海拔…',
 }
 
@@ -71,6 +72,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   onHighlight?: (coordsList: Array<Array<[number, number]>>) => void
 }) {
   const [stage, setStage] = useState<Stage>('idle')
+  // 出发时间（datetime-local 字符串，默认当前本地时间）；传给后端按"位置+时刻"匹配天气
+  const [departureTime, setDepartureTime] = useState(() => {
+    const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    return d.toISOString().slice(0, 16)
+  })
   const [data, setData] = useState<SegmentsResponse | null>(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<{ phase: string; done: number; total: number; cached: number } | null>(null)
@@ -135,7 +141,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       const r = await fetch('/api/segments/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination, index: routeIndex }),
+        body: JSON.stringify({ origin, destination, index: routeIndex, departureTime }),
       })
       const j = await r.json()
       if (!j.ok || !j.jobId) { setError(j.msg || '启动测算失败'); setStage('error'); return }
@@ -145,7 +151,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       setError('启动测算失败：' + (e.message || e))
       setStage('error')
     }
-  }, [origin, destination, routeIndex])
+  }, [origin, destination, routeIndex, departureTime])
 
   const poll = useCallback((jobId: string) => {
     clearTimer()
@@ -243,7 +249,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       const s = v == null ? '' : String(v)
       return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
     }
-    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '爬升m', '下降m', '变速情况', '变速概率/期望', '路况', '停车次/km', '时长h', '期望停车次数', '地形', '等级来源']
+    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '爬升m', '下降m', '变速情况', '变速概率/期望', '路况', '停车次/km', '时长h', '期望停车次数', '地形', '等级来源', '温度℃', '风速km/h', '湿度%', '降水mm', '天气']
     const rows = sorted.map((s) => [
       s.index, s.roadName ?? '', ROAD_LEVEL_LABEL[s.roadLevel], s.distanceKm, s.avgSpeedKmh,
       s.gradePercent ?? '', s.elevationM ?? '', s.elevationGainM ?? '', s.elevationLossM ?? '',
@@ -251,6 +257,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       s.motionEvents.length ? s.motionEvents.map((e) => `${EVENT_TYPE_LABEL[e.type]}${e.expectedCount}`).join(';') : '',
       TRAFFIC_LABEL[s.trafficStatus], s.stopDensity, s.durationH, expectedStopCount(s),
       s.terrain ? TERRAIN_LABEL[s.terrain] : '', s.roadSource === 'osm' ? (s.osmRef || s.osmHighway || 'OSM') : '规则',
+      s.temperatureC ?? '', s.windSpeedKmh ?? '', s.humidityPct ?? '', s.precipMm ?? '', s.weatherText ?? '',
     ].map(esc).join(','))
     const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -324,10 +331,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             <h3>路段数据测算</h3>
             <p className="panel-sub">
               已选 路线 {routeIndex + 1} · {candidate.distanceKm}km · 约 {candidate.durationH}h
-              <br />将提取 {candidate.stepsCount} 段路段的坡度/海拔/路况数据（首次约 1~2 分钟，之后走缓存秒级）
+              <br />将提取 {candidate.stepsCount} 段路段的坡度/海拔/路况/沿线天气数据（首次约 1~2 分钟，之后走缓存秒级）
             </p>
           </div>
-          <button className="btn-primary" onClick={start}>开始测算</button>
+          <div className="depart-box">
+            <label className="depart-label">🕐 出发时间
+              <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} />
+            </label>
+            <div className="depart-hint">按出发时间 + 行驶位置匹配各路段温度/风速/湿度/降水（QWeather·和风天气，未配置 key 时自动用高德兜底）</div>
+            <button className="btn-primary" onClick={start}>开始测算</button>
+          </div>
         </div>
       </div>
     )
@@ -467,6 +480,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <th className="sortable" onClick={() => headerSort('gradePercent')}>坡度 %{sortArrow('gradePercent')}</th>
                 <th className="sortable" onClick={() => headerSort('elevationM')}>海拔 m{sortArrow('elevationM')}</th>
                 <th>地形</th>
+                <th>温度 ℃</th>
+                <th>风速 km/h</th>
+                <th>湿度 %</th>
+                <th>降水 mm</th>
+                <th>天气</th>
                 <th>爬升 m</th>
                 <th>下降 m</th>
                 <th>变速情况</th>
@@ -497,6 +515,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   </td>
                   <td className="mono">{s.elevationM != null ? s.elevationM : '—'}</td>
                   <td>{s.terrain ? <span className="terrain-chip" style={{ background: TERRAIN_COLOR[s.terrain] }}>{TERRAIN_LABEL[s.terrain]}</span> : '—'}</td>
+                  <td className={"mono" + (s.windAffects ? " windy" : "")} title={s.windAffects ? '风速≥阈值，计入风阻' : ''}>{s.temperatureC != null ? s.temperatureC : '—'}</td>
+                  <td className={"mono" + (s.windAffects ? " windy" : "")} title={s.windDirText ? '风向 ' + s.windDirText : ''}>{s.windSpeedKmh != null ? s.windSpeedKmh + (s.windAffects ? ' 💨' : '') : '—'}</td>
+                  <td className="mono">{s.humidityPct != null ? s.humidityPct : '—'}</td>
+                  <td className="mono">{s.precipMm != null ? s.precipMm : '—'}</td>
+                  <td className="mono">{s.weatherText || (s.weatherSource ? '—' : '—')}</td>
                   <td className="mono">{s.elevationGainM != null ? s.elevationGainM : '—'}</td>
                   <td className="mono">{s.elevationLossM != null ? s.elevationLossM : '—'}</td>
                   <td><span className="motion-chip" style={{ background: MOTION_COLOR[s.motionBehavior] }}>{MOTION_LABEL[s.motionBehavior]}</span></td>

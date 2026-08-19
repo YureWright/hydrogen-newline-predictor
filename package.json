@@ -14,7 +14,8 @@
     "verify:dem": "tsx scripts/verify-dem.ts",
     "enrich": "tsx scripts/enrich-route.ts",
     "verify:split": "tsx scripts/verify-split.ts",
-    "verify:osm": "tsx scripts/verify-osm.ts"
+    "verify:osm": "tsx scripts/verify-osm.ts",
+    "verify:weather": "tsx scripts/verify-weather.ts"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

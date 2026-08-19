@@ -58,7 +58,7 @@ function buildPrompt(input: RouteEvalInput): string {
   const top = [...segments].sort((a, b) => b.distanceKm - a.distanceKm).slice(0, 6)
   for (const seg of top) {
     lines.push(
-      `- ${seg.roadName || '未命名'}（${seg.roadLevel}${seg.roadSource === 'osm' ? '·OSM' : '·规则'}）${seg.distanceKm}km，均速 ${seg.avgSpeedKmh}km/h，坡度 ${seg.gradePercent ?? '-'}%，海拔 ${seg.elevationM ?? '-'}m，地形 ${seg.terrain ?? '-'}，路况 ${seg.trafficStatus}`,
+      `- ${seg.roadName || '未命名'}（${seg.roadLevel}${seg.roadSource === 'osm' ? '·OSM' : '·规则'}）${seg.distanceKm}km，均速 ${seg.avgSpeedKmh}km/h，坡度 ${seg.gradePercent ?? '-'}%，海拔 ${seg.elevationM ?? '-'}m，地形 ${seg.terrain ?? '-'}，温度 ${seg.temperatureC ?? '-'}℃，风速 ${seg.windSpeedKmh ?? '-'}km/h，路况 ${seg.trafficStatus}`,
     )
   }
   lines.push('')
