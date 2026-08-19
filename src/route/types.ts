@@ -114,8 +114,16 @@ export interface SegmentData {
   index: number
   /** 道路名（从导航指令提取，可能为空字符串） */
   roadName: string
-  /** 道路等级（高速/国道/省道/城市/其他） */
+  /** 道路等级（高速/国道/省道/快速路/城市/县乡道/其他） */
   roadLevel: RoadLevel
+  /** 道路等级来源：'osm'=OSM 真实路网匹配，'rule' 或缺省=规则推断（兜底） */
+  roadSource?: 'osm' | 'rule'
+  /** OSM 真实标签（如 motorway/primary），roadSource='osm' 时有值 */
+  osmHighway?: string
+  /** OSM ref 编号（如 G6、G112、S24） */
+  osmRef?: string
+  /** OSM 路名（可能与高德路名不一致） */
+  osmName?: string
   /** 本段里程 km */
   distanceKm: number
   /** 本段平均速度 km/h（由 step 的 distance/duration 实测折算，含实时路况影响） */
@@ -132,8 +140,8 @@ export interface SegmentData {
   motionBehavior: MotionBehavior
   /** 变速事件清单（单次概率 + 期望次数；供工况合成计算启停能量） */
   motionEvents: MotionEvent[]
-  /** 地形（DEM 高程剖面派生，A2 填充）：山区/丘陵/平原——山区爬坡多，氢耗显著更高 */
-  terrain?: 'plain' | 'hilly' | 'mountain' | null
+  /** 地形（DEM 高程剖面派生，A2 填充；对齐《公路路线设计规范》JTG D20：平原/微丘/重丘/山岭）——山区爬坡多，氢耗显著更高 */
+  terrain?: 'plain' | 'hilly' | 'heavyHilly' | 'mountain' | null
   /** 气温 ℃（预留：高德天气 API / 线路区间插值，未获取为 null） */
   temperatureC: number | null
   /** 本段坐标序列（WGS-84，[lng,lat]；已由高德 GCJ-02 逆转换，供 DEM/天气采样） */

@@ -402,11 +402,24 @@ function rebaseSlice(pts: ProfilePoint[], elevs: number[], a: number, b: number)
   }
 }
 
-/** 由剖面高程判定地形：局部坡度幅值 + 段内高差（山区爬坡多，氢耗显著更高） */
+/** 《公路路线设计规范》(JTG D20) 地形分类阈值：
+ * - 平原：地面自然坡度 ≤3°(≈5.2%)，无明显起伏；
+ * - 微丘：地面自然坡度 3°~20°(≈36.4%)，相对高差 <100m；
+ * - 重丘：相对高差 100~200m；
+ * - 山岭：地面自然坡度 >20° 或相对高差 >200m。
+ * 实现说明：以 DEM 沿线的"路线剖面最大坡度 + 段内高差"近似规范里的"自然坡度 + 相对高差"。
+ * 路线纵坡被工程设计得更缓，剖面坡度是自然坡度的保守代理，因此**段内高差作为主导判据**，
+ * 坡度只做补充（陡崖/陡坡段即使高差不大也判为山岭或微丘）。 */
+export const JTG_PLAIN_GRADE_PCT = 5.2 // 3° 自然坡度 ≈ tan(3°)
+export const JTG_STEEP_GRADE_PCT = 36.4 // 20° 自然坡度 ≈ tan(20°)
+export const JTG_HILLY_RANGE_M = 100 // 微丘/重丘分界：相对高差 100m
+export const JTG_MOUNTAIN_RANGE_M = 200 // 重丘/山岭分界：相对高差 200m
+
+/** 由剖面高程判定地形（JTG D20 四档：平原/微丘/重丘/山岭；山区爬坡多，氢耗显著更高） */
 export function inferTerrain(
   pts: ProfilePoint[],
   elevs: number[],
-): 'plain' | 'hilly' | 'mountain' | null {
+): 'plain' | 'hilly' | 'heavyHilly' | 'mountain' | null {
   let maxAbsGrade = 0
   let minE = Infinity
   let maxE = -Infinity
@@ -426,8 +439,12 @@ export function inferTerrain(
   }
   if (validCount === 0) return null
   const range = Number.isFinite(minE) && Number.isFinite(maxE) ? maxE - minE : 0
-  if (maxAbsGrade > 4 || range > 200) return 'mountain'
-  if (maxAbsGrade > 2 || range > 80) return 'hilly'
+  // 山岭：相对高差 >200m，或局部坡度超过 20°（陡崖/陡坡）
+  if (range > JTG_MOUNTAIN_RANGE_M || maxAbsGrade > JTG_STEEP_GRADE_PCT) return 'mountain'
+  // 重丘：相对高差 100~200m
+  if (range > JTG_HILLY_RANGE_M) return 'heavyHilly'
+  // 微丘：自然坡度超过 3°（路线剖面坡度达 5.2% 说明地形确有起伏）
+  if (maxAbsGrade > JTG_PLAIN_GRADE_PCT) return 'hilly'
   return 'plain'
 }
 

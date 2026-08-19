@@ -75,7 +75,7 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 .mono { font-variant-numeric: tabular-nums; }
 .road-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .lv { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; color: #fff; }
-.lv.highway { background: #1e7a54; } .lv.national { background: #2c7fb8; } .lv.provincial { background: #f0ad4e; } .lv.city { background: #9467bd; } .lv.other { background: #999; }
+.lv.highway { background: #1e7a54; } .lv.national { background: #2c7fb8; } .lv.provincial { background: #f0ad4e; } .lv.expressway { background: #17a2b8; } .lv.city { background: #9467bd; } .lv.county { background: #8d6e63; } .lv.other { background: #999; }
 .grade-up { color: #d62728; } .grade-down { color: #2ca02c; }
 .traffic-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
 
@@ -173,4 +173,20 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
   font-size: 12px;
   line-height: 18px;
   white-space: nowrap;
+}
+
+
+/* OSM 真实路网匹配徽标（道路等级来源） */
+.osm-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #2c7fb8;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  vertical-align: 1px;
+  white-space: nowrap;
+  cursor: help;
 }

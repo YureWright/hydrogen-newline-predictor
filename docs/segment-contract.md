@@ -1,6 +1,6 @@
 # SegmentData 契约 —— 氢耗物理模型的标准输入（A1）
 
-> 里程碑：A1（分段切片 + 输入契约）· A2（DEM 高程/坡度填充）
+> 里程碑：A1（分段切片 + 输入契约）· A2（DEM 高程/坡度填充）· A2.5（OSM 真实路网道路等级）
 > 日期：2026-08-17
 > 作用：这是"可插拔物理仿真模型"的**字段契约**。我们的模型、企业 MATLAB 模型都只认这一份输入结构。
 
@@ -20,7 +20,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `index` | number | - | 段序号（0 起） | buildSegments | - | ✅ |
 | `roadName` | string | - | 道路名（可空） | 高德导航指令提取 | - | ✅ |
-| `roadLevel` | enum | - | 高速/国道/省道/城市/其他 | 道路名+收费里程推断 | - | ✅ |
+| `roadLevel` | enum | - | 高速/国道/省道/快速路/城市/县乡道/其他 | **OSM 真实路网匹配（Overpass）**，无匹配时规则推断兜底 | - | ✅ |
 | `distanceKm` | number | km | 本段里程 | 高德 step.distance | cyc_secs×速度 | ✅ |
 | `avgSpeedKmh` | number | km/h | 本段平均速度 | step.distance/duration（含实时路况） | cyc_mph | ✅ |
 | `gradePercent` | number|null | % | 平均坡度（+上坡/−下坡） | SRTM DEM（A2） | cyc_grade | ⏳ A2 |
@@ -34,12 +34,18 @@
 | `temperatureC` | number|null | ℃ | 气温（影响辅助功耗/电堆效率） | 高德天气/区间插值（A3） | - | ⏳ A3 |
 | `coordsWgs84` | [lng,lat][] | ° | 本段坐标序列（WGS-84） | 高德 GCJ-02 逆转换 | - | ✅ |
 | `durationH` | number | h | 本段时长（distance/avgSpeed） | step.duration | cyc_secs | ✅ |
+| `roadSource` | 'osm'\|'rule' | - | 道路等级来源：OSM 匹配 / 规则推断兜底 | OSM 地图匹配（A2.5） | - | ✅ |
+| `osmHighway` / `osmRef` / `osmName` | string | - | OSM 真实标签/编号/路名（如 motorway / G6 / 京藏高速），`roadSource='osm'` 时有值 | OSM | - | ✅ |
 
 ### 枚举值
 
 `RoadLevel`: `highway`（高速）| `national`（国道）| `provincial`（省道）| `expressway`（快速路/环线）| `city`（市区道路）| `county`（县乡道）| `other`（其他/无名连接段）
 
-`terrain`（A2 DEM 派生）：`plain`（平原）| `hilly`（丘陵）| `mountain`（山区）| `null`（无高程数据）——山区爬坡多，氢耗显著更高
+> 等级判定：优先由 **OSM 真实路网**（`highway` 标签 + `ref`/`name` 编号）给出，规则推断（关键词/收费里程）只做兜底。
+
+`terrain`（A2 DEM 派生，对齐《公路路线设计规范》JTG D20）：`plain`（平原）| `hilly`（微丘）| `heavyHilly`（重丘）| `mountain`（山岭）| `null`（无高程数据）——山区爬坡多，氢耗显著更高。
+
+> 阈值：平原 自然坡度 ≤3°(≈5.2%)；微丘 3°~20°(≈36.4%) 且相对高差 <100m；重丘 相对高差 100~200m；山岭 相对高差 >200m 或坡度 >20°。以 DEM 路线剖面坡度 + 段内高差近似规范的“自然坡度 + 相对高差”（路线纵坡被工程设计得更缓，因此高差为主导判据）。
 
 `TrafficStatus`: `smooth`（畅通）| `slow`（缓行）| `congested`（拥堵）| `severe`（严重拥堵）| `unknown`（未知）
 
@@ -58,7 +64,7 @@
 **切片规则（1 step → 1 segment）**：
 
 1. `roadName` = 分层提取（G/S 编号+高速/国道/省道 → 含"高速" → 含"国道/省道" → 沿 X 兜底）；
-2. `roadLevel` = 关键词（高速/国道/省道/环/快速）→ 收费里程>0 → 编号兜底；
+2. `roadLevel` = 规则推断（关键词 高速/国道/省道/环/快速 → 收费里程>0 → 编号兜底）作为**初始值**；随后由 **OSM 真实路网匹配升级**（见 §3.3）：无匹配时保留规则推断值（`roadSource='rule'`）；
 3. `trafficStatus` = 该 step 内 tmcs 按距离加权的主导状态；
 4. `stopDensity` = 道路等级基准 × 路况系数（高速 0.02 次/km，城区 2.0 次/km，拥堵 ×3~5）；
 5. `avgSpeedKmh` = distance / duration（含路况影响；无 duration 时用等级巡航速度兜底）；
@@ -97,6 +103,24 @@
 3. 长度上限 10km、巡航段最小 0.5km；尾部过短且坡度接近才并入前片。
 
 碎段策略：只有"同路 + 无变速事件 + <0.2km"的纯延续碎段才并入前段（`mergeContinuationFragments`），行为区短段一律保留；离散变速事件只挂到事件段的首个子段（避免地形切分后重复计数）。
+
+### 3.3 OSM 真实路网道路等级（osmRoad.ts，A2.5）
+
+把"规则推断"换成 **OpenStreetMap 真实路网数据**：OSM 每条路带 `highway` 标签（motorway=高速 / trunk=快速路 / primary=国道 / secondary=省道 / tertiary=县道 / residential=市区…）和 `ref` 编号（G6、G112、S24），是"不用推断直接能拿到的真实数据"。
+
+**匹配流程（地图匹配 Lite）**：
+
+1. **走廊分块查询**：整条路线折线按累计里程切成 ~40km 走廊分块，每块用 Overpass API `around:300` 折线查询拉回走廊内 highway 线要素（带几何）；
+2. **点-路吸附**：每个路段的 WGS-84 折线点吸附到最近 OSM 线段（点-线段距离 ≤150m 且航向差 ≤75°），逐点投票；
+3. **道路身份聚合**：OSM 一条高速常被切成几十个短 way，按 **ref/name/highway 族聚合**成"道路身份"（如 S12 首都机场高速公路），取命中点数最多的身份（≥3 点且占被匹配点 ≥25% 才算命中）；
+4. **标签映射**：`osmTagsToRoadLevel()` 用 highway 标签 + ref/name 编号给出 RoadLevel；
+5. **兜底**：Overpass 不可用 / 无匹配 → 保留规则推断值（`roadSource='rule'`），OSM 只"升级"不"误伤"；匝道/收费站/服务区等行为段保持规则推断（其路名指向所连接的干线，OSM 却常把这些短连接段标成 *_link/service 会错误降级）。
+
+**数据源与可靠性**：Overpass API（免 Key，ODbL 许可）。公共镜像限流/超时频繁，模块内置 4 镜像 failover + 30s 单次超时 + 空结果重试 + 5 分钟墙钟预算，结果磁盘缓存 `data/osm-cache/`（gitignore，同一走廊二次运行秒回）。OSM 覆盖不到的路段自动退回规则推断——两种来源在 UI 上以徽标区分（OSM 徽标 / 无徽标=规则推断）。
+
+验证：`npm run verify:osm`（纯函数映射 11 项 + 真实线路集成，需 AMAP_KEY + 网络）。
+
+
 
 ## 4. 企业模型 adapter 示例
 

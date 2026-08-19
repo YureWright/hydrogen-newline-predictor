@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { fetchRoutePlan, fetchRouteWithSegments } from './src/route/amapRoute'
 import { loadStations } from './src/route/stationLayer'
 import { enrichSegmentsWithDem } from './src/route/demFetch'
+import { enrichSegmentsWithOsmRoads } from './src/route/osmRoad'
 import { summarizeSegments } from './src/route/segment'
 import { evaluateRoute, getAiConfig } from './src/route/ai'
 
@@ -76,12 +77,27 @@ function startDemJob(origin: string, destination: string, index: number) {
         },
       })
       if (job.status === 'cancelled') return
+      // OSM 真实路网升级道路等级（无匹配/服务不可用时自动保留规则推断，不阻塞主流程）
+      job.phase = 'osm-query'
+      const osmRes = await enrichSegmentsWithOsmRoads(enriched.segments, {
+        cacheDir: join(__dirname, 'data', 'osm-cache'),
+        shouldCancel: () => job.status === 'cancelled',
+        onProgress: (p) => {
+          if (job.status === 'cancelled') return
+          job.phase = p.phase
+          job.done = p.done
+          job.total = p.total
+          job.cached = 0
+        },
+      })
+      if (job.status === 'cancelled') return
       job.phase = 'compute'
       job.result = {
         candidate,
-        segments: enriched.segments,
-        summary: summarizeSegments(enriched.segments),
+        segments: osmRes.segments,
+        summary: summarizeSegments(osmRes.segments),
         dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
+        osm: { queries: osmRes.queries, coveredKm: osmRes.osmCoveredKm, fallbackKm: osmRes.ruleFallbackKm },
       }
       job.status = 'done'
     } catch (e: any) {
@@ -176,13 +192,15 @@ export default defineConfig({
               if (!key) return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
               const { candidate, segments } = await fetchRouteWithSegments(origin, destination, index)
               const enriched = await enrichSegmentsWithDem(segments, { cacheDir: join(__dirname, 'data', 'dem-cache') })
-              const summary = summarizeSegments(enriched.segments)
+              const osmRes = await enrichSegmentsWithOsmRoads(enriched.segments, { cacheDir: join(__dirname, 'data', 'osm-cache') })
+              const summary = summarizeSegments(osmRes.segments)
               return send(res, 200, {
                 ok: true,
                 candidate,
-                segments: enriched.segments,
+                segments: osmRes.segments,
                 summary,
                 dem: { z: enriched.z, tiles: enriched.tilesUsed, source: enriched.source },
+                osm: { queries: osmRes.queries, coveredKm: osmRes.osmCoveredKm, fallbackKm: osmRes.ruleFallbackKm },
               })
             }
             if (path === '/ai/evaluate' && req.method === 'POST') {

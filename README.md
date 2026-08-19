@@ -41,10 +41,11 @@
 | DEM 数据源验证 | SRTM 坡度/海拔数据源可行性（terrarium 瓦片 z14 ≈76m/px，opentopodata 免 Key 兜底） |
 | 路段高程提取（A2） | 逐段采样 DEM，填充坡度/海拔/累计爬升下降（terrarium 瓦片 + 本地缓存；瓦片失败率 >20% 时切 opentopodata 兜底）。**采不到高程的段坡度为 `null`（未知），不会当成 0%（平路）** |
 | 道路等级细化 | 高速 / 国道 / 省道 / **快速路**（环线/快速/高架）/ 市区（大街·大道·路·街）/ **县乡道** / 其他——"其他"仅剩无名连接段；收费立交桥隧道连接段归高速 |
-| 地形分类 | DEM 高程派生：**山区 / 丘陵 / 平原**（按段内局部坡度幅值 + 高差判定），山区爬坡多、氢耗显著更高 |
+| **OSM 真实路网等级** | 用 OpenStreetMap 路网（Overpass API）做地图匹配，**直接读取真实 highway 标签/编号**（motorway=高速、ref=G6…）判定道路等级，不再靠路名猜测；OSM 覆盖不到时自动回退规则推断（UI 以 OSM 徽标区分来源） |
+| 地形分类 | DEM 高程派生，对齐 **《公路路线设计规范》JTG D20 四档：平原 / 微丘 / 重丘 / 山岭**（自然坡度 3°/20° + 相对高差 100/200m 阈值），山区爬坡多、氢耗显著更高 |
 | 路段数据分析面板 | 选路 → 点「开始测算」→ 真实进度条 → 路段数据表（默认按起点→终点顺序，点击表头可按里程/坡度/海拔/均速升降排序）+ 海拔剖面/道路等级/路况/均速可视化 + AI 智能评估 |
 | 路段↔地图联动 | 表格行勾选框**多选** → 左侧地图用色板同时高亮多条路段并自动聚焦（表头全选/全不选，点行也可切换；「清除高亮」一键清空） |
-| 路段表导出 CSV | 表格右上角「⬇ 导出 CSV」一键下载（按当前排序导出，含序号/道路/等级/里程/均速/坡度/海拔/爬升下降/变速情况/变速概率/路况/停车密度/时长/期望停车次数；UTF-8 BOM，Excel 打开中文不乱码） |
+| 路段表导出 CSV | 表格右上角「⬇ 导出 CSV」一键下载（按当前排序导出，含序号/道路/等级/里程/均速/坡度/海拔/爬升下降/变速情况/变速概率/路况/停车密度/时长/期望停车次数/地形/等级来源；UTF-8 BOM，Excel 打开中文不乱码） |
 
 
 ## 创新点：路段自适应切分 + 行为区标注（Behavior & Grade-Aware Segmentation）
@@ -83,11 +84,20 @@
 >
 > 该切分对“新线路氢耗预测”至关重要：企业 MATLAB 模型接入时直接消费细分后的 SegmentData，无需感知切分细节。验证：`npm run verify:split`（76 项纯函数断言）+ `npm run enrich`（真实线路）。
 
+**创新点 2：OSM 真实路网道路等级（Road Level from OSM，不再靠路名猜）**
+
+规则推断只能靠路名关键词猜等级（城市小路/无名路段常被归为“其他”）。本工具用 OpenStreetMap 真实路网做**地图匹配**：Overpass API 按路线走廊拉回带几何的 highway 线要素 → 路段折线点吸附到最近 OSM 路（≤150m + 航向平行）→ 按 ref/name/highway 族聚合成“道路身份”投票 → 直接读取 OSM 的 `motorway/trunk/primary/…` 标签与 `G6/S24` 编号给出等级。实测天安门→首都机场 30km：OSM 覆盖 90%（S12 机场高速正确识别为 motorway=高速，东二环=trunk=快速路，无名路段不再全是“其他”）。Overpass 公共镜像限流时自动回退规则推断，UI 以 OSM 徽标区分来源。
+
+**创新点 3：地形分类对齐《公路路线设计规范》JTG D20（平原/微丘/重丘/山岭）**
+
+DEM 高程剖面按规范阈值四档分类：平原 自然坡度 ≤3°(≈5.2%)；微丘 3°~20°(≈36.4%) 且相对高差 <100m；重丘 相对高差 100~200m；山岭 相对高差 >200m 或坡度 >20°——不再用自定义的 2%/4% 阈值，评审可直接对标国标。
+
 ## 性能说明
 
 - 地图基础层（路线/571 座加氢站）与**高亮层分离**：勾选/取消路段只重画高亮折线，不再整层重建 571 个 marker；
 - 图表组件 React.memo + 剖面点数组 memo：排序/勾选等高频交互不重算上千点 SVG；
 - DEM 瓦片本地缓存（data/dem-cache，一次下载复用）；测算任务可取消，结果保留 30 分钟。
+- OSM 路网结果磁盘缓存（data/osm-cache，同一走廊二次运行秒回）；Overpass 公共镜像不可用时自动回退规则推断，不阻塞测算。
 
 ## 快速开始
 
@@ -168,6 +178,7 @@ npm run verify:route   # 命令行自测（10 项纯函数）+ 真实线路验�
 npm run verify:segment # A1 分段切片自测（38 项纯函数 + 真实线路分段）
 npm run verify:dem     # DEM 数据源验证（需联网）
 npm run verify:split   # 切分算法验证（行为区 + 坡度带 + 启停口径，纯函数 76 项）
+npm run verify:osm     # OSM 真实路网道路等级验证（映射 11 项 + 真实线路，需联网）
 ```
 
 地址解析：优先调用高德地理编码（精确到门址/POI）；若接口失败（权限/配额）或未配置 Key，回退到内置城市表（41 个主要城市，返回城市中心点，界面会提示）。
@@ -181,7 +192,8 @@ npm run demo -- 113.13,40.99 117.19,39.13   # 指定坐标
 npm run verify:route # 纯函数自测 + 3 条真实线路验证
 npm run verify:segment # A1 分段切片自测 + 真实线路分段
 npm run verify:dem     # DEM 数据源验证（opentopodata vs terrarium 瓦片）
-npm run enrich         # 路段高程提取 CLI（预热 DEM 缓存 + 打印坡度/海拔路段表）
+npm run enrich         # 路段高程提取 CLI（预热 DEM 缓存 + 打印坡度/海拔/OSM 等级路段表）
+npm run verify:osm     # OSM 真实路网道路等级验证（需联网）
 ```
 
 ## API（Vite dev server 内置中间件，同源免 CORS）
@@ -192,7 +204,7 @@ npm run enrich         # 路段高程提取 CLI（预热 DEM 缓存 + 打印坡�
 | `GET /api/suggest?keywords=乌兰` | 地名输入提示（需高德"输入提示"权限） |
 | `GET /api/route?origin=lng,lat&destination=lng,lat` | 候选路线 + 逐段路况 + 沿线加氢站 |
 | `GET /api/stations` | 全国加氢站图层（571 座） |
-| `GET /api/segments?origin=&destination=&index=` | 同步版路段测算（无进度条，供脚本/调试用） |
+| `GET /api/segments?origin=&destination=&index=` | 同步版路段测算（无进度条，供脚本/调试用；含 DEM 高程 + OSM 道路等级） |
 | `POST /api/segments/start` · `GET /api/segments/status` · `GET /api/segments/result` · `POST /api/segments/cancel` | DEM 提取任务（进度条轮询：start 建任务 → status 查进度 → result 取结果 → cancel 取消并中断后台下载；结果保留 30 分钟可重复获取） |
 | `POST /api/ai/evaluate` | AI 智能评估（DeepSeek，需 DEEPSEEK_API_KEY） |
 
@@ -208,6 +220,7 @@ hydrogen-newline-predictor/
 │   │   ├── segment.ts       #   A1 分段切片（steps+tmcs+polyline → SegmentData）
 │   │   ├── dem.ts           #   DEM 高程瓦片解码与采样（Node 侧）
 │   │   ├── demFetch.ts       #   DEM 瓦片下载/缓存 + 路段高程填充（Node 侧）
+│   │   ├── osmRoad.ts        #   OSM 真实路网道路等级（Overpass 查询 + 地图匹配，Node 侧）
 │   │   ├── ai.ts             #   DeepSeek AI 评估（Node 侧）
 │   │   ├── amapRoute.ts     #   高德驾车路线规划调用（含 fetchRouteWithSegments）
 │   │   └── stationLayer.ts  #   加氢站图层 + 沿线搜索
@@ -220,6 +233,7 @@ hydrogen-newline-predictor/
 │   ├── verify-route.ts      # 自测（10 项）+ 真实线路验证
 │   ├── verify-segment.ts    # A1 分段切片自测（38 项 + 真实线路）
 │   ├── verify-split.ts      # 切分算法 + 启停口径自测（76 项）
+│   └── verify-osm.ts        # OSM 道路等级映射 + 真实线路集成自测
 │   └── verify-dem.ts        # DEM 数据源验证
 ├── data/stations.geojson    # 加氢站数据（571 座，GCJ-02）
 ├── docs/
@@ -235,6 +249,7 @@ hydrogen-newline-predictor/
 ## 数据来源与合规
 
 - 路线/路况：高德开放平台 Web 服务 API（需 Key）
+- 道路等级：OpenStreetMap 路网（Overpass API，免 Key；数据 © OpenStreetMap 贡献者，ODbL 许可）
 - 加氢站：加氢服务地图公开分页接口（571 座，采集于 2026-08-15）
 - 数据用于赛题演示与学习；站点状态为采集时刻快照，实际运营数据请以官方渠道为准
 - 本仓库不包含任何账号、口令、Token 等敏感信息（Key 通过环境变量注入）
@@ -249,6 +264,7 @@ hydrogen-newline-predictor/
 - [x] 高德地理编码/输入提示权限接入（任意地址 + 自动补全）
 - [x] 路段行为标注（收费站/路口/匝道/转弯：变速情况 + 变速概率）
 - [x] 切分算法升级（坡度变号 + 坡度带阈值自适应细分；短段不再合并）
+- [x] OSM 真实路网道路等级（替换规则推断为主源 + JTG D20 地形四档）
 - [ ] 氢耗物理模型（纵向动力学 + 工况合成 + 效率折算 + 基准校准）
 - [ ] 成本引擎（燃料/路桥/人工/维保 + 柴油对比）
 - [ ] 补能规划（续航约束 + 绕行加氢站）

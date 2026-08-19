@@ -23,8 +23,8 @@ const ROAD_LEVEL_LABEL: Record<string, string> = {
 const ROAD_LEVEL_COLOR: Record<string, string> = {
   highway: '#1e7a54', national: '#2c7fb8', provincial: '#f0ad4e', expressway: '#17a2b8', city: '#9467bd', county: '#8d6e63', other: '#bbb',
 }
-const TERRAIN_LABEL: Record<string, string> = { plain: '平原', hilly: '丘陵', mountain: '山区' }
-const TERRAIN_COLOR: Record<string, string> = { plain: '#2ca02c', hilly: '#f0ad4e', mountain: '#d62728' }
+const TERRAIN_LABEL: Record<string, string> = { plain: '平原', hilly: '微丘', heavyHilly: '重丘', mountain: '山岭' }
+const TERRAIN_COLOR: Record<string, string> = { plain: '#2ca02c', hilly: '#f0ad4e', heavyHilly: '#e66101', mountain: '#d62728' }
 const TRAFFIC_LABEL: Record<string, string> = {
   smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重拥堵', unknown: '未知',
 }
@@ -57,6 +57,8 @@ type Stage = 'idle' | 'running' | 'done' | 'error'
 const PHASE_TEXT: Record<string, string> = {
   route: '获取路线分段…',
   dem: '下载高程瓦片…',
+  'osm-query': '查询 OSM 真实路网…',
+  'osm-match': 'OSM 道路匹配…',
   compute: '计算坡度与海拔…',
 }
 
@@ -241,13 +243,14 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       const s = v == null ? '' : String(v)
       return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
     }
-    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '爬升m', '下降m', '变速情况', '变速概率/期望', '路况', '停车次/km', '时长h', '期望停车次数']
+    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '爬升m', '下降m', '变速情况', '变速概率/期望', '路况', '停车次/km', '时长h', '期望停车次数', '地形', '等级来源']
     const rows = sorted.map((s) => [
       s.index, s.roadName ?? '', ROAD_LEVEL_LABEL[s.roadLevel], s.distanceKm, s.avgSpeedKmh,
       s.gradePercent ?? '', s.elevationM ?? '', s.elevationGainM ?? '', s.elevationLossM ?? '',
       MOTION_LABEL[s.motionBehavior],
       s.motionEvents.length ? s.motionEvents.map((e) => `${EVENT_TYPE_LABEL[e.type]}${e.expectedCount}`).join(';') : '',
       TRAFFIC_LABEL[s.trafficStatus], s.stopDensity, s.durationH, expectedStopCount(s),
+      s.terrain ? TERRAIN_LABEL[s.terrain] : '', s.roadSource === 'osm' ? (s.osmRef || s.osmHighway || 'OSM') : '规则',
     ].map(esc).join(','))
     const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
@@ -482,7 +485,10 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     <input type="checkbox" checked={selectedSegs.has(s.index)} onChange={() => toggleSeg(s.index)} title="勾选该路段高亮" />
                   </td>
                   <td className="mono">{s.index}</td>
-                  <td className="road-name" title={s.roadName}>{s.roadName || '—'}</td>
+                  <td className="road-name" title={s.roadName + (s.roadSource === 'osm' ? ' [OSM: ' + (s.osmRef || s.osmName || s.osmHighway || '') + ']' : '')}>
+                    {s.roadName || '—'}
+                    {s.roadSource === 'osm' && <span className="osm-badge" title={'OSM: ' + (s.osmRef || s.osmName || s.osmHighway || '')}>OSM</span>}
+                  </td>
                   <td><span className={'lv ' + s.roadLevel}>{ROAD_LEVEL_LABEL[s.roadLevel]}</span></td>
                   <td className="mono">{s.distanceKm}</td>
                   <td className="mono">{s.avgSpeedKmh}</td>

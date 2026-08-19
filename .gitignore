@@ -13,11 +13,12 @@ dist/
 Thumbs.db
 
 data/dem-cache/
+data/osm-cache/
 
 # Python（如后续引入分析脚本）
 __pycache__/
 *.pyc
 .venv/
 
-# ��ʱ�ύ��Ϣ
+# ��ʱ�ύ��Ϣ
 .git-commit-msg.tmp
