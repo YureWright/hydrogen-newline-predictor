@@ -600,7 +600,8 @@ body::before {
 }
 .btn-ai {
   margin-left: auto;
-  background: linear-gradient(120deg, #a473ff, #4d8dff);
+  /* 比强调色紫压深一档：原来的 #a473ff 配白字对比度只有 3:1，撑不住 13px 正文字号 */
+  background: linear-gradient(120deg, #8250e8, #3b78e8);
   color: #fff;
   border: none;
   border-radius: var(--r-sm);
@@ -697,10 +698,11 @@ body::before {
 .ai-actions { margin-top: 16px; }
 
 /* ================= 标签与徽标 ================= */
+/* 底色在深色主题里被整体提亮了（如薄荷绿 #3ddc97、琥珀 #ffb547），
+   再用白字对比度只有 1.7:1 —— 实心亮底上必须换成近黑字才读得清 */
 .motion-chip {
   display: inline-block; padding: 1.5px 9px; border-radius: 10px;
-  color: #fff; font-size: 11px; line-height: 17px; white-space: nowrap;
-  filter: saturate(1.15) brightness(1.1);
+  color: #04060c; font-weight: 600; font-size: 11px; line-height: 17px; white-space: nowrap;
 }
 .motion-events { font-size: 11.5px; color: var(--txt-2); max-width: 180px; }
 .motion-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 11px; color: var(--txt-3); }
@@ -708,8 +710,7 @@ body::before {
 .motion-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .terrain-chip {
   display: inline-block; padding: 1.5px 9px; border-radius: 10px;
-  color: #fff; font-size: 11px; line-height: 17px; white-space: nowrap;
-  filter: saturate(1.15) brightness(1.1);
+  color: #04060c; font-weight: 600; font-size: 11px; line-height: 17px; white-space: nowrap;
 }
 .osm-badge {
   display: inline-block; margin-left: 6px; padding: 0 6px;
