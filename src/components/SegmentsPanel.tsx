@@ -76,6 +76,12 @@ const PHASE_TEXT: Record<string, string> = {
   weather: '抓取沿线天气（按出发时间匹配）…',
   compute: '计算坡度与海拔…',
 }
+/** 面向用户的步骤名（两段 OSM 合并为"路网"一步） */
+const PHASE_STEP_LABELS = ['路线', '高程', '路网', '天气', '汇总']
+/** phase → 步骤下标（osm-query 与 osm-match 都归到"路网"这一步） */
+const PHASE_TO_STEP: Record<string, number> = {
+  route: 0, dem: 1, 'osm-query': 2, 'osm-match': 2, weather: 3, compute: 4,
+}
 
 export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight }: {
   origin: string
@@ -389,20 +395,37 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     const phaseText = progress?.phase === 'dem' && total > 0
       ? `下载高程瓦片 ${done}/${total}（已缓存 ${progress.cached}）`
       : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
+    // 整个测算是多阶段串行的：每换一个阶段进度条都会从 0 重来。没有"第几步"提示时，
+    // 用户会把"归零重填"误读成卡死。这里把当前阶段映射到固定步骤序列，明确告诉他还在推进。
+    const stepIndex = PHASE_TO_STEP[progress?.phase || ''] ?? 0
+    const stepNo = stepIndex + 1
     return (
       <div className="segments-panel running-panel">
         <div className="truck-watermark" aria-hidden="true" />
         <h3>正在测算路线 {routeIndex + 1}</h3>
         <div className="progress-box">
+          <div className="progress-steps">
+            {PHASE_STEP_LABELS.map((label, i) => (
+              <span
+                key={label}
+                className={'pstep' + (i < stepIndex ? ' done' : i === stepIndex ? ' active' : '')}
+              >
+                <i />{label}
+              </span>
+            ))}
+          </div>
           <div className="progress-track">
             <div
               className={'progress-fill' + (pct == null ? ' indeterminate' : '')}
               style={pct != null ? { width: pct + '%' } : undefined}
             />
           </div>
-          <div className="progress-text">{phaseText}</div>
+          <div className="progress-text">
+            <span className="step-badge">步骤 {stepNo}/{PHASE_STEP_LABELS.length}</span>
+            {phaseText}
+          </div>
           <div className="progress-sub">
-            {total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在获取路线分段…'}
+            {total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在准备数据…'}
           </div>
           <button className="btn-cancel" onClick={backToSelect}>取消</button>
         </div>

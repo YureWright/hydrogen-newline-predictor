@@ -693,6 +693,32 @@ body::before {
 @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 .progress-fill.indeterminate { width: 38% !important; animation: progress-slide 1.4s ease-in-out infinite; }
 @keyframes progress-slide { 0% { margin-left: -38%; } 100% { margin-left: 100%; } }
+/* 阶段步骤指示器：点亮"已完成/进行中"，让多阶段串行的进度看起来是连续推进 */
+.progress-steps { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.pstep { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt-3); transition: color 0.3s; }
+.pstep i {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.pstep.done { color: var(--txt-2); }
+.pstep.done i { background: var(--mint); }
+.pstep.active { color: var(--cyan); font-weight: 600; }
+.pstep.active i { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pstep-pulse 1.3s ease-in-out infinite; }
+@keyframes pstep-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.step-badge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(58, 227, 255, 0.14);
+  border: 1px solid rgba(58, 227, 255, 0.34);
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  vertical-align: 1px;
+}
 .progress-text { margin-top: 14px; font-size: 14px; color: #fff; font-weight: 600; letter-spacing: 0.4px; }
 .progress-sub { margin-top: 5px; font-size: 12px; color: var(--txt-3); }
 .ai-actions { margin-top: 16px; }
