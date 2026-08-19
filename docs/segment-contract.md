@@ -60,7 +60,7 @@
 5. `avgSpeedKmh` = distance / duration（含路况影响；无 duration 时用等级巡航速度兜底）；
 6. `coordsWgs84` = polyline 逐点 `gcj02ToWgs84` 逆转换（高德 GCJ-02 → 国际 WGS-84，供 DEM/天气匹配）。
 
-验证：`npm run verify:segment`（纯函数自测 + 真实线路）+ `npm run verify:split`（行为区 + 坡度切分 26 项断言）。
+验证：`npm run verify:segment`（45 项纯函数断言 + 真实线路）+ `npm run verify:split`（行为区 + 坡度切分 64 项断言）。
 
 ### 3.1 L1 行为区标注（变速情况 + 变速概率）
 
@@ -77,12 +77,18 @@
 
 ### 3.2 L2 坡度自适应切分（demFetch.ts）
 
-对所有 ≥1km 的段沿 DEM 剖面切分，条件（`splitGradeProfile`）：
+对 ≥1km 的**巡航段/ 城市起停段**沿 DEM 剖面切分，条件（`splitGradeProfile`）：
 1. 坡度变号（峰/谷）必切 → 每子段只上坡或只下坡；
 2. 坡度带阈值：滑动窗口 500m 平均坡度偏离当前段均值 > ±1.5% → 切；
 3. 长度上限 10km、巡航段最小 0.5km；尾部过短且坡度接近才并入前片。
 
+收费站/匝道/路口/转弯/服务区等**事件段不参与地形切分**（`shouldSplitByGrade`）——事件是点状行为，拆散会让同类事件段又密又碎、事件概率被分摊到多个子段。
+
 碎段策略：只有"同路 + 无变速事件 + <0.2km"的纯延续碎段才并入前段（`mergeContinuationFragments`），行为区短段一律保留；离散变速事件只挂到事件段的首个子段（避免地形切分后重复计数）。
+
+红绿灯路口是**连续型**事件，与上面的点状事件不同：子段的路口数 = 子段里程 × 路口密度（保留小数），按里程重新折算。这样一条路无论被地形切成几片，全程路口总数与期望停车次数都不变。
+
+缺数据约定：某子段采样不到 DEM 时，`gradePercent` / `elevationM` / `elevationGainM` / `elevationLossM` 与 `profile.elevM` 中对应采样点一律为 `null`，**不写 0**——0% 坡度和 0m 海拔是有效物理值，会被下游当作实测的平原海平面。企业模型 adapter 里的 `s.gradePercent ?? 0` 只是占位兜底，接入时应按各自模型的缺失值策略处理。
 
 ## 4. 企业模型 adapter 示例
 
