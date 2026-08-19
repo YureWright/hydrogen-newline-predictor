@@ -142,8 +142,9 @@ export interface SegmentData {
   elevationGainM?: number | null
   /** 累计下降 m（DEM 派生，A2 填充，仅可视化用，非模型输入） */
   elevationLossM?: number | null
-  /** 剖面采样点（A2 填充，仅可视化用）：段内等距采样，distKm 为段内累计里程、elevM 为海拔 */
-  profile?: { distKm: number[]; elevM: number[] }
+  /** 剖面采样点（A2 填充，仅可视化用）：段内等距采样，distKm 为段内累计里程、
+   * elevM 为海拔（该采样点无 DEM 数据时为 null，不可当 0m 使用） */
+  profile?: { distKm: number[]; elevM: Array<number | null> }
 }
 
 /** 路段序列的路级汇总（供工况合成与成本引擎直接使用） */

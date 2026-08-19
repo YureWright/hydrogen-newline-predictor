@@ -121,11 +121,14 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     setAiText('')
     setAiModel('')
     setAiError('')
+    // 勾选的是"段序号"，重新测算后同一序号会指向另一条路——必须清空，否则地图会高亮错的路段
+    setSelectedSegs(new Set())
   }, [])
 
   const start = useCallback(async () => {
     setStage('running')
     setError('')
+    setSelectedSegs(new Set())
     setProgress({ phase: 'route', done: 0, total: 0, cached: 0 })
     try {
       const r = await fetch('/api/segments/start', {
@@ -158,6 +161,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         if (j.status === 'done') {
           const rr = await fetch('/api/segments/result?jobId=' + encodeURIComponent(jobId))
           const jj = (await rr.json()) as SegmentsResponse
+          // 拉结果这段时间里用户可能已取消或换了路线，此时不能再把旧结果写回界面
+          if (jobIdRef.current !== jobId) return
           if (!jj.ok) { setError(jj.msg || '获取结果失败'); setStage('error'); return }
           setData(jj)
           setStage('done')
@@ -187,27 +192,33 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const sorted = useMemo(() => {
     const arr = [...segments]
     arr.sort((a, b) => {
-      const av = a[sortKey] ?? 0
-      const bv = b[sortKey] ?? 0
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      // 无数据的段（表格里显示"—"）恒排在末尾，不按 0 参与比较——
+      // 否则缺高程的段会夹在下坡段和上坡段中间，排序结果与显示对不上
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
       return (av < bv ? -1 : av > bv ? 1 : 0) * (sortDesc ? -1 : 1)
     })
     return arr
   }, [segments, sortKey, sortDesc])
 
-  const profile = useMemo(() => {
+  /** 全程海拔剖面点（无 DEM 数据的采样点直接跳过，不能按 0m 画进曲线） */
+  const profilePts = useMemo(() => {
     let cum = 0
-    const distKm: number[] = []
-    const elevM: number[] = []
+    const pts: Array<{ x: number; y: number }> = []
     for (const s of segments) {
       if (s.profile && s.profile.distKm.length) {
         for (let i = 0; i < s.profile.distKm.length; i++) {
-          distKm.push(Math.round((cum + s.profile.distKm[i]) * 10) / 10)
-          elevM.push(s.profile.elevM[i])
+          const y = s.profile.elevM[i]
+          if (y == null) continue
+          pts.push({ x: Math.round((cum + s.profile.distKm[i]) * 10) / 10, y })
         }
       }
       cum += s.distanceKm
     }
-    return { distKm, elevM }
+    return pts
   }, [segments])
 
   const motionMarkers = useMemo(() => {
@@ -223,12 +234,17 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   const totalStops = useMemo(() => segments.reduce((a, s) => a + expectedStopCount(s), 0), [segments])
 
+  /** 分段均速：段内是常量，画成起点→终点等高的阶梯；
+   * 若只在段终点取一个点，折线会在相邻段之间斜插值，看起来像速度在段内连续变化 */
   const speedPts = useMemo(() => {
+    const pts: Array<{ x: number; y: number }> = []
     let cum = 0
-    return segments.map((s) => {
+    for (const s of segments) {
+      pts.push({ x: Math.round(cum * 10) / 10, y: s.avgSpeedKmh })
       cum += s.distanceKm
-      return { x: Math.round(cum * 10) / 10, y: s.avgSpeedKmh }
-    })
+      pts.push({ x: Math.round(cum * 10) / 10, y: s.avgSpeedKmh })
+    }
+    return pts
   }, [segments])
 
   const trafficItems = candidate.traffic
@@ -333,8 +349,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   /* ---------- 完成：结果面板 ---------- */
   if (!data || !segments.length) return <div className="note">该路线暂无分段数据</div>
-  const maxElev = profile.elevM.length ? Math.max(...profile.elevM) : 0
-  const minElev = profile.elevM.length ? Math.min(...profile.elevM) : 0
+  const elevs = profilePts.map((p) => p.y)
+  const maxElev = elevs.length ? Math.max(...elevs) : null
+  const minElev = elevs.length ? Math.min(...elevs) : null
   const totalGain = segments.reduce((a, s) => a + (s.elevationGainM ?? 0), 0)
   const totalLoss = segments.reduce((a, s) => a + (s.elevationLossM ?? 0), 0)
 
@@ -360,15 +377,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         <div className="stat-card"><b>{summary?.avgElevationM != null ? summary.avgElevationM + ' m' : '-'}</b><span>平均海拔</span></div>
         <div className="stat-card"><b>{totalGain} m</b><span>累计爬升</span></div>
         <div className="stat-card"><b>{totalLoss} m</b><span>累计下降</span></div>
-        <div className="stat-card"><b>{maxElev} m</b><span>最高点</span></div>
-        <div className="stat-card"><b>{minElev} m</b><span>最低点</span></div>
+        <div className="stat-card"><b>{maxElev != null ? maxElev + ' m' : '—'}</b><span>最高点</span></div>
+        <div className="stat-card"><b>{minElev != null ? minElev + ' m' : '—'}</b><span>最低点</span></div>
         <div className="stat-card"><b>{totalStops.toFixed(1)}</b><span>期望停车/启停次数</span></div>
       </div>
 
       <div className="charts-grid">
         <div className="chart-card chart-wide">
           <h4>海拔剖面</h4>
-          <LineAreaChart points={profile.distKm.map((x, i) => ({ x, y: profile.elevM[i] }))} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
+          <LineAreaChart points={profilePts} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
           {segments.some((s) => s.motionBehavior !== 'cruise') && (
             <div className="motion-legend">
               {(['toll', 'intersection', 'ramp', 'turn', 'serviceArea', 'urbanStopStart'] as const)

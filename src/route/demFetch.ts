@@ -25,7 +25,7 @@ import {
   decodePng, haversineM, resampleCoords, sampleElevationInTile,
   tileXY, type ProfilePoint,
 } from './dem'
-import { round1, round2 } from './parse'
+import { round1, round2, round4 } from './parse'
 import { buildIntersectionEvents, isEventBehavior } from './segment'
 
 export interface DemTile {
@@ -95,6 +95,9 @@ export interface SplitParams {
 }
 
 const DEFAULT_TERRARIUM = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium'
+
+/** 瓦片失败率上限：超过则认为主源不可用，转 opentopodata 兜底（而非留一堆空高程） */
+const MAX_TILE_FAILURE_RATIO = 0.2
 
 /** 内存瓦片缓存（避免同一进程内重复解码 PNG；超过上限时清空） */
 const tileMemoryCache = new Map<string, DemTile>()
@@ -199,7 +202,17 @@ export async function loadDemTiles(
   const workers: Promise<void>[] = []
   for (let i = 0; i < Math.min(concurrency, keys.length); i++) workers.push(worker())
   await Promise.all(workers)
-  if (failures > 0) console.warn('[dem] 瓦片下载失败 ' + failures + '/' + keys.length + ' 张（已跳过，对应路段高程留空）')
+  if (failures > 0) {
+    console.warn('[dem] 瓦片下载失败 ' + failures + '/' + keys.length + ' 张（对应路段高程留空）')
+    // 零星失败可以容忍（那几个采样点留空即可），但失败面一大，整条路线的坡度/海拔就已经
+    // 不可用了——此时必须让上层切到 opentopodata 兜底，而不是静默返回一份大面积缺高程的结果
+    if (failures / keys.length > MAX_TILE_FAILURE_RATIO) {
+      throw new Error(
+        'terrarium 瓦片失败率过高 ' + failures + '/' + keys.length +
+        '（>' + Math.round(MAX_TILE_FAILURE_RATIO * 100) + '%）',
+      )
+    }
+  }
   return tiles
 }
 
@@ -411,7 +424,9 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     roadLevel: parent.roadLevel,
     distanceKm,
     avgSpeedKmh: parent.avgSpeedKmh,
-    gradePercent: distW > 0 ? round2(gradeW / distW) : 0,
+    // 无有效高程差样本时保持 null：写 0 会被下游当成"实测的 0% 平坡 / 0m 海平面"，
+    // 静默污染平均坡度、爬升下降与氢耗估算，且前端无法区分"平路"和"没数据"
+    gradePercent: distW > 0 ? round2(gradeW / distW) : null,
     elevationM,
     trafficStatus: parent.trafficStatus,
     stopDensity: parent.stopDensity,
@@ -419,12 +434,12 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     motionEvents,
     temperatureC: parent.temperatureC,
     coordsWgs84: pts.map((p) => [p.lng, p.lat] as [number, number]),
-    durationH: round2(distanceKm / (avgSpeedKmh || 1)),
-    elevationGainM: Math.round(gain),
-    elevationLossM: Math.round(loss),
+    durationH: round4(distanceKm / (avgSpeedKmh || 1)),
+    elevationGainM: distW > 0 ? Math.round(gain) : null,
+    elevationLossM: distW > 0 ? Math.round(loss) : null,
     profile: {
       distKm: pts.map((p) => round2(p.cumM / 1000)),
-      elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : 0)),
+      elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : null)),
     },
   }
 }
@@ -438,7 +453,7 @@ function scaleSubs(parent: SegmentData, subs: SegmentData[]): SegmentData[] {
   return subs.map((s) => ({
     ...s,
     distanceKm: round2(s.distanceKm * f),
-    durationH: round2(s.durationH * f),
+    durationH: round4(s.durationH * f),
     profile: s.profile
       ? { distKm: s.profile.distKm.map((d) => round2(d * f)), elevM: s.profile.elevM }
       : undefined,
