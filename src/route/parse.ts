@@ -47,18 +47,36 @@ export function avgSpeedKmh(distanceM: number, durationS: number): number {
   return round1((distanceM / 1000) / (durationS / 3600))
 }
 
-/** 从导航指令中提取道路名（示例："沿G6京藏高速行驶20.1公里"） */
+/** 道路名中不会出现的字符（方向词/连接词），用于限定匹配范围 */
+const ROAD_CHAR = '[^，。、；;途径行驶沿进入走向往]{2,16}'
+
+/** 从导航指令提取道路名（高德 step 无 road 字段，需从 instruction 提取）
+ * 分层匹配：① G/S 编号+高速/国道/省道 → ② 含"高速" → ③ 含"国道/省道" → ④ 沿/进入 X 兜底
+ * 示例："沿G6京藏高速途径前河大桥向东行驶90.7公里" → "G6京藏高速"
+ *      "沿幸福大街向南行驶800米，右转进入建设路" → "幸福大街"（不带"向南"）
+ */
+export function extractRoadName(instruction: string | undefined): string {
+  const ins = instruction ?? ''
+  const coded = ins.match(/(?:G|S)\d{1,4}[^，。、；;途径行驶]{0,12}?(?:高速|国道|省道)/)
+  if (coded) return coded[0]
+  const highway = ins.match(new RegExp(ROAD_CHAR + '高速'))
+  if (highway) return highway[0]
+  const road = ins.match(new RegExp(ROAD_CHAR + '(?:国道|省道)'))
+  if (road) return road[0]
+  const fallback = ins.match(new RegExp('(?:沿|进入|驶入)(' + ROAD_CHAR + ')'))
+  if (fallback) return fallback[1].trim()
+  return ''
+}
+
+/** 路线主要道路（按里程排序）：与分段用的是同一套道路名提取，避免两处口径不一致 */
 export function extractRoadsFromSteps(
   steps: Array<{ instruction?: string; distance?: string | number }>,
   topN = 8,
 ): string[] {
   const score = new Map<string, number>()
   for (const s of steps) {
-    const ins = s.instruction ?? ''
-    const m = ins.match(/(?:沿|进入|驶入)([^，。;行驶]{2,24})/)
-    if (!m) continue
-    const name = m[1].trim()
-    if (!name || /^(向|往)/.test(name)) continue
+    const name = extractRoadName(s.instruction)
+    if (!name) continue
     const d = Number(s.distance) || 0
     score.set(name, (score.get(name) || 0) + d)
   }

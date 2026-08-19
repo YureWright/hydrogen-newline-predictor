@@ -26,7 +26,9 @@
 | `gradePercent` | number|null | % | 平均坡度（+上坡/−下坡） | SRTM DEM（A2） | cyc_grade | ⏳ A2 |
 | `elevationM` | number|null | m | 平均海拔（修正空气密度 ρ） | SRTM DEM（A2） | - | ⏳ A2 |
 | `trafficStatus` | enum | - | 畅通/缓行/拥堵/严重/未知 | tmcs 距离加权主导 | - | ✅ |
-| `stopDensity` | number | 次/km | 停车/怠速密度 | 道路等级×路况系数推断 | - | ✅ |
+| `stopDensity` | number | 次/km | 背景停车/怠速密度（仅当段内无任何停车事件时才用） | 道路等级×路况系数推断 | - | ✅ |
+
+> ⚠️ **`gradePercent = null` 表示"这段没取到高程"，不是"平路"。** 消费方必须显式处理：跳过该段、用邻段插值、或标记结果不确定；直接 `?? 0` 会把坡度阻力算没，山区线路氢耗会被系统性低估。`elevationM` 与 `profile.elevM` 中的 `null` 同理。
 | `motionBehavior` | enum | - | 变速行为：巡航/收费站/路口/匝道/转弯/服务区/城市起停 | 高德指令关键词+航向角（L1） | - | ✅ |
 | `motionEvents` | MotionEvent[] | - | 变速事件（stop/start/decel/turn + 概率 + 期望次数） | 同 L1 | - | ✅ |
 | `temperatureC` | number|null | ℃ | 气温（影响辅助功耗/电堆效率） | 高德天气/区间插值（A3） | - | ⏳ A3 |
@@ -60,20 +62,30 @@
 5. `avgSpeedKmh` = distance / duration（含路况影响；无 duration 时用等级巡航速度兜底）；
 6. `coordsWgs84` = polyline 逐点 `gcj02ToWgs84` 逆转换（高德 GCJ-02 → 国际 WGS-84，供 DEM/天气匹配）。
 
-验证：`npm run verify:segment`（纯函数自测 + 真实线路）+ `npm run verify:split`（行为区 + 坡度切分 26 项断言）。
+验证：`npm run verify:segment`（38 项纯函数 + 真实线路）+ `npm run verify:split`（行为区 + 坡度切分 + 启停口径 76 项断言）。
 
 ### 3.1 L1 行为区标注（变速情况 + 变速概率）
 
-`detectMotionBehavior(instruction, roadLevel, coords)` 按优先级：收费站 > 服务区 > 匝道 > 红绿灯路口 > 一般路口(城市) > 转弯(指令/航向角>40°) > 城市起停/巡航。概率默认值集中在 `MOTION_PROB`（可配置）：
+`detectMotionBehavior(instruction, roadLevel, coords, traffic)` 按优先级：收费站 > 服务区 > 匝道 > 红绿灯路口 > 一般路口(城市) > 转弯(指令/航向角>40°) > 城市起停/巡航。概率默认值集中在 `MOTION_PROB`（可配置）：
 
 | 事件 | 停车 P | 减速 P | 说明 |
 | --- | --- | --- | --- |
 | 收费站 ETC | 0.1 | 0.9 | 基本不停，减速通过 |
 | 收费站 人工 | 0.95 | 0.99 | 指令含"人工/MTC" |
-| 红绿灯路口 | 0.4 | 1.0 | 停车是概率事件 |
+| 红绿灯路口 | 0.35~0.95 | 1.0 | 随实时路况（`INTERSECTION_STOP_PROB`），非固定值 |
+| 一般路口（无信号灯） | 上式 ×0.8 | 1.0 | 让行通过为主 |
 | 匝道 | 0.05 | 0.85 | 减速并线 |
-| 急转弯/掉头 | 0/0.3 | 0.7/1.0 | 掉头接近停车 |
+| 急转弯 | 同路口 P | 0.7 | 城市/国道/省道的左右转发生在平面路口；高速几何弯道不计停车 |
+| 掉头 | 0.3 | 1.0 | 接近停车 |
 | 服务区 | 0.1 | 0.9 | 概率停车 |
+
+**启停次数的单一口径（`expectedStopCount`）**：
+
+1. 段内路口数 = 里程 × `INTERSECTION_DENSITY_PER_KM[等级]`，取**期望值**（不取整、不设"每段至少一个路口"下限）——保证把一段路切成 N 份后，各份期望停车之和与整段一致，切分方式不会改变全线启停能量；
+2. 指令命中「红绿灯 / 路口 / 左右转」时，该显式事件**替代**其中一个背景路口（扣减 1），避免同一路口计两次；
+3. 只有当段内一个停车事件都没有时（典型是高速巡航段），才退回 `stopDensity × 里程`。
+
+因此 `stopDensity` 是兜底输入，**`expectedStopCount(seg)` 才是物理模型应消费的权威口径**。
 
 ### 3.2 L2 坡度自适应切分（demFetch.ts）
 
@@ -94,24 +106,28 @@ export function toEnterpriseInput(segments: SegmentData[]) {
   return segments.map((s) => ({
     dist_km: s.distanceKm,
     v_kmh: s.avgSpeedKmh,
-    grade_pct: s.gradePercent ?? 0,
-    elev_m: s.elevationM ?? 0,
+    // 坡度/海拔缺失时透传 null，由模型侧决定跳过还是插值。
+    // 不要写成 `?? 0`：0% 在物理模型里是"平路"，等于把这段的坡度阻力抹掉。
+    grade_pct: s.gradePercent,
+    elev_m: s.elevationM,
     T_degC: s.temperatureC ?? 20,
     road_class: s.roadLevel,
     stop_per_km: s.stopDensity,
     motion: s.motionBehavior,
-    stop_expected: segments_expected_stop(s), // = Σ motionEvents.stop.expectedCount 或 stopDensity×distanceKm
+    stop_expected: expectedStopCount(s), // 权威启停口径，见 §3.1
     traffic: s.trafficStatus,
   }))
 }
 ```
+
+> 若模型侧确实无法接受 `null`，也应先做**显式插值**（用相邻有效段的坡度）并在结果里标注"该段坡度为推算值"，而不是静默按 0 计算。
 
 ## 5. 数据来源与状态
 
 | 数据 | 来源 | Key | 状态 |
 | --- | --- | --- | --- |
 | 路线/步骤/路况 | 高德驾车路线规划 API | ✅ 需 Key | ✅ 已接入 |
-| 坡度/海拔 | SRTM DEM（terrarium 瓦片，z14 ≈76m/px）或 opentopodata 兜底 | 免 Key | ✅ 源已验证（A2 接入） |
+| 坡度/海拔 | SRTM DEM（terrarium 瓦片，z14 ≈76m/px）；瓦片失败率 >20% 时切 opentopodata 兜底 | 免 Key | ✅ 源已验证（A2 接入） |
 | 气温 | 高德天气 API / 线路区间插值 | 待开通 | ⏳ A3 |
 
 > DEM 验证结论（`npm run verify:dem`）：terrarium 瓦片与 opentopodata 海拔偏差 1~8m；

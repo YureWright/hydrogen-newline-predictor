@@ -23,7 +23,7 @@ export default function App() {
 
   useEffect(() => {
     fetch('/api/stations').then((r) => r.json()).then((j) => {
-      if (j.ok) setStations(j.stations.map((s: any) => ({ ...s, id: 0, useType: 1 })))
+      if (j.ok) setStations(j.stations as H2Station[])
     }).catch(() => {})
   }, [])
 

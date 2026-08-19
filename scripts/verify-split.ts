@@ -1,12 +1,14 @@
 /** 路段切分算法验证：行为区检测 + 坡度自适应切分（纯函数，无需联网） */
 import type { AmapRawPath, MotionBehavior, SegmentData } from '../src/route/types'
 import {
-  buildSegments, detectMotionBehavior, expectedStopCount, maxHeadingChange,
+  buildIntersectionEvents, buildSegments, detectMotionBehavior, expectedStopCount,
+  extractRoadName, inferRoadLevel, maxHeadingChange,
 } from '../src/route/segment'
 import {
-  mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile, GRADE_BAND_PCT, MAX_SEGMENT_KM,
+  enrichWithTiles, mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile,
+  GRADE_BAND_PCT, MAX_SEGMENT_KM,
 } from '../src/route/demFetch'
-import type { ProfilePoint } from '../src/route/dem'
+import { resampleCoords, type ProfilePoint } from '../src/route/dem'
 
 let failed = 0
 function assert(name: string, cond: boolean, detail?: string) {
@@ -66,6 +68,19 @@ function seg(distanceKm: number, behavior: MotionBehavior = 'cruise', events: Se
   }
 }
 
+/** 单 step 的城市路线夹具：直线折线（不触发几何转弯）+ 畅通路况 */
+function cityPath(instruction: string, distanceM: number): AmapRawPath {
+  const d = String(distanceM)
+  return {
+    distance: d, duration: '600', tolls: '0', toll_distance: '0',
+    steps: [{
+      instruction, distance: d, duration: '600', tolls: '0', toll_distance: '0',
+      polyline: '116.40,39.90;116.40,39.92;116.40,39.94',
+      tmcs: [{ status: '畅通', distance: d, polyline: '' }],
+    }],
+  }
+}
+
 function main() {
   console.log('=== 路段切分算法 · 纯函数自测 ===')
 
@@ -82,9 +97,15 @@ function main() {
   assert('分叉口保持主路(向右前方) → 不再误判匝道', detectMotionBehavior('向右前方行驶，保持主路', 'highway', []).behavior === 'cruise')
   assert('进入城区(含"进入") → 不误判匝道', detectMotionBehavior('进入天津市区', 'city', []).behavior === 'urbanStopStart')
   assert('红绿灯路口 → intersection', detectMotionBehavior('直行通过红绿灯路口', 'city', []).behavior === 'intersection')
-  const inter = detectMotionBehavior('直行通过红绿灯路口', 'city', [])
-  assert('红绿灯停车 P=0.4', Math.abs((inter.events.find(e => e.type === 'stop')?.expectedCount ?? -1) - 0.4) < 1e-9)
-  assert('城市一般路口 → intersection(P=0.35)', detectMotionBehavior('通过路口', 'city', []).behavior === 'intersection')
+  const inter = detectMotionBehavior('直行通过红绿灯路口', 'city', [], 'smooth')
+  assert('红绿灯停车概率随路况（畅通 P=0.35）',
+    Math.abs((inter.events.find(e => e.type === 'stop')?.expectedCount ?? -1) - 0.35) < 1e-9)
+  const interJam = detectMotionBehavior('直行通过红绿灯路口', 'city', [], 'congested')
+  assert('红绿灯停车概率随路况（拥堵 P=0.8）',
+    Math.abs((interJam.events.find(e => e.type === 'stop')?.expectedCount ?? -1) - 0.8) < 1e-9)
+  assert('城市一般路口 → intersection', detectMotionBehavior('通过路口', 'city', []).behavior === 'intersection')
+  assert('高速上的红绿灯关键词不产生停车（高速无平面路口）',
+    !detectMotionBehavior('直行通过红绿灯路口', 'highway', [], 'smooth').events.some(e => e.type === 'stop'))
   assert('左转 → turn', detectMotionBehavior('左转进入幸福路', 'city', []).behavior === 'turn')
   assert('掉头 → turn(带停车)', (detectMotionBehavior('掉头', 'city', []).events.find(e => e.type === 'stop')?.expectedCount ?? 0) > 0)
   assert('城市兜底 → urbanStopStart', detectMotionBehavior('沿幸福路行驶', 'city', []).behavior === 'urbanStopStart')
@@ -203,6 +224,62 @@ function main() {
   assert('头部是城市起停（不再误判巡航）', cityTurnSegs[0].motionBehavior === 'urbanStopStart', String(cityTurnSegs[0].motionBehavior))
   assert('头部带红绿灯事件', cityTurnSegs[0].motionEvents.some(e => e.label === '红绿灯路口'))
   assert('尾部是转弯且带减速事件', cityTurnSegs[1].motionBehavior === 'turn' && cityTurnSegs[1].motionEvents.some(e => e.type === 'decel'))
+
+  console.log('— 真实高德指令形状：城区转向段仍要计启停 —')
+  // 高德城市导航指令绝大多数以"左转/右转进入 XX 路"结尾，此前这类段期望停车恒为 0
+  const cityTurn = buildSegments(cityPath('沿幸福大街向南行驶800米，右转进入建设路', 800))
+  const cityStraight = buildSegments(cityPath('沿幸福大街向南行驶800米', 800))
+  assert('城区右转段 → turn', cityTurn[0].motionBehavior === 'turn', cityTurn[0].motionBehavior)
+  assert('城区右转段期望停车 > 0（不再被算成 0 次）',
+    expectedStopCount(cityTurn[0]) > 0, String(expectedStopCount(cityTurn[0])))
+  assert('带转向与不带转向的同段期望停车量级一致（差 < 20%）',
+    Math.abs(expectedStopCount(cityTurn[0]) - expectedStopCount(cityStraight[0])) / expectedStopCount(cityStraight[0]) < 0.2,
+    `turn=${expectedStopCount(cityTurn[0])} straight=${expectedStopCount(cityStraight[0])}`)
+  const hwyTurn = detectMotionBehavior('向右前方行驶', 'highway', [[100, 30], [100.1, 30], [100.1, 30.1]], 'smooth')
+  assert('高速几何弯道不产生停车', !hwyTurn.events.some(e => e.type === 'stop'))
+
+  console.log('— 关键词法与密度法同口径 —')
+  const withKw = buildSegments(cityPath('沿建设大街向东行驶5公里，直行通过红绿灯路口', 5000))
+  const withoutKw = buildSegments(cityPath('沿建设大街向东行驶5公里', 5000))
+  const kwStops = withKw.reduce((a, s) => a + expectedStopCount(s), 0)
+  const noKwStops = withoutKw.reduce((a, s) => a + expectedStopCount(s), 0)
+  assert('5km 城市段：指令含/不含"红绿灯"期望停车一致（差 < 5%）',
+    Math.abs(kwStops - noKwStops) / noKwStops < 0.05, `含=${kwStops} 不含=${noKwStops}`)
+
+  console.log('— 切分不变性：切成几段不影响启停总数 —')
+  const whole = buildIntersectionEvents(3, 'city', 'smooth')[0].expectedCount
+  const inSix = Array.from({ length: 6 }, () => buildIntersectionEvents(0.5, 'city', 'smooth')[0].expectedCount)
+    .reduce((a, b) => a + b, 0)
+  // 残差只来自每条事件各自保留两位小数，不再是"每段至少一个路口"那种系统性放大
+  assert('3km 整段 vs 切成 6×0.5km，期望停车一致（仅剩两位小数舍入残差）',
+    Math.abs(whole - inSix) < 0.05, `整段=${whole} 六段=${inSix}`)
+  assert('不足一个路口的短段不再被抬成一整个路口',
+    buildIntersectionEvents(0.1, 'city', 'smooth')[0].expectedCount < 0.2,
+    String(buildIntersectionEvents(0.1, 'city', 'smooth')[0].expectedCount))
+
+  console.log('— 高程缺失时坡度必须是 null，不能是 0 —')
+  const demSeg: SegmentData = { ...seg(4, 'cruise'), coordsWgs84: [[100, 30], [100.02, 30], [100.04, 30]] }
+  const noDem = enrichWithTiles([demSeg], new Map(), 14)
+  assert('无瓦片 → gradePercent = null（不是 0）', noDem.every(s => s.gradePercent === null),
+    JSON.stringify(noDem.map(s => s.gradePercent)))
+  assert('无瓦片 → elevationM = null', noDem.every(s => s.elevationM === null))
+  assert('无瓦片 → 剖面海拔全为 null（不画成 0 米）',
+    noDem.every(s => (s.profile?.elevM ?? []).every(v => v === null)))
+
+  console.log('— 剖面采样覆盖整段（不丢尾巴） —')
+  // 500m 的段、200m 步长：取点应覆盖到 500m 处，而不是停在 400m
+  const tail = resampleCoords([[116.0, 39.9], [116.0, 39.9045]], 200)
+  const tailTotal = tail[tail.length - 1].cumM
+  assert('末点累计里程 ≈ 段长（尾段进入坡度计算）', tailTotal > 495 && tailTotal < 505, String(tailTotal))
+
+  console.log('— 道路等级与道路名 —')
+  assert('G110（3 位编号）→ 国道', inferRoadLevel('G110', '沿G110行驶') === 'national')
+  assert('G6（1 位编号）→ 高速', inferRoadLevel('G6', '沿G6行驶') === 'highway')
+  assert('G4501（4 位编号）→ 高速', inferRoadLevel('G4501', '沿G4501行驶') === 'highway')
+  assert('道路名去掉方向后缀', extractRoadName('沿幸福大街向南行驶800米') === '幸福大街',
+    extractRoadName('沿幸福大街向南行驶800米'))
+  assert('道路名支持"进入 XX 路"', extractRoadName('右转进入建设路') === '建设路',
+    extractRoadName('右转进入建设路'))
 
   console.log('— 事件段不参与地形切分 —')
   assert('cruise 参与切分', shouldSplitByGrade('cruise') === true)

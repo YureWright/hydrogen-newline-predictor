@@ -151,6 +151,9 @@ export interface ProfilePoint {
   cumM: number
 }
 
+/** 沿折线每 stepM 米取一个点（含起点和终点）。
+ * 终点必须补：段长通常不是步长的整数倍，只按步长取点会漏掉最后不足一步的尾巴，
+ * 那段的高程差就不参与坡度计算（段越短、丢得越多）。 */
 export function resampleCoords(
   coords: Array<[number, number]>,
   stepM = 200,
@@ -175,6 +178,10 @@ export function resampleCoords(
       cumM: target,
     })
     target += stepM
+  }
+  if (out.length > 0 && total - out[out.length - 1].cumM > 1) {
+    const last = coords[coords.length - 1]
+    out.push({ lng: last[0], lat: last[1], cumM: total })
   }
   return out
 }

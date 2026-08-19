@@ -45,6 +45,15 @@ interface DemJob {
 }
 const demJobs = new Map<string, DemJob>()
 let demJobSeq = 0
+/** 已结束的任务保留时长：结果可重复获取（刷新页面不丢），过期后清理避免长跑 dev server 堆积 */
+const DEM_JOB_TTL_MS = 30 * 60 * 1000
+
+function sweepDemJobs() {
+  const now = Date.now()
+  for (const [id, j] of demJobs) {
+    if (j.status !== 'running' && now - j.createdAt > DEM_JOB_TTL_MS) demJobs.delete(id)
+  }
+}
 
 function startDemJob(origin: string, destination: string, index: number) {
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
@@ -57,6 +66,7 @@ function startDemJob(origin: string, destination: string, index: number) {
       job.phase = 'dem'
       const enriched = await enrichSegmentsWithDem(segments, {
         cacheDir: join(__dirname, 'data', 'dem-cache'),
+        shouldCancel: () => job.status === 'cancelled',
         onProgress: (p) => {
           if (job.status === 'cancelled') return
           job.phase = p.phase
@@ -75,6 +85,7 @@ function startDemJob(origin: string, destination: string, index: number) {
       }
       job.status = 'done'
     } catch (e: any) {
+      if (job.status === 'cancelled') return // 用户取消导致的中断，不算失败
       job.status = 'error'
       job.error = e.message || String(e)
     }
@@ -212,15 +223,16 @@ export default defineConfig({
               const job = demJobs.get(id)
               if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
               if (job.status !== 'done') return send(res, 200, { ok: false, status: job.status, msg: '任务未完成' })
-              const result = job.result
-              demJobs.delete(id)
-              return send(res, 200, { ok: true, ...(result as object) })
+              sweepDemJobs() // 结果保留到 TTL 到期，可重复获取
+              return send(res, 200, { ok: true, ...(job.result as object) })
             }
             if (path === '/segments/cancel') {
               let payload: any = {}
               try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
               const job = demJobs.get(payload.jobId || '')
-              if (job) { job.status = 'cancelled'; demJobs.delete(payload.jobId) }
+              // 保留 job 对象并标记 cancelled：后台下载循环靠读它的 status 才能停下来
+              if (job) job.status = 'cancelled'
+              sweepDemJobs()
               return send(res, 200, { ok: true })
             }
             return send(res, 404, { ok: false, msg: 'unknown api: ' + path })

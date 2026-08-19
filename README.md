@@ -39,7 +39,7 @@
 | 前端展示 | 路线卡片 + Leaflet 地图（路线分色、加氢站分色高亮） |
 | 分段切片（A1） | 路线切成路段序列（SegmentData 契约）：道路名/等级/均速/实时路况/停车密度/坐标(WGS-84)，供物理模型直接消费 |
 | DEM 数据源验证 | SRTM 坡度/海拔数据源可行性（terrarium 瓦片 z14 ≈76m/px，opentopodata 免 Key 兜底） |
-| 路段高程提取（A2） | 对 43 段路线逐段采样 DEM，填充坡度/海拔/累计爬升下降（terrarium 瓦片 + 本地缓存 + opentopodata 兜底） |
+| 路段高程提取（A2） | 逐段采样 DEM，填充坡度/海拔/累计爬升下降（terrarium 瓦片 + 本地缓存；瓦片失败率 >20% 时切 opentopodata 兜底）。**采不到高程的段坡度为 `null`（未知），不会当成 0%（平路）** |
 | 路段数据分析面板 | 选路 → 点「开始测算」→ 真实进度条 → 路段数据表（默认按起点→终点顺序，点击表头可按里程/坡度/海拔/均速升降排序）+ 海拔剖面/道路等级/路况/均速可视化 + AI 智能评估 |
 | 路段↔地图联动 | 表格行勾选框**多选** → 左侧地图用色板同时高亮多条路段并自动聚焦（表头全选/全不选，点行也可切换；「清除高亮」一键清空） |
 
@@ -76,7 +76,9 @@
 
 > **事件只计“实际经过”的**：① 高德长 step 的指令如“…行驶63.7千米向右前方行驶进入匝道”，事件在 step 末尾——自动拆成“巡航主体 + 尾部事件段”，整段 63km 不会被标成匝道；② 同一事件区（一座收费广场被切成“进入收费站+驶出收费站”多个 step）只计一次；③ “靠右前方行驶，保持主路”这类高速分叉口引导语不误判为匝道。
 >
-> 该切分对“新线路氢耗预测”至关重要：企业 MATLAB 模型接入时直接消费细分后的 SegmentData，无需感知切分细节。验证：`npm run verify:split`（40 项纯函数断言）+ `npm run enrich`（真实线路）。
+> **启停次数与切分方式无关**：段内路口数按「里程 × 路口密度」取期望值（不取整、不设每段至少一个路口的下限），因此同一条路切成几段，全线期望停车次数不变；指令命中「红绿灯」关键词与按密度折算走的是同一套单路口停车概率（随实时路况 0.35~0.95）。城市道路上的左右转发生在平面路口，同样计入路口停车概率。
+>
+> 该切分对“新线路氢耗预测”至关重要：企业 MATLAB 模型接入时直接消费细分后的 SegmentData，无需感知切分细节。验证：`npm run verify:split`（76 项纯函数断言）+ `npm run enrich`（真实线路）。
 
 ## 快速开始
 
@@ -153,13 +155,13 @@ $env:DEEPSEEK_MODEL='deepseek-v4-flash'
 
 ```bash
 npm run dev        # 打开 http://localhost:5174，输入起终点查询
-npm run verify:route   # 命令行自测 + 真实线路验证
-npm run verify:segment # A1 分段切片自测（32 项纯函数 + 真实线路分段）
+npm run verify:route   # 命令行自测（10 项纯函数）+ 真实线路验证
+npm run verify:segment # A1 分段切片自测（38 项纯函数 + 真实线路分段）
 npm run verify:dem     # DEM 数据源验证（需联网）
-npm run verify:split   # 切分算法验证（行为区 + 坡度带，纯函数 26 项）
+npm run verify:split   # 切分算法验证（行为区 + 坡度带 + 启停口径，纯函数 76 项）
 ```
 
-地址解析：优先调用高德地理编码（精确到门址/POI）；若接口失败（权限/配额）或未配置 Key，回退到内置城市表（44 个主要城市，返回城市中心点，界面会提示）。
+地址解析：优先调用高德地理编码（精确到门址/POI）；若接口失败（权限/配额）或未配置 Key，回退到内置城市表（41 个主要城市，返回城市中心点，界面会提示）。
 
 ### 运行
 
@@ -181,7 +183,8 @@ npm run enrich         # 路段高程提取 CLI（预热 DEM 缓存 + 打印坡�
 | `GET /api/suggest?keywords=乌兰` | 地名输入提示（需高德"输入提示"权限） |
 | `GET /api/route?origin=lng,lat&destination=lng,lat` | 候选路线 + 逐段路况 + 沿线加氢站 |
 | `GET /api/stations` | 全国加氢站图层（571 座） |
-| `POST /api/segments/start` · `GET /api/segments/status` · `GET /api/segments/result` · `POST /api/segments/cancel` | DEM 提取任务（进度条轮询：start 建任务 → status 查进度 → result 取结果 → cancel 取消） |
+| `GET /api/segments?origin=&destination=&index=` | 同步版路段测算（无进度条，供脚本/调试用） |
+| `POST /api/segments/start` · `GET /api/segments/status` · `GET /api/segments/result` · `POST /api/segments/cancel` | DEM 提取任务（进度条轮询：start 建任务 → status 查进度 → result 取结果 → cancel 取消并中断后台下载；结果保留 30 分钟可重复获取） |
 | `POST /api/ai/evaluate` | AI 智能评估（DeepSeek，需 DEEPSEEK_API_KEY） |
 
 ## 项目结构
@@ -204,8 +207,10 @@ hydrogen-newline-predictor/
 │   └── styles.css
 ├── scripts/
 │   ├── demo.ts              # 命令行交互 Demo
-│   ├── verify-route.ts      # 自测 + 真实线路验证
-│   ├── verify-segment.ts    # A1 分段切片自测（32 项 + 真实线路）
+│   ├── enrich-route.ts      # 路段高程提取 CLI（预热 DEM 缓存）
+│   ├── verify-route.ts      # 自测（10 项）+ 真实线路验证
+│   ├── verify-segment.ts    # A1 分段切片自测（38 项 + 真实线路）
+│   ├── verify-split.ts      # 切分算法 + 启停口径自测（76 项）
 │   └── verify-dem.ts        # DEM 数据源验证
 ├── data/stations.geojson    # 加氢站数据（571 座，GCJ-02）
 ├── docs/
@@ -232,7 +237,7 @@ hydrogen-newline-predictor/
 - [x] DEM 数据源验证（terrarium 瓦片 / opentopodata 兜底）
 - [x] 坡度/海拔提取（A2：逐段采样 DEM，填充 gradePercent/elevationM/爬升下降）
 - [x] 路段数据分析面板（数据表 + 可视化 + AI 评估）
-- [ ] 高德地理编码/输入提示权限接入（任意地址 + 自动补全）
+- [x] 高德地理编码/输入提示权限接入（任意地址 + 自动补全）
 - [x] 路段行为标注（收费站/路口/匝道/转弯：变速情况 + 变速概率）
 - [x] 切分算法升级（坡度变号 + 坡度带阈值自适应细分；短段不再合并）
 - [ ] 氢耗物理模型（纵向动力学 + 工况合成 + 效率折算 + 基准校准）

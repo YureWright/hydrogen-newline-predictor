@@ -61,6 +61,8 @@ export interface DemOptions {
   sampleM?: number
   /** 坡度切分参数（覆盖默认值） */
   split?: SplitParams
+  /** 取消信号：返回 true 时立即停止下载并抛出 DemCancelledError（前端点"取消"用） */
+  shouldCancel?: () => boolean
 }
 
 export interface EnrichResult {
@@ -70,6 +72,24 @@ export interface EnrichResult {
   z: number
   source: 'terrarium' | 'opentopodata'
 }
+
+/** 用户主动取消：与"下载失败"区分开，不触发兜底数据源 */
+export class DemCancelledError extends Error {
+  constructor() {
+    super('DEM 提取已取消')
+    this.name = 'DemCancelledError'
+  }
+}
+
+/** 瓦片下载结果（failures 用于判断是否该切兜底源） */
+export interface DemTileResult {
+  tiles: Map<string, DemTile>
+  failures: number
+  total: number
+}
+
+/** 瓦片失败率超过该比例 → 判定 terrarium 不可用，切 opentopodata 兜底 */
+export const DEM_FALLBACK_FAILURE_RATIO = 0.2
 
 /* ===== 路段自适应切分参数（可配置） ===== */
 /** 段长上限：超过 10km 必切 */
@@ -128,15 +148,19 @@ async function fetchBytesWithRetry(url: string, timeoutMs = 20000, retries = 2):
   throw lastErr as Error
 }
 
-/** 收集所有路段坐标覆盖的瓦片 key（x,y） */
-function collectTileKeys(segments: SegmentData[], z: number): Map<string, [number, number]> {
+/** 收集所有路段坐标覆盖的瓦片 key（x,y）
+ * 折线顶点之间可能跨过整块瓦片，实际采样用的是等距插值点——两者都要收集，
+ * 否则采样点会落在没下载的瓦片上，高程凭空缺失。 */
+function collectTileKeys(segments: SegmentData[], z: number, sampleM: number): Map<string, [number, number]> {
   const map = new Map<string, [number, number]>()
+  const put = (lng: number, lat: number) => {
+    const [x, y] = tileXY(lng, lat, z)
+    const k = x + ',' + y
+    if (!map.has(k)) map.set(k, [x, y])
+  }
   for (const s of segments) {
-    for (const [lng, lat] of s.coordsWgs84) {
-      const [x, y] = tileXY(lng, lat, z)
-      const k = x + ',' + y
-      if (!map.has(k)) map.set(k, [x, y])
-    }
+    for (const [lng, lat] of s.coordsWgs84) put(lng, lat)
+    for (const p of resampleCoords(s.coordsWgs84, sampleM)) put(p.lng, p.lat)
   }
   return map
 }
@@ -145,12 +169,12 @@ function collectTileKeys(segments: SegmentData[], z: number): Map<string, [numbe
 export async function loadDemTiles(
   segments: SegmentData[],
   opts: DemOptions = {},
-): Promise<Map<string, DemTile>> {
+): Promise<DemTileResult> {
   const z = opts.z ?? 14
   const cacheDir = opts.cacheDir ?? join(process.cwd(), 'data', 'dem-cache')
   const concurrency = opts.concurrency ?? 6
   const terrariumBase = (opts.terrariumBase ?? DEFAULT_TERRARIUM).replace(/\/$/, '')
-  const needed = collectTileKeys(segments, z)
+  const needed = collectTileKeys(segments, z, opts.sampleM ?? 200)
   mkdirSync(cacheDir, { recursive: true })
   const tiles = new Map<string, DemTile>()
   const keys = [...needed.keys()]
@@ -167,6 +191,7 @@ export async function loadDemTiles(
   let downloaded = 0
   async function worker() {
     while (next < keys.length) {
+      if (opts.shouldCancel?.()) throw new DemCancelledError()
       const k = keys[next++]
       const [x, y] = needed.get(k)!
       const cached = tileMemoryCache.get(z + '_' + k)
@@ -200,7 +225,7 @@ export async function loadDemTiles(
   for (let i = 0; i < Math.min(concurrency, keys.length); i++) workers.push(worker())
   await Promise.all(workers)
   if (failures > 0) console.warn('[dem] 瓦片下载失败 ' + failures + '/' + keys.length + ' 张（已跳过，对应路段高程留空）')
-  return tiles
+  return { tiles, failures, total: keys.length }
 }
 
 /* ================= 路段自适应细分（合并碎段 + 坡度变号切长段） ================= */
@@ -411,7 +436,8 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     roadLevel: parent.roadLevel,
     distanceKm,
     avgSpeedKmh: parent.avgSpeedKmh,
-    gradePercent: distW > 0 ? round2(gradeW / distW) : 0,
+    // 高程缺失时保持 null（"未知"），绝不能写 0——0% 在物理模型里是"平路"，会把坡度阻力算没
+    gradePercent: distW > 0 ? round2(gradeW / distW) : null,
     elevationM,
     trafficStatus: parent.trafficStatus,
     stopDensity: parent.stopDensity,
@@ -424,7 +450,8 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     elevationLossM: Math.round(loss),
     profile: {
       distKm: pts.map((p) => round2(p.cumM / 1000)),
-      elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : 0)),
+      // 采样不到高程的点留 null，剖面图跳过这些点，而不是画一条掉到 0 米的假曲线
+      elevM: elevs.map((v) => (Number.isFinite(v) ? Math.round(v) : null)),
     },
   }
 }
@@ -457,8 +484,9 @@ function slicesToSubs(parent: SegmentData, slices: ProfileSlice[]): SegmentData[
   return slices.map((sl, k) => finalizeSub(parent, sl, k))
 }
 
-/** terrarium 路径：行为感知合并 → 采样剖面 → 坡度自适应切分 → 生成子段 */
-function enrichWithTiles(
+/** terrarium 路径：行为感知合并 → 采样剖面 → 坡度自适应切分 → 生成子段
+ * （导出供自测：传空瓦片表即可验证"高程缺失"分支，无需联网） */
+export function enrichWithTiles(
   segments: SegmentData[],
   tiles: Map<string, DemTile>,
   z: number,
@@ -492,25 +520,33 @@ function enrichWithTiles(
   return out
 }
 
-/** 主入口：terrarium 优先，失败时 opentopodata 兜底 */
+/** 主入口：terrarium 优先，抛错或大面积瓦片下载失败时 opentopodata 兜底
+ *
+ * 单张瓦片失败在 loadDemTiles 里是"跳过"而不是抛错，所以整批失败不会走到 catch——
+ * 必须显式看失败率，否则兜底源永远不会被触发，路线会带着一堆缺高程的段继续往下算。 */
 export async function enrichSegmentsWithDem(
   segments: SegmentData[],
   opts: DemOptions = {},
 ): Promise<EnrichResult> {
   const z = opts.z ?? 14
   try {
-    const tiles = await loadDemTiles(segments, opts)
+    const { tiles, failures, total } = await loadDemTiles(segments, opts)
+    if (total > 0 && failures / total > DEM_FALLBACK_FAILURE_RATIO) {
+      console.warn(`[dem] terrarium 瓦片失败率 ${failures}/${total}，改用 opentopodata 兜底`)
+      return enrichViaOpentopodata(segments, opts)
+    }
     opts.onProgress?.({ phase: 'compute', done: 1, total: 1, cached: tiles.size })
     const refined = enrichWithTiles(segments, tiles, z, opts)
     return { segments: refined, tilesUsed: tiles.size, z, source: 'terrarium' }
   } catch (e) {
+    if (e instanceof DemCancelledError) throw e
     console.warn('[dem] terrarium 失败，改用 opentopodata 兜底:', (e as Error).message)
-    return enrichViaOpentopodata(segments)
+    return enrichViaOpentopodata(segments, opts)
   }
 }
 
 /** opentopodata 兜底：500m 重采样 + 同样的切分逻辑 */
-async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichResult> {
+async function enrichViaOpentopodata(segments: SegmentData[], opts: DemOptions = {}): Promise<EnrichResult> {
   const merged = mergeContinuationFragments(segments)
   const perSeg: ProfilePoint[][] = merged.map((s) => resampleCoords(s.coordsWgs84, 500))
   // 极短段强制取首尾两点
@@ -527,6 +563,7 @@ async function enrichViaOpentopodata(segments: SegmentData[]): Promise<EnrichRes
   const all = perSeg.flat()
   const elevs: number[] = []
   for (let i = 0; i < all.length; i += 90) {
+    if (opts.shouldCancel?.()) throw new DemCancelledError()
     const chunk = all.slice(i, i + 90)
     const locs = chunk.map((p) => p.lat + ',' + p.lng).join('|')
     const r = await fetch('https://api.opentopodata.org/v1/srtm90m?locations=' + locs, {

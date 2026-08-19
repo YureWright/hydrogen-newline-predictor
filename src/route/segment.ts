@@ -11,28 +11,10 @@ import type {
   AmapRawPath, AmapRawStep, AmapRawTmcs,
   MotionBehavior, MotionEvent, RoadLevel, SegmentData, SegmentSummary, TrafficStatus,
 } from './types'
-import { mapTrafficStatus, round1, round2 } from './parse'
+import { extractRoadName, mapTrafficStatus, round1, round2 } from './parse'
 import { decodePolyline, gcj02ToWgs84 } from './coords'
 
-/** 道路名中不会出现的字符（方向词/连接词），用于限定匹配范围 */
-const ROAD_CHAR = '[^，。途径行驶沿进入走向]{2,16}'
-
-/** 从导航指令提取道路名（高德 step 无 road 字段，需从 instruction 提取）
- * 分层匹配：① G/S 编号+高速/国道/省道 → ② 含"高速" → ③ 含"国道/省道" → ④ 沿 X 兜底
- * 示例："沿G6京藏高速途径前河大桥向东行驶90.7公里" → "G6京藏高速"
- */
-export function extractRoadName(instruction: string | undefined): string {
-  const ins = instruction ?? ''
-  const coded = ins.match(/(?:G|S)\d{1,3}[^，。途径行驶]{0,12}?(?:高速|国道|省道)/)
-  if (coded) return coded[0]
-  const highway = ins.match(new RegExp(ROAD_CHAR + '高速'))
-  if (highway) return highway[0]
-  const road = ins.match(new RegExp(ROAD_CHAR + '(?:国道|省道)'))
-  if (road) return road[0]
-  const fallback = ins.match(/沿([^，。途径行驶]{2,24})/)
-  if (fallback) return fallback[1].trim()
-  return ''
-}
+export { extractRoadName }
 
 /**
  * 道路等级推断（顺序：显式关键词 > 收费里程 > 编号 > 城市特征）
@@ -49,7 +31,9 @@ export function inferRoadLevel(
   if (/省道/.test(s)) return 'provincial'
   if (tollDistanceM > 0) return 'highway' // 收费公路（中国高速基本收费）
   if (/环|快速|大街|大道/.test(s)) return 'city'
-  if (/^G\d/.test(roadName)) return 'highway' // 无关键词的 G 编号：多为国家高速
+  // 编号兜底：国道为 3 位（G101~G399），国家高速为 1/2/4 位（G6、G15、G4501）
+  if (/^G\d{3}(?!\d)/.test(roadName)) return 'national'
+  if (/^G\d/.test(roadName)) return 'highway'
   if (/^S\d/.test(roadName)) return 'provincial' // S 编号：省道
   return 'other'
 }
@@ -106,17 +90,22 @@ export const TRAFFIC_STOP_FACTOR: Record<TrafficStatus, number> = {
 
 /* ============================ L1 行为区标注（变速情况 + 变速概率） ============================ */
 
-/** 变速事件概率默认表（可配置；后续可用红绿灯配时/轨迹数据校准） */
+/** 变速事件概率默认表（可配置；后续可用红绿灯配时/轨迹数据校准）
+ * 路口类事件（红绿灯/一般路口/转弯）的**停车**概率不写死在这里，
+ * 统一由 INTERSECTION_STOP_PROB[实时路况] 给出，保证"关键词命中"与"按密度折算"两条路径同口径。 */
 export const MOTION_PROB: Record<string, { stop: number; decel: number }> = {
   toll: { stop: 0.1, decel: 0.9 }, // ETC 默认：基本不停，减速通过
   tollMtc: { stop: 0.95, decel: 0.99 }, // 人工收费车道：几乎必停
   service: { stop: 0.1, decel: 0.9 },
-  intersection: { stop: 0.4, decel: 1.0 }, // 红绿灯：停车是概率事件（默认 P=0.4）
-  intersectionMinor: { stop: 0.35, decel: 1.0 }, // 一般路口（城市，无信号灯关键词）
   ramp: { stop: 0.05, decel: 0.85 },
   turn: { stop: 0.0, decel: 0.7 },
   uTurn: { stop: 0.3, decel: 1.0 }, // 掉头：接近停车
+  intersection: { stop: 0.0, decel: 1.0 },
+  intersectionMinor: { stop: 0.0, decel: 1.0 },
 }
+
+/** 一般路口（无信号灯，让行通过为主）相对信号灯路口的停车概率折减 */
+export const MINOR_INTERSECTION_FACTOR = 0.8
 
 /** 红绿灯路口密度（个/km）：高速无路口；国道/省道/城市按实际路口密度 */
 export const INTERSECTION_DENSITY_PER_KM: Record<RoadLevel, number> = {
@@ -136,15 +125,28 @@ export const INTERSECTION_STOP_PROB: Record<TrafficStatus, number> = {
   unknown: 0.35,
 }
 
-/** 生成红绿灯路口事件：段内路口数 = 里程 × 密度，期望停车 = 路口数 × 单路口停车概率 */
+/** 单个平面路口的停车概率；高速无平面路口 → 0 */
+export function intersectionStopProb(roadLevel: RoadLevel, traffic: TrafficStatus): number {
+  if ((INTERSECTION_DENSITY_PER_KM[roadLevel] ?? 0) <= 0) return 0
+  return INTERSECTION_STOP_PROB[traffic] ?? 0.35
+}
+
+/**
+ * 生成背景红绿灯路口事件：段内路口数 = 里程 × 密度，期望停车 = 路口数 × 单路口停车概率。
+ * 路口数按期望值取（不取整、不设下限），因此把一段路切成 N 份后各份期望停车之和与整段一致，
+ * 切分方式不会改变全线启停能量。
+ * @param excludeCount 已由显式事件代表的路口数（如"转弯""红绿灯"事件段），避免同一路口计两次
+ */
 export function buildIntersectionEvents(
   distanceKm: number,
   roadLevel: RoadLevel,
   traffic: TrafficStatus,
+  excludeCount = 0,
 ): MotionEvent[] {
   const density = INTERSECTION_DENSITY_PER_KM[roadLevel] ?? 0
   if (density <= 0 || distanceKm <= 0) return []
-  const n = Math.max(1, Math.round(distanceKm * density))
+  const n = distanceKm * density - excludeCount
+  if (n <= 0) return []
   const p = INTERSECTION_STOP_PROB[traffic] ?? 0.35
   return [{ type: 'stop', expectedCount: round2(n * p), probability: p, label: '红绿灯路口' }]
 }
@@ -202,15 +204,17 @@ function event(type: MotionEvent['type'], probability: number, label: string): M
 }
 
 /**
- * L1 行为区检测：由导航指令关键词 + 折线航向角 + 道路等级推断变速行为与变速概率。
+ * L1 行为区检测：由导航指令关键词 + 折线航向角 + 道路等级 + 实时路况推断变速行为与变速概率。
  * 优先级：收费站 > 服务区 > 匝道 > 红绿灯路口 > 一般路口(城市) > 转弯(指令/几何) > 城市起停/巡航。
  */
 export function detectMotionBehavior(
   instruction: string | undefined,
   roadLevel: RoadLevel,
   coordsWgs84: Array<[number, number]>,
+  traffic: TrafficStatus = 'unknown',
 ): MotionDetection {
   const s = instruction ?? ''
+  const interP = intersectionStopProb(roadLevel, traffic)
   // ① 收费站
   if (TOLL_RE.test(s)) {
     const mtc = MTC_RE.test(s)
@@ -236,12 +240,16 @@ export function detectMotionBehavior(
   // ④ 红绿灯路口（明确关键词）
   if (INTERSECTION_RE.test(s)) {
     const p = MOTION_PROB.intersection
-    return { behavior: 'intersection', events: [event('stop', p.stop, '红绿灯路口'), event('decel', p.decel, '路口减速')] }
+    const evs: MotionEvent[] = [event('decel', p.decel, '路口减速')]
+    if (interP > 0) evs.unshift(event('stop', interP, '红绿灯路口'))
+    return { behavior: 'intersection', events: evs }
   }
   // ⑤ 一般路口（城市道路指令含"路口"）
   if (roadLevel === 'city' && MINOR_INTERSECTION_RE.test(s)) {
     const p = MOTION_PROB.intersectionMinor
-    return { behavior: 'intersection', events: [event('stop', p.stop, '路口'), event('decel', p.decel, '路口减速')] }
+    const evs: MotionEvent[] = [event('decel', p.decel, '路口减速')]
+    if (interP > 0) evs.unshift(event('stop', interP * MINOR_INTERSECTION_FACTOR, '路口'))
+    return { behavior: 'intersection', events: evs }
   }
   // ⑥ 转弯（指令）
   if (TURN_RE.test(s)) {
@@ -250,31 +258,33 @@ export function detectMotionBehavior(
       return { behavior: 'turn', events: [event('stop', p.stop, '掉头'), event('decel', p.decel, '掉头减速')] }
     }
     const p = MOTION_PROB.turn
-    return { behavior: 'turn', events: [event('decel', p.decel, '转弯减速')] }
+    const evs: MotionEvent[] = [event('decel', p.decel, '转弯减速')]
+    // 城市/国道/省道上的左右转发生在平面路口，转向车流需让行，停车概率与路口同口径；
+    // 高速上的"转弯"只是几何弯道，不产生停车。
+    if (interP > 0) evs.push(event('stop', interP, '转弯路口'))
+    return { behavior: 'turn', events: evs }
   }
   // ⑦ 转弯（几何：航向角突变，指令无关键词时兜底）
   if (maxHeadingChange(coordsWgs84) >= TURN_HEADING_DEG) {
     const p = MOTION_PROB.turn
-    return { behavior: 'turn', events: [event('decel', p.decel, '急弯减速(几何)')] }
+    const evs: MotionEvent[] = [event('decel', p.decel, '急弯减速(几何)')]
+    if (interP > 0) evs.push(event('stop', interP, '转弯路口'))
+    return { behavior: 'turn', events: evs }
   }
   // ⑧ 城市起停 / 巡航
   if (roadLevel === 'city') return { behavior: 'urbanStopStart', events: [] }
   return { behavior: 'cruise', events: [] }
 }
 
-/** 段内期望停车次数
- * - 有离散停车事件（收费站/路口等）→ 取事件期望次数之和；
- * - 无离散事件的巡航/城市起停段 → 按停车密度 × 里程折算；
- * - 无离散事件的行为事件段（如"同一事件区"里被合并计数的后续 step）→ 计 0，
- *   事件已在同事件区首个 segment 上计过一次，背景密度不再叠加（避免双重计数）。
+/** 段内期望停车次数 —— 物理模型的权威口径（stopDensity 只是它的兜底输入之一）
+ * - 有停车事件（收费站/路口/转弯等）→ 事件期望次数之和；背景路口已在建段时按里程折算成事件；
+ * - 完全没有停车事件 → 退回 stopDensity × 里程，覆盖高速巡航段的偶发停车。
+ * 任何行为类型都不会直接返回 0：段里跑了里程，就应有对应的启停期望。
  */
 export function expectedStopCount(seg: SegmentData): number {
   const stopEvs = (seg.motionEvents ?? []).filter((e) => e.type === 'stop')
   if (stopEvs.length > 0) return round2(stopEvs.reduce((a, e) => a + e.expectedCount, 0))
-  if (seg.motionBehavior === 'cruise' || seg.motionBehavior === 'urbanStopStart') {
-    return round2((seg.stopDensity ?? 0) * seg.distanceKm)
-  }
-  return 0
+  return round2((seg.stopDensity ?? 0) * seg.distanceKm)
 }
 
 /** 停车/怠速密度（次/km）= 道路等级基准 × 路况系数 */
@@ -326,6 +336,11 @@ export function isEventBehavior(b: MotionBehavior): boolean {
   return b !== 'cruise' && b !== 'urbanStopStart'
 }
 
+/** 该行为的显式事件已经代表了几个平面路口（用于扣减背景路口，避免同一路口计两次） */
+export function intersectionsRepresentedBy(b: MotionBehavior): number {
+  return b === 'intersection' || b === 'turn' ? 1 : 0
+}
+
 /** 事件段典型通过速度（km/h，重卡）：长 step 拆分出的尾部事件段用它，避免继承整步 90+km/h 的高速均速
  * —— 否则"单次停车动能 0.5·m·v²"会按 93km/h 算，而实际过收费站/匝道只有 20~40km/h，能量差约 5 倍。 */
 const EVENT_SPEED_KMH: Partial<Record<MotionBehavior, number>> = {
@@ -368,14 +383,17 @@ function splitLongEventStep(args: {
     stopDensity,
     temperatureC: null,
   }
+  // 整段保留时：段内除了显式事件，还跑过一段路，沿途背景路口按里程折算补上
+  const wholeEvents = () => [
+    ...motion.events,
+    ...buildIntersectionEvents(distanceM / 1000, roadLevel, trafficStatus, intersectionsRepresentedBy(behavior)),
+  ]
   if (!isEvent || !isLong || coordsWgs84.length < 3) {
-    // 短事件 step 或非事件 step：整段保留；非事件段（巡航/城市起停）补挂红绿灯事件
-    const inter = isEventBehavior(behavior) ? [] : buildIntersectionEvents(distanceM / 1000, roadLevel, trafficStatus)
     return [{
       ...base,
       distanceKm: round2(distanceM / 1000),
       motionBehavior: behavior,
-      motionEvents: [...motion.events, ...inter],
+      motionEvents: wholeEvents(),
       coordsWgs84,
       durationH: round2(durH),
     }]
@@ -387,7 +405,7 @@ function splitLongEventStep(args: {
       ...base,
       distanceKm: round2(distanceM / 1000),
       motionBehavior: behavior,
-      motionEvents: motion.events,
+      motionEvents: wholeEvents(),
       coordsWgs84,
       durationH: round2(durH),
     }]
@@ -418,7 +436,10 @@ function splitLongEventStep(args: {
       distanceKm: round2(tailKm),
       avgSpeedKmh: tailSpeed,
       motionBehavior: behavior,
-      motionEvents: motion.events,
+      motionEvents: [
+        ...motion.events,
+        ...buildIntersectionEvents(tailKm, roadLevel, trafficStatus, intersectionsRepresentedBy(behavior)),
+      ],
       coordsWgs84: tailCoords,
       durationH: round2(tailKm / tailSpeed),
     },
@@ -442,7 +463,7 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
       : CRUISE_SPEED_BY_LEVEL[roadLevel]
     const coordsGcj = decodePolyline(step.polyline ?? '')
     const coordsWgs84 = coordsGcj.map(([lng, lat]) => gcj02ToWgs84(lng, lat))
-    let motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84)
+    const motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84, trafficStatus)
     // 同一事件区合并：连续同类"场站型事件"（收费站/匝道/服务区）属于同一座广场/同一处匝道区——
     // 直接合并进上一个事件段（距离/时长/坐标累加），事件只保留一份，避免出现
     // "收费站但无变速事件"的空壳段，也避免一座广场被重复计数
