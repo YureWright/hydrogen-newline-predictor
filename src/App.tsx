@@ -23,7 +23,8 @@ export default function App() {
 
   useEffect(() => {
     fetch('/api/stations').then((r) => r.json()).then((j) => {
-      if (j.ok) setStations(j.stations.map((s: any) => ({ ...s, id: 0, useType: 1 })))
+      // 接口已带 id/useType（1=商用 2=自用），不能覆写——否则自用站会被全部画成商用蓝点
+      if (j.ok) setStations(j.stations as H2Station[])
     }).catch(() => {})
   }, [])
 
@@ -44,6 +45,8 @@ export default function App() {
       const t = await geocode(toAddr)
       if (!f.point || !t.point) {
         setError('地址解析失败：请检查输入，或到高德控制台为 Key 开通"地理编码"权限')
+        // 清掉上一次的结果：否则报错的同时旧路线/旧起终点还留在页面上，看起来像新地址查出来的
+        setRoutes([]); setFrom(null); setTo(null); setHighlight([])
         return
       }
       setFrom(f.point); setTo(t.point)
@@ -54,9 +57,11 @@ export default function App() {
         if (f.source === 'local-table' || t.source === 'local-table') setNote('提示：部分地址未命中高德地理编码，回退到城市中心点。')
       } else {
         setError(j.msg || '路线查询失败')
+        setRoutes([]); setHighlight([])
       }
     } catch (e: any) {
       setError('查询出错：' + (e.message || e))
+      setRoutes([]); setHighlight([])
     } finally {
       setLoading(false)
     }

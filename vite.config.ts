@@ -45,8 +45,23 @@ interface DemJob {
 }
 const demJobs = new Map<string, DemJob>()
 let demJobSeq = 0
+/** 已结束任务的保留时长：任务只在 /result 或 /cancel 被访问时才删除，
+ * 客户端轮到 status=done 就离开的话没人来取结果，而每个 job 里存着整条路线的
+ * 分段数据（含逐点坐标与剖面，可达数 MB），不清理就是纯内存泄漏 */
+const DEM_JOB_TTL_MS = 10 * 60 * 1000
+/** 运行中任务的上限年龄（异常卡住的任务也要能回收） */
+const DEM_JOB_MAX_AGE_MS = 30 * 60 * 1000
+
+function pruneDemJobs() {
+  const now = Date.now()
+  for (const [id, j] of demJobs) {
+    const age = now - j.createdAt
+    if (age > (j.status === 'running' ? DEM_JOB_MAX_AGE_MS : DEM_JOB_TTL_MS)) demJobs.delete(id)
+  }
+}
 
 function startDemJob(origin: string, destination: string, index: number) {
+  pruneDemJobs()
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
   const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
   demJobs.set(id, job)
@@ -108,6 +123,14 @@ const CITY_TABLE: Record<string, string> = {
   中山: '113.39,22.52', 珠海: '113.57,22.27',
 }
 
+/** 城市表兜底匹配：addr 含城市名，或 addr 本身是城市名的一部分（后者要求 ≥2 字，
+ * 否则"海"会命中"上海"、"京"会命中"北京"，把一个无效输入静默定位到某个城市中心） */
+function matchCity(addr: string): [string, string] | undefined {
+  if (!addr) return undefined
+  return Object.entries(CITY_TABLE).find(([city]) =>
+    addr.includes(city) || (addr.length >= 2 && city.includes(addr)))
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -137,12 +160,12 @@ export default defineConfig({
                   return send(res, 200, { ok: true, source: 'amap-geocode', name: j.geocodes[0].formatted_address || addr, location: j.geocodes[0].location })
                 }
                 // ② 高德失败（如权限/配额问题）→ 回退内置城市表（城市中心点），并明确标注
-                const hit = Object.entries(CITY_TABLE).find(([city]) => addr.includes(city) || city.includes(addr))
+                const hit = matchCity(addr)
                 if (hit) return send(res, 200, { ok: true, source: 'local-table', name: hit[0] + '（城市中心）', location: hit[1] })
                 return send(res, 200, { ok: false, msg: '地理编码失败：' + (j.info || '未知错误') + '（可在高德控制台为 Key 开通"地理编码"权限）' })
               }
               // ③ 无 Key：仅内置城市表兜底
-              const hit = Object.entries(CITY_TABLE).find(([city]) => addr.includes(city) || city.includes(addr))
+              const hit = matchCity(addr)
               if (hit) return send(res, 200, { ok: true, source: 'local-table', name: hit[0], location: hit[1] })
               return send(res, 200, { ok: false, msg: '未配置 AMAP_KEY' })
             }
@@ -182,9 +205,14 @@ export default defineConfig({
               let body: any = {}
               try { body = JSON.parse((await readBody(req)) || '{}') } catch { /* 非法 JSON 按空处理 */ }
               const { origin, destination, candidate, segments, summary } = body
-              if (!candidate || !segments) return send(res, 400, { ok: false, msg: '缺少候选路线/路段数据' })
+              if (!candidate || !Array.isArray(segments) || !segments.length) {
+                return send(res, 400, { ok: false, msg: '缺少候选路线/路段数据' })
+              }
+              // summary 缺失时就地汇总：拼 prompt 时会直接读 summary.segmentCount，
+              // 少这个字段会抛 TypeError，用户只看到 500 而不是可读的原因
+              const sum = summary ?? summarizeSegments(segments)
               try {
-                const r = await evaluateRoute({ origin, destination, candidate, segments, summary }, cfg)
+                const r = await evaluateRoute({ origin, destination, candidate, segments, summary: sum }, cfg)
                 return send(res, 200, { ok: true, text: r.text, model: r.model })
               } catch (e: any) {
                 return send(res, 200, { ok: false, msg: e.message || String(e) })

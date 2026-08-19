@@ -58,6 +58,11 @@ export async function fetchRawPaths(
     throw new Error('高德接口错误: ' + (data.info || JSON.stringify(data)))
   }
   const paths = data.route?.paths ?? []
+  // 空结果不写缓存并直接报错：否则这 10 分钟内的重试全都拿到空数组，而下游取 paths[idx]
+  // 会是 undefined，读 path.steps 时抛 TypeError，用户看到的只是一个 500
+  if (!paths.length) {
+    throw new Error('高德未返回可用路线（起终点可能不可达，或坐标超出服务范围）')
+  }
   planCache.set(cacheKey, { time: Date.now(), paths })
   return paths
 }

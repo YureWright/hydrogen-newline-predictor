@@ -29,7 +29,7 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 .metric b { display: block; font-size: 16px; color: var(--green); }
 .metric span { font-size: 11px; color: #889; }
 .traffic-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 10px; background: #eef2f0; }
-.tb.smooth { background: #2ca02c; } .tb.slow { background: #f0ad4e; } .tb.congested { background: #d62728; } .tb.severe { background: #7b1fa2; }
+.tb.smooth { background: #2ca02c; } .tb.slow { background: #f0ad4e; } .tb.congested { background: #d62728; } .tb.severe { background: #7b1fa2; } .tb.unknown { background: #ccc; }
 .traffic-label { display: flex; gap: 10px; margin-top: 5px; font-size: 11px; color: #667; flex-wrap: wrap; }
 .route-roads { margin-top: 8px; font-size: 12px; color: #445; }
 .legend-tip { margin-top: 12px; font-size: 12px; color: #667; }

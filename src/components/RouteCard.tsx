@@ -25,9 +25,12 @@ export default function RouteCard({ route, index, selected, onSelect }: {
         <div className="tb slow" style={{ width: `${(t.slowKm / Math.max(t.totalKm, 1)) * 100}%` }} title={`缓行 ${t.slowKm}km`} />
         <div className="tb congested" style={{ width: `${(t.congestedKm / Math.max(t.totalKm, 1)) * 100}%` }} title={`拥堵 ${t.congestedKm}km`} />
         <div className="tb severe" style={{ width: `${(t.severeKm / Math.max(t.totalKm, 1)) * 100}%` }} title={`严重拥堵 ${t.severeKm}km`} />
+        {/* 无实时路况的里程也要画出来，否则条形图填不满，缺口会被误读成"畅通" */}
+        <div className="tb unknown" style={{ width: `${(t.unknownKm / Math.max(t.totalKm, 1)) * 100}%` }} title={`无实时路况数据 ${t.unknownKm}km`} />
       </div>
       <div className="traffic-label">
         <span>畅通 {t.smoothKm}km</span><span>缓行 {t.slowKm}</span><span>拥堵 {t.congestedKm}</span><span>严重 {t.severeKm}</span>
+        {t.unknownKm > 0 && <span>未知 {t.unknownKm}</span>}
       </div>
       <div className="route-roads">{route.topRoads.slice(0, 4).join(' → ') || '—'}</div>
     </div>

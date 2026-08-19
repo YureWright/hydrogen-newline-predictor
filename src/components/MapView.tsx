@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
 import { wgs84ToGcj02 } from '../route/coords'
 import type { RouteCandidate, H2Station } from '../route/types'
@@ -34,6 +34,19 @@ function pointToPolylineKm(lng: number, lat: number, coords: Array<[number, numb
   return best / 1000
 }
 
+/** 站点悬浮说明：沿线站点显示距线距离与价格/压力/枪数，远处站点只显示站名 */
+function stationTooltip(s: H2Station, near: boolean, distKm: number): string {
+  if (!near) return s.name
+  const parts = [
+    '距线' + distKm.toFixed(1) + 'km',
+    s.price ? s.price + '元/kg' : null,
+    s.pressure || null,
+    s.guns != null ? s.guns + ' 枪' : null,
+    s.useType === 1 ? '商用' : '自用',
+  ].filter(Boolean)
+  return s.name + '（' + parts.join(' · ') + '）'
+}
+
 interface Props {
   routes: RouteCandidate[]
   selectedIndex: number
@@ -49,6 +62,14 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layersRef = useRef<L.LayerGroup | null>(null)
+
+  // 571 座站 × 所选路线数千个折线点的最短距离：只跟路线/站点有关，
+  // 缓存后勾选路段（highlight 变化）不再重算，否则每次勾选都要跑上百万次距离计算
+  const stationDistKm = useMemo(() => {
+    const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
+    if (selCoords.length < 2) return stations.map(() => Infinity)
+    return stations.map((s) => pointToPolylineKm(s.lng, s.lat, selCoords))
+  }, [routes, selectedIndex, stations])
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return
@@ -97,22 +118,21 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
       })
     }
 
-    const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
-    for (const s of stations) {
-      const dist = selCoords.length ? pointToPolylineKm(s.lng, s.lat, selCoords) : Infinity
+    stations.forEach((s, si) => {
+      const dist = stationDistKm[si] ?? Infinity
       const near = dist <= 20
       L.circleMarker([s.lat, s.lng], {
         radius: near ? 5 : 2.5, color: '#fff', weight: near ? 1 : 0.5,
         fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
-      }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
-    }
+      }).addTo(layers).bindTooltip(stationTooltip(s, near, dist), { direction: 'top' })
+    })
     if (highlightCoords.length > 0) {
       const all = highlightCoords.flat()
       if (all.length >= 2) map.fitBounds(L.latLngBounds(all).pad(0.2))
     } else if (bounds.length) {
       map.fitBounds(L.latLngBounds(bounds).pad(0.15))
     }
-  }, [routes, selectedIndex, from, to, stations, onSelect, highlight])
+  }, [routes, selectedIndex, from, to, stations, stationDistKm, onSelect, highlight])
 
   return <div ref={divRef} style={{ height: '100%', width: '100%' }} />
 }
