@@ -68,7 +68,8 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
     if (!map || !layers) return
     layers.clearLayers()
 
-    const colors = ['#1f77b4', '#2ca02c', '#ff7f0e']
+    // 深色底图上的线要更亮更纯才压得住，浅色主题那套 matplotlib 配色会糊进背景
+    const colors = ['#3ae3ff', '#3ddc97', '#ffb547']
     routes.forEach((r, i) => {
       const coords = polylineToCoords(r.polyline).map(([lng, lat]) => [lat, lng] as [number, number])
       if (coords.length > 1) {
@@ -79,8 +80,8 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
         line.bindTooltip(`路线${i + 1}: ${r.distanceKm}km ${r.durationH}h 高速${(r.highwayRatio * 100).toFixed(0)}%`, { sticky: true })
       }
     })
-    if (from) L.circleMarker([from.lat, from.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#0b3d2e', fillOpacity: 1 }).addTo(layers).bindTooltip('起点 ' + from.name)
-    if (to) L.circleMarker([to.lat, to.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#d62728', fillOpacity: 1 }).addTo(layers).bindTooltip('终点 ' + to.name)
+    if (from) L.circleMarker([from.lat, from.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#3ddc97', fillOpacity: 1 }).addTo(layers).bindTooltip('起点 ' + from.name)
+    if (to) L.circleMarker([to.lat, to.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#ff6072', fillOpacity: 1 }).addTo(layers).bindTooltip('终点 ' + to.name)
 
     const selCoords = routes[selectedIndex] ? polylineToCoords(routes[selectedIndex].polyline) : []
     for (const s of stations) {
@@ -88,7 +89,7 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
       const near = dist <= 20
       L.circleMarker([s.lat, s.lng], {
         radius: near ? 5 : 2.5, color: '#fff', weight: near ? 1 : 0.5,
-        fillColor: near ? (s.useType === 1 ? '#1f77b4' : '#ff8c00') : '#b0b8b5', fillOpacity: near ? 0.95 : 0.5,
+        fillColor: near ? (s.useType === 1 ? '#4d8dff' : '#ffb547') : '#5c6884', fillOpacity: near ? 0.95 : 0.45,
       }).addTo(layers).bindTooltip(`${s.name}${near ? '（距线' + dist.toFixed(1) + 'km）' : ''}${s.price ? ' ' + s.price + '元' : ''}`, { direction: 'top' })
     }
   }, [routes, selectedIndex, from, to, stations, onSelect])
@@ -100,7 +101,8 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
     if (!map || !layers) return
     layers.clearLayers()
 
-    const HL_COLORS = ['#ffd700', '#ff8c00', '#e91e63', '#9b59b6', '#00bcd4', '#f44336', '#4caf50', '#3f51b5']
+    // 高亮色统一提亮：靛蓝/深紫这类在反相后的深色底图上几乎看不见
+    const HL_COLORS = ['#ffd700', '#ff9d4d', '#ff5f8f', '#c08bff', '#3ae3ff', '#ff6072', '#5ef0a8', '#7aa9ff']
     const highlightCoords: Array<Array<[number, number]>> = []
     const bounds: L.LatLngExpression[] = []
     routes.forEach((r) => {

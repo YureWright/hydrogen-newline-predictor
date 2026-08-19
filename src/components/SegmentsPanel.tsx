@@ -29,35 +29,37 @@ interface SegmentsResponse {
 interface JobStatus { ok: boolean; status?: string; phase?: string; done?: number; total?: number; cached?: number; error?: string; msg?: string }
 interface AiResponse { ok: boolean; text?: string; model?: string; msg?: string }
 
+/* 深色主题配色：语义与浅色版一致，但整体提亮提纯，保证在近黑底上的对比度。
+   与 styles.css 里的 .lv / .tb 徽章色一一对应，同一个含义在图表和表格里必须同色。 */
 const ROAD_LEVEL_COLOR: Record<string, string> = {
-  highway: '#1e7a54', national: '#2c7fb8', provincial: '#f0ad4e', expressway: '#17a2b8', city: '#9467bd', county: '#8d6e63', other: '#bbb',
+  highway: '#3ddc97', national: '#4d8dff', provincial: '#ffb547', expressway: '#3ae3ff', city: '#a473ff', county: '#d9a179', other: '#6a7691',
 }
 const TERRAIN_LABEL: Record<string, string> = { plain: '平原', hilly: '微丘', heavyHilly: '重丘', mountain: '山岭' }
-const TERRAIN_COLOR: Record<string, string> = { plain: '#2ca02c', hilly: '#f0ad4e', heavyHilly: '#e66101', mountain: '#d62728' }
+const TERRAIN_COLOR: Record<string, string> = { plain: '#3ddc97', hilly: '#ffb547', heavyHilly: '#ff8a3d', mountain: '#ff6072' }
 const TRAFFIC_LABEL: Record<string, string> = {
   smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重拥堵', unknown: '未知',
 }
 const TRAFFIC_COLOR: Record<string, string> = {
-  smooth: '#2ca02c', slow: '#f0ad4e', congested: '#d62728', severe: '#7b1fa2', unknown: '#ccc',
+  smooth: '#3ddc97', slow: '#ffb547', congested: '#ff6072', severe: '#a473ff', unknown: '#4a5570',
 }
 
 const MOTION_LABEL: Record<string, string> = {
   cruise: '巡航', toll: '收费站', intersection: '路口', ramp: '匝道', turn: '转弯', serviceArea: '服务区', urbanStopStart: '城市起停',
 }
 const MOTION_COLOR: Record<string, string> = {
-  cruise: '#9aa', toll: '#d62728', intersection: '#ff7f0e', ramp: '#2c7fb8', turn: '#9467bd', serviceArea: '#2ca02c', urbanStopStart: '#8c564b',
+  cruise: '#7d8aa8', toll: '#ff6072', intersection: '#ff9d4d', ramp: '#4d8dff', turn: '#a473ff', serviceArea: '#3ddc97', urbanStopStart: '#d98f6a',
 }
 const EVENT_TYPE_LABEL: Record<string, string> = {
   stop: '停止', start: '启动', decel: '减速', turn: '转弯',
 }
 
 const MOTION_MARK: Record<string, { label: string; color: string }> = {
-  toll: { label: '费', color: '#d62728' },
-  intersection: { label: '口', color: '#ff7f0e' },
-  ramp: { label: '匝', color: '#2c7fb8' },
-  turn: { label: '弯', color: '#9467bd' },
-  serviceArea: { label: '服', color: '#2ca02c' },
-  urbanStopStart: { label: '起停', color: '#8c564b' },
+  toll: { label: '费', color: '#ff6072' },
+  intersection: { label: '口', color: '#ff9d4d' },
+  ramp: { label: '匝', color: '#4d8dff' },
+  turn: { label: '弯', color: '#a473ff' },
+  serviceArea: { label: '服', color: '#3ddc97' },
+  urbanStopStart: { label: '起停', color: '#d98f6a' },
 }
 
 type SortKey = 'index' | 'distanceKm' | 'gradePercent' | 'elevationM' | 'avgSpeedKmh'
@@ -358,6 +360,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   if (stage === 'idle') {
     return (
       <div className="segments-panel idle-panel">
+        <div className="truck-watermark" aria-hidden="true" />
         <div className="idle-head">
           <div>
             <h3>路段数据测算</h3>
@@ -388,6 +391,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
     return (
       <div className="segments-panel running-panel">
+        <div className="truck-watermark" aria-hidden="true" />
         <h3>正在测算路线 {routeIndex + 1}</h3>
         <div className="progress-box">
           <div className="progress-track">
@@ -483,7 +487,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       <div className="charts-grid">
         <div className="chart-card chart-wide">
           <h4>海拔剖面</h4>
-          <LineAreaChartMemo points={profilePoints} color="#1e7a54" yLabel="海拔" unit="m" markers={motionMarkers} />
+          <LineAreaChartMemo points={profilePoints} color="#3ae3ff" yLabel="海拔" unit="m" markers={motionMarkers} />
           {segments.some((s) => s.motionBehavior !== 'cruise') && (
             <div className="motion-legend">
               {(['toll', 'intersection', 'ramp', 'turn', 'serviceArea', 'urbanStopStart'] as const)
@@ -510,7 +514,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </div>
         <div className="chart-card chart-wide">
           <h4>分段均速（km/h）</h4>
-          <LineAreaChartMemo points={speedPts} color="#2c7fb8" yLabel="均速" unit="km/h" />
+          <LineAreaChartMemo points={speedPts} color="#4d8dff" yLabel="均速" unit="km/h" />
         </div>
       </div>
 
