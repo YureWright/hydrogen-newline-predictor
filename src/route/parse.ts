@@ -21,8 +21,14 @@ export function sumTraffic(
     const d = Number(t.distance) || 0
     if (d > 0) acc[mapTrafficStatus(t.status)] += d
   }
-  const totalM = Object.values(acc).reduce((a, b) => a + b, 0)
-  const total = totalM > 0 ? totalM / 1000 : totalKm
+  // tmcs 未必覆盖全程（部分 step 无 tmcs）：未覆盖里程计入 unknown，
+  // 分母恒为路线总里程，否则拥堵占比会被"只按已覆盖里程"放大，
+  // 且 totalKm 会与路线 distanceKm 对不上。
+  const coveredM = Object.values(acc).reduce((a, b) => a + b, 0)
+  // 取 max 兜住 tmcs 距离之和略超路线里程的脏数据，保证分母不小于各路况分量之和
+  const routeM = Math.max(totalKm > 0 ? totalKm * 1000 : 0, coveredM)
+  if (routeM > coveredM) acc.unknown += routeM - coveredM
+  const total = routeM / 1000
   const blocked = (acc.slow + acc.congested + acc.severe) / 1000
   return {
     smoothKm: round1(acc.smooth / 1000),
@@ -70,6 +76,11 @@ export function round1(n: number): number {
 }
 export function round2(n: number): number {
   return Math.round(n * 100) / 100
+}
+/** 保留 4 位小数：时长这类小量级数值用 round2 会严重失真
+ * （0.5km@80km/h = 0.00625h → 0.01h，偏高 60%），累加后总时长也跟着偏。 */
+export function round4(n: number): number {
+  return Math.round(n * 10000) / 10000
 }
 
 /** 经纬度 → 平面米坐标（等距圆柱近似，适合小范围距离计算） */

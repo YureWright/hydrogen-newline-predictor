@@ -26,6 +26,14 @@ async function main() {
     13,
   )
   assert('sumTraffic: 拥堵比例=(2+1)/13≈0.23', Math.abs(stats.congestionRatio - 3 / 13) < 0.01)
+  // tmcs 未覆盖全程时：缺口计入 unknown，分母仍是路线总里程（否则拥堵占比被放大）
+  const partialTmc = sumTraffic([{ status: '畅通', distance: '5000' }, { status: '拥堵', distance: '5000' }], 20)
+  assert('sumTraffic: tmcs 只覆盖 10/20km → 其余 10km 记为未知',
+    Math.abs(partialTmc.unknownKm - 10) < 0.01, String(partialTmc.unknownKm))
+  assert('sumTraffic: 分母是路线总里程 20km（不是已覆盖的 10km）',
+    Math.abs(partialTmc.totalKm - 20) < 0.01, String(partialTmc.totalKm))
+  assert('sumTraffic: 拥堵占比 = 5/20 = 0.25（按全程算，不是 5/10=0.5）',
+    Math.abs(partialTmc.congestionRatio - 0.25) < 0.01, String(partialTmc.congestionRatio))
   const roads = extractRoadsFromSteps([
     { instruction: '沿G6京藏高速行驶20公里', distance: '20000' },
     { instruction: '沿G6京藏高速行驶10公里', distance: '10000' },

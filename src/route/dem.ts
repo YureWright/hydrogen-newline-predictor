@@ -176,5 +176,12 @@ export function resampleCoords(
     })
     target += stepM
   }
+  // 固定步长采样几乎采不到折线终点（总长 1900m、步长 200m 时最后一点停在 1800m），
+  // 段尾最多整整一个步长拿不到高程；短段更严重（600m 段只剩 3 点）。这里补上真实终点。
+  const lastOut = out[out.length - 1]
+  if (coords.length >= 2 && (!lastOut || total - lastOut.cumM > 1)) {
+    const end = coords[coords.length - 1]
+    out.push({ lng: end[0], lat: end[1], cumM: total })
+  }
   return out
 }

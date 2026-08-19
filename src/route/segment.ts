@@ -11,7 +11,7 @@ import type {
   AmapRawPath, AmapRawStep, AmapRawTmcs,
   MotionBehavior, MotionEvent, RoadLevel, SegmentData, SegmentSummary, TrafficStatus,
 } from './types'
-import { mapTrafficStatus, round1, round2 } from './parse'
+import { mapTrafficStatus, round1, round2, round4 } from './parse'
 import { decodePolyline, gcj02ToWgs84 } from './coords'
 
 /** 道路名中不会出现的字符（方向词/连接词），用于限定匹配范围 */
@@ -34,6 +34,20 @@ export function extractRoadName(instruction: string | undefined): string {
   return ''
 }
 
+/** 由道路名/指令中的等级关键词判定等级；无匹配返回 null */
+function levelByKeyword(s: string): RoadLevel | null {
+  if (/高速/.test(s)) return 'highway'
+  if (/国道/.test(s)) return 'national'
+  if (/省道/.test(s)) return 'provincial'
+  if (/环|快速|大街|大道/.test(s)) return 'city'
+  return null
+}
+
+/** "驶出/离开高速""高速出口"——句中出现"高速"，但本段主体已离开高速 */
+const LEAVING_HIGHWAY_RE = /(?:驶出|离开)[^，。]{0,16}?高速|高速[^，。]{0,8}出口/
+/** 指令中"进入/沿 + 具名道路"，且该道路名本身不含"高速" */
+const ENTER_NAMED_ROAD_RE = /(?:进入|沿)((?:(?!高速)[^，。]){2,16}?(?:路|街|大道|大街|环线|桥))/
+
 /**
  * 道路等级推断（顺序：显式关键词 > 收费里程 > 编号 > 城市特征）
  * @param tollDistanceM 本 step 收费里程（米），>0 说明收费公路（中国多为高速）
@@ -43,12 +57,19 @@ export function inferRoadLevel(
   instruction: string | undefined,
   tollDistanceM = 0,
 ): RoadLevel {
-  const s = roadName + ' ' + (instruction ?? '')
-  if (/高速/.test(s)) return 'highway'
-  if (/国道/.test(s)) return 'national'
-  if (/省道/.test(s)) return 'provincial'
+  const ins = instruction ?? ''
+  // "驶出G6京藏高速，进入北清路"：整段主体是北清路，不能因句中出现"高速"就判高速
+  // （否则路口密度按 0、停车密度按 0.02、兜底巡航速度按 80km/h，全部偏离城市道路实际）。
+  // 仅在无收费里程时生效，避免误判仍行驶在收费高速上的 step。
+  if (tollDistanceM <= 0 && LEAVING_HIGHWAY_RE.test(ins)) {
+    const other = ins.match(ENTER_NAMED_ROAD_RE)
+    if (other) return levelByKeyword(other[1]) ?? 'city'
+  }
+  const byKeyword = levelByKeyword(roadName + ' ' + ins)
+  // 收费里程的优先级高于"环/快速/大街/大道"这类城市特征词（收费的京津快速仍是高速）
+  if (byKeyword && byKeyword !== 'city') return byKeyword
   if (tollDistanceM > 0) return 'highway' // 收费公路（中国高速基本收费）
-  if (/环|快速|大街|大道/.test(s)) return 'city'
+  if (byKeyword === 'city') return 'city'
   if (/^G\d/.test(roadName)) return 'highway' // 无关键词的 G 编号：多为国家高速
   if (/^S\d/.test(roadName)) return 'provincial' // S 编号：省道
   return 'other'
@@ -136,7 +157,13 @@ export const INTERSECTION_STOP_PROB: Record<TrafficStatus, number> = {
   unknown: 0.35,
 }
 
-/** 生成红绿灯路口事件：段内路口数 = 里程 × 密度，期望停车 = 路口数 × 单路口停车概率 */
+/**
+ * 生成红绿灯路口事件：段内路口数 = 里程 × 密度，期望停车 = 路口数 × 单路口停车概率
+ *
+ * 路口数按里程线性折算并保留小数，不做"每段至少 1 个"的取整——否则同一条路被地形切分成
+ * N 个子段后，路口总数会随 N 膨胀（实测国道 10km 切成 20 段后期望停车虚高 5 倍），
+ * 而切分粒度是纯技术参数，不该改变全程路口总数。期望次数本就允许是小数（见 MotionEvent）。
+ */
 export function buildIntersectionEvents(
   distanceKm: number,
   roadLevel: RoadLevel,
@@ -144,7 +171,7 @@ export function buildIntersectionEvents(
 ): MotionEvent[] {
   const density = INTERSECTION_DENSITY_PER_KM[roadLevel] ?? 0
   if (density <= 0 || distanceKm <= 0) return []
-  const n = Math.max(1, Math.round(distanceKm * density))
+  const n = distanceKm * density
   const p = INTERSECTION_STOP_PROB[traffic] ?? 0.35
   return [{ type: 'stop', expectedCount: round2(n * p), probability: p, label: '红绿灯路口' }]
 }
@@ -308,8 +335,12 @@ function cumDistance(coords: Array<[number, number]>): number {
 function splitIndexAt(coords: Array<[number, number]>, targetM: number): number {
   let cum = 0
   for (let i = 1; i < coords.length; i++) {
+    const prev = cum
     cum += haversineMeters(coords[i - 1], coords[i])
-    if (cum >= targetM) return i
+    // 取距目标更近的那一侧顶点：只认"第一个超过目标"会让切分点系统性偏后，
+    // 尾部事件段固定偏短（顶点间距 250m 时切出 1.25km，本应 1.5km），
+    // 也让结果对"目标刚好落在顶点上"的浮点误差敏感
+    if (cum >= targetM) return targetM - prev < cum - targetM ? i - 1 : i
   }
   return -1
 }
@@ -377,11 +408,15 @@ function splitLongEventStep(args: {
       motionBehavior: behavior,
       motionEvents: [...motion.events, ...inter],
       coordsWgs84,
-      durationH: round2(durH),
+      durationH: round4(durH),
     }]
   }
   const zoneM = Math.min((EVENT_ZONE_KM[behavior] ?? 1.5) * 1000, distanceM / 2)
-  const idx = splitIndexAt(coordsWgs84, distanceM - zoneM)
+  // 事件区在 step 末尾：切分点按"比例"定位到折线上。高德声明里程与 polyline 几何长度
+  // 并不总是一致（折线简化后几何偏短），直接拿 distanceM 去几何折线上找点，尾部事件段
+  // 长度会随两者比值漂移——比值 0.93 时尾部只剩 0.84km，比值失真更大时甚至整段拆不出来。
+  const totalGeoM = cumDistance(coordsWgs84)
+  const idx = splitIndexAt(coordsWgs84, totalGeoM * (1 - zoneM / distanceM))
   if (idx <= 0 || idx >= coordsWgs84.length - 1) {
     return [{
       ...base,
@@ -389,7 +424,7 @@ function splitLongEventStep(args: {
       motionBehavior: behavior,
       motionEvents: motion.events,
       coordsWgs84,
-      durationH: round2(durH),
+      durationH: round4(durH),
     }]
   }
   const headCoords = coordsWgs84.slice(0, idx + 1)
@@ -404,14 +439,23 @@ function splitLongEventStep(args: {
   const headBehavior: MotionBehavior = roadLevel === 'city' ? 'urbanStopStart' : 'cruise'
   const headEvents = buildIntersectionEvents(headKm, roadLevel, trafficStatus)
   const tailSpeed = EVENT_SPEED_KMH[behavior] ?? 30
+  const tailDurH = tailKm / tailSpeed
+  // 尾部按事件典型速度计时，剩余时长归主体段——保证两段时长之和 = step 实测时长。
+  // 原实现给尾部单独按 25~35km/h 算时长却不从主体扣除，整条路线总时长会虚增（实测 +2%~8%）。
+  // 主体段均速随之由"剩余里程/剩余时长"反推：整步均速里本就含了慢速通过事件区的那段时间。
+  // 极端情况（按事件速度算出的时长已吃掉整步时长）退化为按里程比例分配。
+  const tailFits = durH - tailDurH > 0
+  const headDurH = tailFits ? durH - tailDurH : durH * headFrac
+  const headSpeed = headDurH > 0 ? round1(headKm / headDurH) : avgSpeed
   return [
     {
       ...base,
       distanceKm: round2(headKm),
+      avgSpeedKmh: headSpeed,
       motionBehavior: headBehavior,
       motionEvents: headEvents,
       coordsWgs84: headCoords,
-      durationH: round2(durH * headFrac),
+      durationH: round4(headDurH),
     },
     {
       ...base,
@@ -420,7 +464,7 @@ function splitLongEventStep(args: {
       motionBehavior: behavior,
       motionEvents: motion.events,
       coordsWgs84: tailCoords,
-      durationH: round2(tailKm / tailSpeed),
+      durationH: round4(tailFits ? tailDurH : durH * (1 - headFrac)),
     },
   ]
 }
@@ -453,7 +497,7 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
       const last = segments[segments.length - 1]
       last.distanceKm = round2(last.distanceKm + distanceM / 1000)
       const durH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
-      last.durationH = round2(last.durationH + durH)
+      last.durationH = round4(last.durationH + durH)
       last.coordsWgs84 = last.coordsWgs84.concat(coordsWgs84)
       if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
       continue // 不 push 新段；lastBehavior 保持同类事件
@@ -481,8 +525,10 @@ export function summarizeSegments(segments: SegmentData[]): SegmentSummary {
   let speedW = 0
   let gradeW = 0
   let elevW = 0
-  let hasGrade = false
-  let hasElev = false
+  // 坡度/海拔的加权分母单独统计：无 DEM 数据的段（gradePercent=null）不能算进分母，
+  // 否则只要有一部分段缺数据，平均坡度/海拔就会被按 0 稀释（缺一半数据时均值直接腰斩）
+  let gradeKm = 0
+  let elevKm = 0
   for (const s of segments) {
     roadLevelKm[s.roadLevel] += s.distanceKm
     totalKm += s.distanceKm
@@ -490,11 +536,11 @@ export function summarizeSegments(segments: SegmentData[]): SegmentSummary {
     speedW += s.distanceKm * s.avgSpeedKmh
     if (s.gradePercent != null) {
       gradeW += s.distanceKm * s.gradePercent
-      hasGrade = true
+      gradeKm += s.distanceKm
     }
     if (s.elevationM != null) {
       elevW += s.distanceKm * s.elevationM
-      hasElev = true
+      elevKm += s.distanceKm
     }
   }
   const out: Record<string, number> = {}
@@ -504,8 +550,8 @@ export function summarizeSegments(segments: SegmentData[]): SegmentSummary {
     totalDurationH: round2(totalH),
     roadLevelKm: out as Record<RoadLevel, number>,
     avgSpeedKmh: totalKm > 0 ? round1(speedW / totalKm) : 0,
-    avgGradePercent: hasGrade && totalKm > 0 ? round2(gradeW / totalKm) : null,
-    avgElevationM: hasElev && totalKm > 0 ? Math.round(elevW / totalKm) : null,
+    avgGradePercent: gradeKm > 0 ? round2(gradeW / gradeKm) : null,
+    avgElevationM: elevKm > 0 ? Math.round(elevW / elevKm) : null,
     segmentCount: segments.length,
   }
 }

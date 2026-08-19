@@ -5,6 +5,7 @@ import {
   inferRoadLevel, inferStopDensity, summarizeSegments,
 } from '../src/route/segment'
 import { decodePolyline, gcj02ToWgs84, outOfChina, wgs84ToGcj02 } from '../src/route/coords'
+import { haversineM, resampleCoords } from '../src/route/dem'
 import { fetchRouteWithSegments } from '../src/route/amapRoute'
 
 let failed = 0
@@ -80,6 +81,24 @@ async function main() {
   assert('roadLevel: 无关键词+收费>0→highway', inferRoadLevel('京津快速', '', 3000) === 'highway')
   assert('roadLevel: 京津快速(免费)→city', inferRoadLevel('京津快速', '') === 'city')
   assert('roadLevel: 未知→other', inferRoadLevel('', '左转') === 'other')
+  // "驶出高速"语境：本段主体已切到城市道路，不能只因句中出现"高速"就判高速
+  assert('roadLevel: 驶出高速+进入北清路→city',
+    inferRoadLevel('G6京藏高速', '驶出G6京藏高速，进入北清路', 0) === 'city',
+    inferRoadLevel('G6京藏高速', '驶出G6京藏高速，进入北清路', 0))
+  assert('roadLevel: 高速出口+沿建国路→city',
+    inferRoadLevel('', '从京藏高速出口离开，沿建国路向东行驶', 0) === 'city')
+  assert('roadLevel: 有收费里程时仍判 highway（还在收费路段上）',
+    inferRoadLevel('G6京藏高速', '驶出G6京藏高速，进入北清路', 8000) === 'highway')
+  assert('roadLevel: 驶出高速进匝道（无具名道路）→ 仍按 highway',
+    inferRoadLevel('G6京藏高速', '驶出G6京藏高速，进入匝道', 0) === 'highway')
+
+  // 剖面重采样必须落到折线终点，否则每段尾部最多整整一个步长取不到高程
+  const rsEnd: [number, number] = [116.0, 39.0171]
+  const rs = resampleCoords([[116.0, 39.0], rsEnd], 200)
+  const rsTotal = haversineM([116.0, 39.0], rsEnd)
+  assert('resampleCoords: 采样点包含折线终点',
+    rs.length > 0 && Math.abs(rs[rs.length - 1].cumM - rsTotal) < 1,
+    'last=' + rs[rs.length - 1]?.cumM.toFixed(1) + ' total=' + rsTotal.toFixed(1))
 
   // 路况主导状态（距离加权）
   const dom = dominantTrafficStatus([
@@ -124,6 +143,15 @@ async function main() {
   assert('summarize: cityKm=12', Math.abs(sum.roadLevelKm.city - 12) < 0.01, String(sum.roadLevelKm.city))
   assert('summarize: 加权均速≈(20*80+12*36+4*24)/36≈59.1', Math.abs(sum.avgSpeedKmh - (20 * 80 + 12 * 36 + 4 * 24) / 36) < 0.5, String(sum.avgSpeedKmh))
   assert('summarize: 无坡度数据→null', sum.avgGradePercent === null)
+  // 平均坡度/海拔的分母只能是"有数据的段里程"：若按全程 36km 算，
+  // 只有 20km 有 DEM 数据时 4% 会被稀释成 2.22%
+  const partial = buildSegments(makeFixturePath())
+  partial[0].gradePercent = 4
+  partial[0].elevationM = 1200
+  const sumPartial = summarizeSegments(partial)
+  assert('summarize: 平均坡度按有数据的 20km 算=4%（不被无数据段稀释）',
+    sumPartial.avgGradePercent === 4, String(sumPartial.avgGradePercent))
+  assert('summarize: 平均海拔同理=1200m', sumPartial.avgElevationM === 1200, String(sumPartial.avgElevationM))
 
   console.log('=== 真实线路分段（需 AMAP_KEY） ===')
   if (!process.env.AMAP_KEY) {

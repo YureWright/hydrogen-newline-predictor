@@ -1,7 +1,7 @@
 /** 路段切分算法验证：行为区检测 + 坡度自适应切分（纯函数，无需联网） */
 import type { AmapRawPath, MotionBehavior, SegmentData } from '../src/route/types'
 import {
-  buildSegments, detectMotionBehavior, expectedStopCount, maxHeadingChange,
+  buildIntersectionEvents, buildSegments, detectMotionBehavior, expectedStopCount, maxHeadingChange,
 } from '../src/route/segment'
 import {
   mergeContinuationFragments, shouldSplitByGrade, splitGradeProfile, GRADE_BAND_PCT, MAX_SEGMENT_KM,
@@ -55,6 +55,20 @@ function gradeRange(pts: ProfilePoint[], elevs: number[]): number {
   }
   if (!gs.length) return 0
   return Math.max(...gs) - Math.min(...gs)
+}
+
+/**
+ * 生成一条正南北向折线，几何长度 ≈ totalM（每 stepM 一个点）。
+ * 真实高德 polyline 的几何长度与 step 声明 distance 偏差在 1% 内，夹具必须遵守这一点：
+ * 若折线几何长度是声明里程的数倍，尾部事件段的长度就无从校验（旧夹具差 7 倍，
+ * 拆出来的"1.5km 匝道段"实际有 8km，测试却照样通过）。
+ */
+function makePolyline(lng: number, lat0: number, totalM: number, stepM: number): string {
+  const n = Math.max(1, Math.round(totalM / stepM))
+  const dLat = stepM / 111194.9 // 1° 纬度 ≈ 111.19km（球面半径 6371km）
+  const pts: string[] = []
+  for (let i = 0; i <= n; i++) pts.push(lng.toFixed(6) + ',' + (lat0 + dLat * i).toFixed(6))
+  return pts.join(';')
 }
 
 function seg(distanceKm: number, behavior: MotionBehavior = 'cruise', events: SegmentData['motionEvents'] = []): SegmentData {
@@ -163,7 +177,11 @@ function main() {
   const longRamp: AmapRawPath = {
     distance: '10000', duration: '500', tolls: '20', toll_distance: '10000',
     steps: [
-      { instruction: '沿S15京津高速途径XX桥向东南行驶10千米向右前方行驶进入匝道', distance: '10000', duration: '500', tolls: '20', toll_distance: '10000', polyline: '117.0,39.0;117.1,39.1;117.2,39.2;117.3,39.3;117.4,39.4;117.5,39.5' },
+      {
+        instruction: '沿S15京津高速途径XX桥向东南行驶10千米向右前方行驶进入匝道',
+        distance: '10000', duration: '500', tolls: '20', toll_distance: '10000',
+        polyline: makePolyline(117.0, 39.0, 10000, 250),
+      },
     ],
   }
   const longSegs = buildSegments(longRamp)
@@ -173,9 +191,15 @@ function main() {
   assert('事件只挂在尾部（一次计数）', longSegs[1].motionEvents.some(e => e.type === 'decel') && longSegs[0].motionEvents.length === 0)
   const kmSum = longSegs.reduce((a, s) => a + s.distanceKm, 0)
   assert('里程守恒（合计≈10km）', Math.abs(kmSum - 10) < 0.5, String(kmSum))
+  assert('尾部事件段长度 = 匝道事件区 1.5km（不能吞掉主体段）',
+    Math.abs(longSegs[1].distanceKm - 1.5) < 0.1, String(longSegs[1].distanceKm))
   assert('尾部匝道段均速 = 事件典型速度(35km/h)', Math.abs(longSegs[1].avgSpeedKmh - 35) < 0.1, String(longSegs[1].avgSpeedKmh))
-  assert('头部巡航段均速 = 整步均速', longSegs[0].avgSpeedKmh > 35, String(longSegs[0].avgSpeedKmh))
+  assert('头部均速 ≥ 整步均速（慢速事件区的时间已归给尾部）',
+    longSegs[0].avgSpeedKmh >= 10000 / 1000 / (500 / 3600) - 0.1, String(longSegs[0].avgSpeedKmh))
   assert('尾部时长 = 尾部里程/事件速度（自洽）', Math.abs(longSegs[1].durationH - longSegs[1].distanceKm / 35) < 0.005, 'dur=' + longSegs[1].durationH + ' km=' + longSegs[1].distanceKm)
+  const hSum = longSegs[0].durationH + longSegs[1].durationH
+  assert('时长守恒（两段合计 = step 实测 500s）', Math.abs(hSum - 500 / 3600) < 1e-3,
+    'sum=' + hSum.toFixed(4) + ' step=' + (500 / 3600).toFixed(4))
 
   console.log('— 城市红绿灯事件 —')
   const cityRun: AmapRawPath = {
@@ -195,7 +219,11 @@ function main() {
   const longCityTurn: AmapRawPath = {
     distance: '10000', duration: '1200', tolls: '0', toll_distance: '0',
     steps: [
-      { instruction: '沿京津快速途径XX桥向南行驶10千米右转', distance: '10000', duration: '1200', tolls: '0', toll_distance: '0', polyline: '117.00,39.0;117.01,39.0;117.02,39.0;117.03,39.0;117.04,39.0;117.05,39.0;117.06,39.0;117.07,39.0;117.08,39.0;117.09,39.0;117.10,39.0;117.11,39.0;117.12,39.0;117.13,39.0;117.14,39.0' },
+      {
+        instruction: '沿京津快速途径XX桥向南行驶10千米右转',
+        distance: '10000', duration: '1200', tolls: '0', toll_distance: '0',
+        polyline: makePolyline(117.0, 39.0, 10000, 250),
+      },
     ],
   }
   const cityTurnSegs = buildSegments(longCityTurn)
@@ -203,6 +231,23 @@ function main() {
   assert('头部是城市起停（不再误判巡航）', cityTurnSegs[0].motionBehavior === 'urbanStopStart', String(cityTurnSegs[0].motionBehavior))
   assert('头部带红绿灯事件', cityTurnSegs[0].motionEvents.some(e => e.label === '红绿灯路口'))
   assert('尾部是转弯且带减速事件', cityTurnSegs[1].motionBehavior === 'turn' && cityTurnSegs[1].motionEvents.some(e => e.type === 'decel'))
+  assert('头部红绿灯只按头部里程算（8.5km×3×0.35≈8.9）',
+    Math.abs(cityTurnSegs[0].motionEvents.filter(e => e.label === '红绿灯路口').reduce((a, e) => a + e.expectedCount, 0)
+      - cityTurnSegs[0].distanceKm * 3 * 0.35) < 0.05)
+
+  console.log('— 路口计数：切分守恒 —')
+  const sumExp = (evs: ReturnType<typeof buildIntersectionEvents>) => evs.reduce((a, e) => a + e.expectedCount, 0)
+  const whole10 = sumExp(buildIntersectionEvents(10, 'national', 'smooth'))
+  let split10 = 0
+  for (let i = 0; i < 20; i++) split10 += sumExp(buildIntersectionEvents(0.5, 'national', 'smooth'))
+  assert('10km 整段 = 切成 20×0.5km 的合计（地形切分不改变路口总数）',
+    Math.abs(whole10 - split10) < 0.02, 'whole=' + whole10 + ' split=' + split10)
+  assert('国道 10km 期望停车 = 10×0.4×0.35 = 1.4', Math.abs(whole10 - 1.4) < 0.02, String(whole10))
+  let split1km = 0
+  for (let i = 0; i < 10; i++) split1km += sumExp(buildIntersectionEvents(0.1, 'city', 'congested'))
+  assert('城市 1km 整段 = 切成 10×0.1km 的合计',
+    Math.abs(sumExp(buildIntersectionEvents(1, 'city', 'congested')) - split1km) < 0.02,
+    'whole=' + sumExp(buildIntersectionEvents(1, 'city', 'congested')) + ' split=' + split1km)
 
   console.log('— 事件段不参与地形切分 —')
   assert('cruise 参与切分', shouldSplitByGrade('cruise') === true)
