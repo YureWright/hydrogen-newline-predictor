@@ -37,7 +37,9 @@
 
 ### 枚举值
 
-`RoadLevel`: `highway`（高速）| `national`（国道）| `provincial`（省道）| `city`（城市/快速路）| `other`（其他）
+`RoadLevel`: `highway`（高速）| `national`（国道）| `provincial`（省道）| `expressway`（快速路/环线）| `city`（市区道路）| `county`（县乡道）| `other`（其他/无名连接段）
+
+`terrain`（A2 DEM 派生）：`plain`（平原）| `hilly`（丘陵）| `mountain`（山区）| `null`（无高程数据）——山区爬坡多，氢耗显著更高
 
 `TrafficStatus`: `smooth`（畅通）| `slow`（缓行）| `congested`（拥堵）| `severe`（严重拥堵）| `unknown`（未知）
 

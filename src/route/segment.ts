@@ -29,12 +29,21 @@ export function inferRoadLevel(
   if (/高速/.test(s)) return 'highway'
   if (/国道/.test(s)) return 'national'
   if (/省道/.test(s)) return 'provincial'
+  if (/县道|乡道/.test(s)) return 'county'
   if (tollDistanceM > 0) return 'highway' // 收费公路（中国高速基本收费）
-  if (/环|快速|大街|大道/.test(s)) return 'city'
+  // 快速路 / 高架 / 环线（城市快速通道，限速高、基本无红绿灯）
+  if (/快速|高架/.test(s)) return 'expressway'
+  if (/环/.test(s)) return 'expressway'
+  // 市区道路：大街 / 大道 / 路 / 街
+  if (/大街|大道|路|街/.test(s)) return 'city'
   // 编号兜底：国道为 3 位（G101~G399），国家高速为 1/2/4 位（G6、G15、G4501）
   if (/^G\d{3}(?!\d)/.test(roadName)) return 'national'
   if (/^G\d/.test(roadName)) return 'highway'
   if (/^S\d/.test(roadName)) return 'provincial' // S 编号：省道
+  if (/^X\d/.test(roadName)) return 'county' // X 编号：县道
+  // 收费路段上的桥/立交/隧道连接段 → 高速（如"百葛桥""三号地立交"多在高架高速上）
+  if (/立交|桥|隧道|出口|入口/.test(s)) return 'highway'
+  // 剩余：无名小路 / 乡间连接线 / 未识别 → 其他
   return 'other'
 }
 
@@ -43,7 +52,9 @@ export const CRUISE_SPEED_BY_LEVEL: Record<RoadLevel, number> = {
   highway: 80,
   national: 55,
   provincial: 50,
+  expressway: 70,
   city: 30,
+  county: 40,
   other: 50,
 }
 
@@ -75,7 +86,9 @@ export const STOP_DENSITY_BASE: Record<RoadLevel, number> = {
   highway: 0.02, // 高速：极少停车（收费站/服务区）
   national: 0.3, // 国道：信号灯较少
   provincial: 0.5,
+  expressway: 0.05, // 快速路：基本无红绿灯（偶发匝道排队）
   city: 2.0, // 城区
+  county: 1.0, // 县乡道
   other: 0.5,
 }
 
@@ -112,7 +125,9 @@ export const INTERSECTION_DENSITY_PER_KM: Record<RoadLevel, number> = {
   highway: 0,
   national: 0.4,
   provincial: 0.6,
+  expressway: 0.05, // 快速路基本无平面路口
   city: 3.0, // 城区干道约每 300m 一个路口
+  county: 0.8,
   other: 0.5,
 }
 
@@ -495,7 +510,7 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
 /** 路段序列 → 路级汇总（供工况合成 / 成本引擎直接使用） */
 export function summarizeSegments(segments: SegmentData[]): SegmentSummary {
   const roadLevelKm: Record<RoadLevel, number> = {
-    highway: 0, national: 0, provincial: 0, city: 0, other: 0,
+    highway: 0, national: 0, provincial: 0, expressway: 0, city: 0, county: 0, other: 0,
   }
   let totalKm = 0
   let totalH = 0

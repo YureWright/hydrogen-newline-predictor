@@ -402,6 +402,35 @@ function rebaseSlice(pts: ProfilePoint[], elevs: number[], a: number, b: number)
   }
 }
 
+/** 由剖面高程判定地形：局部坡度幅值 + 段内高差（山区爬坡多，氢耗显著更高） */
+export function inferTerrain(
+  pts: ProfilePoint[],
+  elevs: number[],
+): 'plain' | 'hilly' | 'mountain' | null {
+  let maxAbsGrade = 0
+  let minE = Infinity
+  let maxE = -Infinity
+  let validCount = 0
+  for (let i = 1; i < pts.length; i++) {
+    const d = pts[i].cumM - pts[i - 1].cumM
+    if (d < 1 || !Number.isFinite(elevs[i]) || !Number.isFinite(elevs[i - 1])) continue
+    const g = Math.abs(((elevs[i] - elevs[i - 1]) / d) * 100)
+    if (g > maxAbsGrade) maxAbsGrade = g
+    validCount++
+  }
+  for (const e of elevs) {
+    if (Number.isFinite(e)) {
+      if (e < minE) minE = e
+      if (e > maxE) maxE = e
+    }
+  }
+  if (validCount === 0) return null
+  const range = Number.isFinite(minE) && Number.isFinite(maxE) ? maxE - minE : 0
+  if (maxAbsGrade > 4 || range > 200) return 'mountain'
+  if (maxAbsGrade > 2 || range > 80) return 'hilly'
+  return 'plain'
+}
+
 /** ③ 由父段 + 剖面子集生成一个子段（含坡度/海拔/爬升下降/剖面） */
 function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): SegmentData {
   const { pts, elevs } = slice
@@ -439,6 +468,7 @@ function finalizeSub(parent: SegmentData, slice: ProfileSlice, sliceIndex = 0): 
     // 高程缺失时保持 null（"未知"），绝不能写 0——0% 在物理模型里是"平路"，会把坡度阻力算没
     gradePercent: distW > 0 ? round2(gradeW / distW) : null,
     elevationM,
+    terrain: inferTerrain(pts, elevs),
     trafficStatus: parent.trafficStatus,
     stopDensity: parent.stopDensity,
     motionBehavior: parent.motionBehavior,

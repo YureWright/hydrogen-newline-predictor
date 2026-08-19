@@ -18,11 +18,13 @@ interface JobStatus { ok: boolean; status?: string; phase?: string; done?: numbe
 interface AiResponse { ok: boolean; text?: string; model?: string; msg?: string }
 
 const ROAD_LEVEL_LABEL: Record<string, string> = {
-  highway: '高速', national: '国道', provincial: '省道', city: '城市', other: '其他',
+  highway: '高速', national: '国道', provincial: '省道', expressway: '快速路', city: '市区', county: '县乡道', other: '其他',
 }
 const ROAD_LEVEL_COLOR: Record<string, string> = {
-  highway: '#1e7a54', national: '#2c7fb8', provincial: '#f0ad4e', city: '#9467bd', other: '#bbb',
+  highway: '#1e7a54', national: '#2c7fb8', provincial: '#f0ad4e', expressway: '#17a2b8', city: '#9467bd', county: '#8d6e63', other: '#bbb',
 }
+const TERRAIN_LABEL: Record<string, string> = { plain: '平原', hilly: '丘陵', mountain: '山区' }
+const TERRAIN_COLOR: Record<string, string> = { plain: '#2ca02c', hilly: '#f0ad4e', mountain: '#d62728' }
 const TRAFFIC_LABEL: Record<string, string> = {
   smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重拥堵', unknown: '未知',
 }
@@ -461,6 +463,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <th className="sortable" onClick={() => headerSort('avgSpeedKmh')}>均速 km/h{sortArrow('avgSpeedKmh')}</th>
                 <th className="sortable" onClick={() => headerSort('gradePercent')}>坡度 %{sortArrow('gradePercent')}</th>
                 <th className="sortable" onClick={() => headerSort('elevationM')}>海拔 m{sortArrow('elevationM')}</th>
+                <th>地形</th>
                 <th>爬升 m</th>
                 <th>下降 m</th>
                 <th>变速情况</th>
@@ -487,6 +490,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     {s.gradePercent != null ? s.gradePercent : '—'}
                   </td>
                   <td className="mono">{s.elevationM != null ? s.elevationM : '—'}</td>
+                  <td>{s.terrain ? <span className="terrain-chip" style={{ background: TERRAIN_COLOR[s.terrain] }}>{TERRAIN_LABEL[s.terrain]}</span> : '—'}</td>
                   <td className="mono">{s.elevationGainM != null ? s.elevationGainM : '—'}</td>
                   <td className="mono">{s.elevationLossM != null ? s.elevationLossM : '—'}</td>
                   <td><span className="motion-chip" style={{ background: MOTION_COLOR[s.motionBehavior] }}>{MOTION_LABEL[s.motionBehavior]}</span></td>

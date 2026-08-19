@@ -76,9 +76,12 @@ async function main() {
   assert('roadLevel: G6京藏高速→highway', inferRoadLevel('G6京藏高速', '') === 'highway')
   assert('roadLevel: G105国道→national', inferRoadLevel('G105国道', '') === 'national')
   assert('roadLevel: S234省道→provincial', inferRoadLevel('S234省道', '') === 'provincial')
-  assert('roadLevel: 北六环→city', inferRoadLevel('北六环', '') === 'city')
+  assert('roadLevel: 北六环→expressway（环线）', inferRoadLevel('北六环', '') === 'expressway')
+  assert('roadLevel: 快速路→expressway', inferRoadLevel('京津快速', '') === 'expressway')
+  assert('roadLevel: 县道→county', inferRoadLevel('X301县道', '') === 'county')
+  assert('roadLevel: 收费立交→highway', inferRoadLevel('三号地立交', '', 3000) === 'highway')
   assert('roadLevel: 无关键词+收费>0→highway', inferRoadLevel('京津快速', '', 3000) === 'highway')
-  assert('roadLevel: 京津快速(免费)→city', inferRoadLevel('京津快速', '') === 'city')
+  
   assert('roadLevel: 未知→other', inferRoadLevel('', '左转') === 'other')
 
   // 路况主导状态（距离加权）
@@ -107,7 +110,7 @@ async function main() {
   assert('buildSegments: 段0 roadLevel=highway', segs[0].roadLevel === 'highway')
   assert('buildSegments: 段0 路况=smooth（加权）', segs[0].trafficStatus === 'smooth')
   assert('buildSegments: 段0 高速巡航→cruise', segs[0].motionBehavior === 'cruise')
-  assert('buildSegments: 段1 北六环→urbanStopStart', segs[1].motionBehavior === 'urbanStopStart')
+  assert('buildSegments: 段1 北六环(快速路)→cruise（快速路无起停）', segs[1].motionBehavior === 'cruise')
   assert('expectedStopCount: 巡航段按密度(0.02×20km)=0.4', Math.abs(expectedStopCount(segs[0]) - 0.4) < 1e-9)
   assert('buildSegments: 段1 路况=congested', segs[1].trafficStatus === 'congested')
   assert('buildSegments: 段0 均速=80km/h', Math.abs(segs[0].avgSpeedKmh - 80) < 0.5, String(segs[0].avgSpeedKmh))
@@ -121,7 +124,7 @@ async function main() {
   const sum = summarizeSegments(segs)
   assert('summarize: totalKm≈36', Math.abs(sum.totalKm - 36) < 0.01, String(sum.totalKm))
   assert('summarize: highwayKm=20', Math.abs(sum.roadLevelKm.highway - 20) < 0.01, String(sum.roadLevelKm.highway))
-  assert('summarize: cityKm=12', Math.abs(sum.roadLevelKm.city - 12) < 0.01, String(sum.roadLevelKm.city))
+  assert('summarize: expresswayKm=12（北六环→快速路）', Math.abs(sum.roadLevelKm.expressway - 12) < 0.01, String(sum.roadLevelKm.expressway))
   assert('summarize: 加权均速≈(20*80+12*36+4*24)/36≈59.1', Math.abs(sum.avgSpeedKmh - (20 * 80 + 12 * 36 + 4 * 24) / 36) < 0.5, String(sum.avgSpeedKmh))
   assert('summarize: 无坡度数据→null', sum.avgGradePercent === null)
 

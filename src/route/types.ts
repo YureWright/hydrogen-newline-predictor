@@ -65,7 +65,7 @@ export interface NearbyStation {
 /* ============================ 物理仿真模型输入契约（A1） ============================ */
 
 /** 道路等级（影响巡航速度基准、停车密度、滚动阻力微调） */
-export type RoadLevel = 'highway' | 'national' | 'provincial' | 'city' | 'other'
+export type RoadLevel = 'highway' | 'national' | 'provincial' | 'expressway' | 'city' | 'county' | 'other'
 
 
 /** 路段变速行为类型（L1 行为区标注）
@@ -132,6 +132,8 @@ export interface SegmentData {
   motionBehavior: MotionBehavior
   /** 变速事件清单（单次概率 + 期望次数；供工况合成计算启停能量） */
   motionEvents: MotionEvent[]
+  /** 地形（DEM 高程剖面派生，A2 填充）：山区/丘陵/平原——山区爬坡多，氢耗显著更高 */
+  terrain?: 'plain' | 'hilly' | 'mountain' | null
   /** 气温 ℃（预留：高德天气 API / 线路区间插值，未获取为 null） */
   temperatureC: number | null
   /** 本段坐标序列（WGS-84，[lng,lat]；已由高德 GCJ-02 逆转换，供 DEM/天气采样） */

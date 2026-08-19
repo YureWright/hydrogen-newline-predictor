@@ -216,7 +216,7 @@ function main() {
   const longCityTurn: AmapRawPath = {
     distance: '10000', duration: '1200', tolls: '0', toll_distance: '0',
     steps: [
-      { instruction: '沿京津快速途径XX桥向南行驶10千米右转', distance: '10000', duration: '1200', tolls: '0', toll_distance: '0', polyline: '117.00,39.0;117.01,39.0;117.02,39.0;117.03,39.0;117.04,39.0;117.05,39.0;117.06,39.0;117.07,39.0;117.08,39.0;117.09,39.0;117.10,39.0;117.11,39.0;117.12,39.0;117.13,39.0;117.14,39.0' },
+      { instruction: '沿京津大街途径XX桥向南行驶10千米右转', distance: '10000', duration: '1200', tolls: '0', toll_distance: '0', polyline: '117.00,39.0;117.01,39.0;117.02,39.0;117.03,39.0;117.04,39.0;117.05,39.0;117.06,39.0;117.07,39.0;117.08,39.0;117.09,39.0;117.10,39.0;117.11,39.0;117.12,39.0;117.13,39.0;117.14,39.0' },
     ],
   }
   const cityTurnSegs = buildSegments(longCityTurn)

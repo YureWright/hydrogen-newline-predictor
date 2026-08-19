@@ -163,3 +163,14 @@ body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: va
 }
 .btn-export:hover:not(:disabled) { background: #2c7fb8; color: #fff; }
 .btn-export:disabled { opacity: .45; cursor: not-allowed; }
+
+/* 地形标签 */
+.terrain-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
