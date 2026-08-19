@@ -65,7 +65,14 @@ export interface WeatherResult {
 }
 
 export function getWeatherConfig() {
-  return { qweatherKey: process.env.QWEATHER_KEY || '', amapKey: process.env.AMAP_KEY || '', openweatherKey: process.env.OPENWEATHER_KEY || '' }
+  return {
+    qweatherKey: process.env.QWEATHER_KEY || '',
+    // 专属 API Host（Console V4 必需）：控制台 → 设置 → API Host，形如 abc1234xyz.def.qweatherapi.com；
+    // 未配置时回退旧共享域名 devapi.qweather.com（2026 年起逐步停用）
+    qweatherHost: process.env.QWEATHER_HOST || '',
+    amapKey: process.env.AMAP_KEY || '',
+    openweatherKey: process.env.OPENWEATHER_KEY || '',
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -104,8 +111,10 @@ async function fetchJson(url: string, timeoutMs: number): Promise<any> {
 }
 
 /** QWeather 逐小时 24h（GCJ-02，中国大陆）→ Map<hourKey, WeatherSample> */
-async function fetchQweatherHourly(lng: number, lat: number, key: string): Promise<Map<number, WeatherSample>> {
-  const url = 'https://devapi.qweather.com/v7/weather/24h?location=' + lng.toFixed(6) + ',' + lat.toFixed(6) + '&key=' + encodeURIComponent(key)
+async function fetchQweatherHourly(lng: number, lat: number, key: string, host: string): Promise<Map<number, WeatherSample>> {
+  // 专属 API Host 优先；未配置回退旧共享域名
+  const base = host ? 'https://' + host.replace(/^https?:\/\//, '') : 'https://devapi.qweather.com'
+  const url = base + '/v7/weather/24h?location=' + lng.toFixed(6) + ',' + lat.toFixed(6) + '&key=' + encodeURIComponent(key)
   const j = await fetchJson(url, 15000)
   if (j.code !== "200" || !Array.isArray(j.hourly)) throw new Error("QWeather code=" + (j.code || "?") + " " + (j.message || ""))
   const out = new Map<number, WeatherSample>()
@@ -234,7 +243,7 @@ export async function enrichSegmentsWithWeather(
   const cacheDir = opts.cacheDir ?? "data/weather-cache"
   const windThresholdKmh = opts.windThresholdKmh ?? 10.8
   const useCache = opts.useCache ?? true
-  const { qweatherKey, amapKey, openweatherKey } = getWeatherConfig()
+  const { qweatherKey, qweatherHost, amapKey, openweatherKey } = getWeatherConfig()
   const result: WeatherResult = { segments, sampled: 0, bySource: {}, queries: 0, provider: "none", windySegments: 0 }
   if (segments.length === 0) return result
 
@@ -274,7 +283,8 @@ export async function enrichSegmentsWithWeather(
   const grids = [...new Set(metas.map((m) => m.grid).filter(Boolean))]
   const dayKey = localDateKey(t0)
   // hour 级样本：grid|hourKey → sample；day 级样本：grid|YYYY-MM-DD → sample；now：grid|now
-  const hourSamples = new Map<string, WeatherSample>();
+  // hour 级样本按网格分组：Map<grid, Map<hourKey, sample>>（QWeather 从『下一个整点』开始，需按最近小时匹配）
+  const hourSamples = new Map<string, Map<number, WeatherSample>>();
   const daySamples = new Map<string, WeatherSample>();
   const nowSamples = new Map<string, WeatherSample>();
 
@@ -296,7 +306,7 @@ export async function enrichSegmentsWithWeather(
         }
       } else {
         try {
-          if (provider === "qweather") hourly = await fetchQweatherHourly(cx, cy, qweatherKey)
+          if (provider === "qweather") hourly = await fetchQweatherHourly(cx, cy, qweatherKey, qweatherHost)
           else {
             const [wlng, wlat] = gcj02ToWgs84(cx, cy)
             hourly = await fetchOpenweatherHourly(wlng, wlat, openweatherKey)
@@ -308,7 +318,9 @@ export async function enrichSegmentsWithWeather(
         }
       }
       if (hourly && hourly.size > 0) {
-        for (const [hk, s] of hourly) hourSamples.set(grid + "|" + hk, s)
+        let g = hourSamples.get(grid)
+        if (!g) { g = new Map(); hourSamples.set(grid, g) }
+        for (const [hk, s] of hourly) g.set(hk, s)
       } else if (amapKey && provider === "qweather") {
         // QWeather 失败 → 高德日预报兜底
         try {
@@ -346,9 +358,22 @@ export async function enrichSegmentsWithWeather(
   // 4) 逐段匹配赋值
   for (const m of metas) {
     if (!m.grid) continue
-    let sample = hourSamples.get(m.grid + "|" + m.hk)
-    if (!sample) sample = daySamples.get(m.grid + "|" + m.day)
-    if (!sample) sample = nowSamples.get(m.grid + "|now")
+    let sample = hourSamples.get(m.grid)?.get(m.hk) ?? null
+    if (!sample) {
+      // QWeather 从『下一个整点』开始预报，路段时刻可能落在两整点之间 → 取最近小时（≤90 分钟）
+      const gridHours = hourSamples.get(m.grid)
+      if (gridHours) {
+        let best: WeatherSample | null = null
+        let bestDiff = 5400000 // 90 分钟上限
+        for (const [hk, s] of gridHours) {
+          const diff = Math.abs(hk * 3600000 - m.time.getTime())
+          if (diff < bestDiff) { bestDiff = diff; best = s }
+        }
+        sample = best
+      }
+    }
+    if (!sample) sample = daySamples.get(m.grid + "|" + m.day) ?? null
+    if (!sample) sample = nowSamples.get(m.grid + "|now") ?? null
     if (!sample) continue
     const seg = m.seg
     seg.temperatureC = sample.temperatureC
