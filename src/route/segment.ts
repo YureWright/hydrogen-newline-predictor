@@ -470,7 +470,9 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
     const step = steps[i]
     const distanceM = Number(step.distance) || 0
     const durationS = Number(step.duration) || 0
-    const roadName = extractRoadName(step.instruction)
+    // 道路名：指令提取为主（G/S 编号能识别长段上真正行驶的高速/国道，如"途径G6京藏高速"→G6京藏高速）；
+    // 高德 road 字段是真实数据但只代表该 step 的"起始道路"（63km 长段可能只写立交名），作兜底
+    const roadName = extractRoadName(step.instruction) || (step.road || '').replace(/[向朝][东南西北].*$/, '').trim()
     const roadLevel = inferRoadLevel(roadName, step.instruction, Number(step.toll_distance) || 0)
     const trafficStatus = dominantTrafficStatus(step.tmcs)
     const avgSpeed = durationS > 0

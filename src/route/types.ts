@@ -174,6 +174,8 @@ export interface AmapRawTmcs {
 
 export interface AmapRawStep {
   instruction?: string
+  /** 道路名（高德真实字段，extensions=all 时返回；比从 instruction 提取更可靠） */
+  road?: string
   distance?: string | number
   duration?: string | number
   tolls?: string | number

@@ -70,12 +70,13 @@ export function extractRoadName(instruction: string | undefined): string {
 
 /** 路线主要道路（按里程排序）：与分段用的是同一套道路名提取，避免两处口径不一致 */
 export function extractRoadsFromSteps(
-  steps: Array<{ instruction?: string; distance?: string | number }>,
+  steps: Array<{ instruction?: string; road?: string; distance?: string | number }>,
   topN = 8,
 ): string[] {
   const score = new Map<string, number>()
   for (const s of steps) {
-    const name = extractRoadName(s.instruction)
+    // 指令提取为主（能识别长段主导道路，如 G6京藏高速），road 字段（起始道路）兜底
+    const name = extractRoadName(s.instruction) || (s.road || '').trim()
     if (!name) continue
     const d = Number(s.distance) || 0
     score.set(name, (score.get(name) || 0) + d)
