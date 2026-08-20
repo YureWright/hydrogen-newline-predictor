@@ -4,6 +4,7 @@ import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types
 import { ROAD_LEVEL_LABEL, expectedStopCount } from '../route/segment'
 import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
+import TruckProgress from './TruckProgress'
 
 interface DemInfo { z: number; tiles: number; source: string }
 interface OsmInfo { queries: number; coveredKm: number; fallbackKm: number }
@@ -414,12 +415,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               </span>
             ))}
           </div>
-          <div className="progress-track">
-            <div
-              className={'progress-fill' + (pct == null ? ' indeterminate' : '')}
-              style={pct != null ? { width: pct + '%' } : undefined}
-            />
-          </div>
+          <TruckProgress pct={pct} />
           <div className="progress-text">
             <span className="step-badge">步骤 {stepNo}/{PHASE_STEP_LABELS.length}</span>
             {phaseText}

@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
+import IntroScreen from './components/IntroScreen'
 import MapView, { type MapPoint } from './components/MapView'
 import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
 import type { RouteCandidate, H2Station } from './route/types'
 
+/** 同一浏览器会话内引导只放一次；换标签或关闭浏览器再进又会看到 */
+const INTRO_KEY = 'hybot-intro-seen'
+
 interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
 interface RouteResult { ok: boolean; routes?: RouteCandidate[]; msg?: string }
 
 export default function App() {
+  // 引导层展示与否：sessionStorage 里有标记就直接跳过，避免同一会话反复出现打扰
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return sessionStorage.getItem(INTRO_KEY) !== '1' } catch { return true }
+  })
+  const dismissIntro = useCallback(() => {
+    try { sessionStorage.setItem(INTRO_KEY, '1') } catch { /* 隐私模式禁写就算了 */ }
+    setShowIntro(false)
+  }, [])
   const [fromAddr, setFromAddr] = useState('乌兰察布')
   const [toAddr, setToAddr] = useState('天津')
   const [from, setFrom] = useState<MapPoint | null>(null)
@@ -69,6 +81,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {showIntro && <IntroScreen onEnter={dismissIntro} />}
       {/* 头图整块用海珀特官网主视觉原图（已抹掉官网自带的「预约品鉴」按钮与导航控件），
           logo 和「以氢能创造无限可能 / Hydrogen Powering Infinity」都在图里，
           不另行排版，避免字体/字距跟官方对不上 */}

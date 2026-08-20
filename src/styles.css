@@ -758,6 +758,219 @@ body::before {
 .src-warn { color: var(--amber); font-weight: 600; }
 .warn-sup { color: var(--amber); font-size: 10px; margin-left: 1px; }
 
+/* ================= 首屏引导：卡车驶入 → 大字浮出 → 点击驶出 ================= */
+/* 覆盖层锁死视口。z-index 拉到 1000 是为了压住 leaflet 的 z-index 800 弹窗 */
+.intro {
+  position: fixed; inset: 0; z-index: 1000;
+  background: radial-gradient(120% 90% at 50% 40%, #0a1128 0%, #04060c 55%, #000 100%);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  transition: opacity 0.6s ease, visibility 0.6s;
+}
+.intro.intro-leaving { opacity: 0; pointer-events: none; }
+
+/* 深空底纹：淡淡的网格 + 两个氛围光斑，跟头图一致的语言 */
+.intro-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(700px 400px at 22% 30%, rgba(77, 141, 255, 0.18), transparent 62%),
+    radial-gradient(600px 380px at 78% 68%, rgba(164, 115, 255, 0.14), transparent 66%),
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px) 0 0 / 60px 60px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px) 0 0 / 60px 60px;
+  mask-image: radial-gradient(80% 90% at 50% 50%, #000 30%, transparent 88%);
+  -webkit-mask-image: radial-gradient(80% 90% at 50% 50%, #000 30%, transparent 88%);
+}
+
+/* 卡车容器：负责整体位移；子层 intro-truck-img 负责缩放，避免 transform 冲突 */
+.intro-truck {
+  position: absolute; top: 46%; left: 50%;
+  width: min(72vw, 900px);
+  aspect-ratio: 1024 / 662;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}
+.intro-truck-img {
+  width: 100%; height: 100%;
+  background: url('/hero-hybot.png') center / contain no-repeat;
+  /* 驶入过程：先小到 0.18（远处一个点）、纵向压扁一点模拟低透视；带轻微模糊模拟远景 */
+  transform: scale(0.18) translateY(6%);
+  filter: brightness(0.55) blur(4px);
+  transition: transform 0.9s cubic-bezier(0.18, 0.9, 0.32, 1), filter 0.9s ease-out;
+}
+.intro-ready .intro-truck-img,
+.intro-leaving .intro-truck-img {
+  transform: scale(1) translateY(0);
+  filter: brightness(1) blur(0);
+}
+/* 驶出：整个容器整体飞向右侧屏外；卡车不再缩小，只是加速离开 */
+.intro-leaving .intro-truck { transform: translate(140%, -50%); transition: transform 0.9s cubic-bezier(0.55, 0, 0.85, 0.45); }
+.intro-leaving .intro-truck-img { transition: none; }
+
+/* 头灯锥光：驶入时朝屏中，驶出时不显（避免比车先出画面） */
+.intro-headlight {
+  position: absolute;
+  right: 22%; bottom: 24%;
+  width: 46%; height: 40%;
+  background: radial-gradient(closest-side at 15% 50%, rgba(58, 227, 255, 0.35), rgba(58, 227, 255, 0) 70%);
+  opacity: 0; transform: scaleX(1.2);
+  transition: opacity 0.6s ease-out 0.3s;
+  filter: blur(6px);
+  mix-blend-mode: screen;
+}
+.intro-ready .intro-headlight { opacity: 1; }
+.intro-leaving .intro-headlight { opacity: 0; transition: opacity 0.25s; }
+
+/* 文案：始终在下三分之一，避免被车头挡住。approaching 时不可见，ready 时上抬淡入 */
+.intro-copy {
+  position: relative;
+  z-index: 2;
+  margin-top: 34vh; /* 把文案挤到视口下半，车在上半 */
+  text-align: center;
+  padding: 0 24px;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.intro-ready .intro-copy { opacity: 1; transform: none; transition-delay: 0.25s; }
+.intro-leaving .intro-copy { opacity: 0; transform: translateY(-8px); transition-duration: 0.35s; }
+
+.intro-eyebrow {
+  font-size: 11.5px;
+  letter-spacing: 3.5px;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  text-shadow: 0 0 20px rgba(58, 227, 255, 0.5);
+}
+.intro-title {
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 800;
+  letter-spacing: clamp(6px, 1vw, 14px);
+  line-height: 1.15;
+  background: linear-gradient(100deg, #ffffff 0%, #cfe4ff 42%, #a9c6ff 72%, #b79bff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 80px rgba(77, 141, 255, 0.35);
+}
+.intro-sub {
+  margin-top: 14px;
+  font-size: clamp(13px, 1.3vw, 16px);
+  color: var(--txt-2);
+  letter-spacing: 0.6px;
+  line-height: 1.7;
+  max-width: 640px;
+  margin-left: auto; margin-right: auto;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+}
+.intro-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-top: 30px;
+  padding: 13px 32px 13px 34px;
+  background: var(--accent-grad);
+  color: #04121c;
+  border: none; border-radius: 999px;
+  font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: 1.4px;
+  cursor: pointer;
+  box-shadow: 0 12px 40px rgba(58, 227, 255, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.intro-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 50px rgba(58, 227, 255, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  filter: brightness(1.08);
+}
+.intro-cta:active { transform: translateY(0); }
+.intro-cta:disabled { opacity: 0.45; cursor: wait; box-shadow: none; }
+.intro-cta svg { transition: transform 0.2s ease; }
+.intro-cta:hover:not(:disabled) svg { transform: translateX(4px); }
+
+.intro-skip {
+  display: block;
+  margin: 18px auto 0;
+  padding: 6px 12px;
+  background: transparent; border: none;
+  color: var(--txt-3); font-family: inherit; font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.intro-skip:hover { color: var(--txt-2); }
+
+@media (max-width: 640px) {
+  .intro-truck { width: 92vw; top: 38%; }
+  .intro-copy { margin-top: 42vh; }
+}
+
+/* ================= 卡车进度条 ================= */
+/* 路面：宽 100%、高 22px 的凹槽，铺一条虚线中线，虚线通过背景平移营造"往后退"的动感 */
+.truck-prog {
+  position: relative;
+  height: 44px;
+  padding: 4px 0;
+}
+.truck-prog-road {
+  position: absolute; left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
+  height: 22px;
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.18));
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.truck-prog-lane {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.4) 50%, transparent 50%);
+  background-size: 24px 2px;
+  animation: lane-flow 0.85s linear infinite;
+  opacity: 0.55;
+}
+@keyframes lane-flow { from { background-position: 0 0; } to { background-position: -24px 0; } }
+/* 已走过的路：一道渐变光带，跟卡车绑定 */
+.truck-prog-trail {
+  position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  height: 22px;
+  border-radius: 11px 0 0 11px;
+  background: linear-gradient(90deg, rgba(58, 227, 255, 0) 0%, rgba(58, 227, 255, 0.28) 50%, rgba(58, 227, 255, 0.7) 100%);
+  box-shadow: 0 0 14px rgba(58, 227, 255, 0.45);
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+/* 卡车：left 是父容器百分比。SVG 本身按左下角对齐路面 */
+.truck-prog-truck {
+  position: absolute;
+  top: 50%;
+  transform: translate(-6px, -70%);
+  transition: left 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+}
+.truck-prog-truck svg { display: block; }
+/* 头灯锥光：向前投射一小段光，随卡车一起移动，强化"在跑"的感觉 */
+.truck-prog-beam {
+  position: absolute;
+  right: -22px;
+  top: 42%;
+  width: 32px; height: 10px;
+  background: radial-gradient(closest-side at 0% 50%, rgba(58, 227, 255, 0.85), transparent 75%);
+  filter: blur(2px);
+  opacity: 0.9;
+  transform: translateY(-50%);
+  mix-blend-mode: screen;
+  animation: beam-flicker 1.6s ease-in-out infinite;
+}
+@keyframes beam-flicker { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.55; } }
+/* 不确定态：卡车原地上下颠一下（模拟怠速抖动），路面照跑，比"来回横冲"更像正在做事 */
+.truck-prog.indet .truck-prog-truck { animation: idle-bob 1.1s ease-in-out infinite; }
+@keyframes idle-bob {
+  0%, 100% { transform: translate(-6px, -70%); }
+  50%      { transform: translate(-6px, -74%); }
+}
+.truck-prog.indet .truck-prog-trail { opacity: 0.35; }
+
 /* 无障碍：系统开启"减少动态效果"时关掉所有装饰动画 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
