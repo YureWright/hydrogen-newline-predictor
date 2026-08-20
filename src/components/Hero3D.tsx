@@ -157,7 +157,7 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     horizon.position.set(0, 0.04, -42)
     scene.add(horizon)
 
-    // —— 极光天空：整面远景，shader 做窗帘漂移 + 亮度呼吸，不再用银河 ——
+    // —— 极光只挂在天上：只取样照片上半（窗帘），下沿淡出，绝不铺到车背后 ——
     const loader = new THREE.TextureLoader()
     const dummyTex = new THREE.Texture()
     const auroraUniforms = {
@@ -169,6 +169,7 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
       auroraUniforms.uMap.value = tex
       const mat = new THREE.ShaderMaterial({
         uniforms: auroraUniforms,
+        transparent: true,
         depthWrite: false,
         vertexShader: `
           varying vec2 vUv;
@@ -182,20 +183,25 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
           uniform float uTime;
           varying vec2 vUv;
           void main() {
-            vec2 uv = vUv;
-            uv.x += sin(uTime * 0.18 + vUv.y * 3.2) * 0.016;
-            uv.y += sin(uTime * 0.11 + vUv.x * 2.4) * 0.010;
-            vec3 c = texture2D(uMap, clamp(uv, 0.001, 0.999)).rgb;
-            float pulse = 0.90 + 0.12 * sin(uTime * 0.65) + 0.07 * sin(uTime * 1.25 + 1.7);
-            float flash = 1.0 + 0.16 * sin(uTime * 1.9 + vUv.x * 5.5) * smoothstep(0.25, 0.75, vUv.y);
-            c.g *= flash;
-            c.b *= 0.96 + 0.06 * sin(uTime * 0.9 + vUv.y * 4.0);
-            gl_FragColor = vec4(c * pulse, 1.0);
+            // 只要原图上 48% 的天空，躲开山和湖
+            vec2 uv = vec2(vUv.x, 0.52 + vUv.y * 0.46);
+            uv.x += sin(uTime * 0.12 + vUv.y * 2.4) * 0.012;
+            uv.y += sin(uTime * 0.08 + vUv.x * 1.8) * 0.008;
+            vec3 c = texture2D(uMap, clamp(uv, 0.002, 0.998)).rgb;
+            // 窗帘闪烁：慢、分层，像极光在呼吸而不是整屏闪白
+            float curtain = 0.92 + 0.14 * sin(uTime * 0.55 + vUv.x * 3.8)
+                          + 0.08 * sin(uTime * 1.05 + vUv.y * 6.0);
+            c *= curtain;
+            c.g *= 1.0 + 0.10 * sin(uTime * 0.8 + vUv.x * 5.0);
+            // 下沿完全淡出，极光停在地平线以上
+            float fade = smoothstep(0.0, 0.22, vUv.y) * smoothstep(1.0, 0.82, vUv.y);
+            gl_FragColor = vec4(c, fade * 0.92);
           }
         `,
       })
-      const sky = new THREE.Mesh(new THREE.PlaneGeometry(140, 78), mat)
-      sky.position.set(0, 8, -62)
+      // 抬高、压扁：只占画面上三分之一的天，车背后仍是夜空
+      const sky = new THREE.Mesh(new THREE.PlaneGeometry(110, 22), mat)
+      sky.position.set(0, 16.5, -52)
       scene.add(sky)
     })
 
@@ -206,7 +212,7 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     const dummy = new THREE.Texture()
     const sweepUniforms = {
       uMap: { value: dummy },
-      uSweep: { value: -0.2 },
+      uTime: { value: 0 },
     }
     loader.load('/truck-cutout.png', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace
@@ -215,7 +221,7 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
       const aspect = (tex.image?.width || 538) / (tex.image?.height || 312)
       const h = 2.55
       const w = h * aspect
-      // 电流光：一道窄高光从车尾（uv.x≈0）扫到车头（uv.x≈1），只加在不透明像素上
+      // 电流光：挂车厢体上一层淡青绿波浪，慢速横移（参考官图那道半透明缎带）
       const mat = new THREE.ShaderMaterial({
         uniforms: sweepUniforms,
         transparent: true,
@@ -229,17 +235,21 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
         `,
         fragmentShader: `
           uniform sampler2D uMap;
-          uniform float uSweep;
+          uniform float uTime;
           varying vec2 vUv;
           void main() {
             vec4 c = texture2D(uMap, vUv);
             if (c.a < 0.08) discard;
-            float d = abs(vUv.x - uSweep);
-            float band = 1.0 - smoothstep(0.0, 0.10, d);
-            float core = 1.0 - smoothstep(0.0, 0.022, d);
-            // 克制的金属扫光：暖白细线，不抢车灯的青色闪
-            vec3 glow = vec3(0.92, 0.96, 1.0) * (band * 0.10 + core * 0.16);
-            gl_FragColor = vec4(c.rgb + glow * c.a, c.a);
+            // 只落在挂车中段（躲开车头灯），像官图那样从 logo 一带流过
+            float mask = smoothstep(0.04, 0.16, vUv.x) * smoothstep(0.72, 0.56, vUv.x)
+                       * smoothstep(0.22, 0.38, vUv.y) * smoothstep(0.78, 0.62, vUv.y);
+            float waveY = 0.50 + 0.07 * sin(vUv.x * 7.5 + uTime * 0.35)
+                               + 0.035 * sin(vUv.x * 13.0 - uTime * 0.22);
+            float ribbon = exp(-pow((vUv.y - waveY) * 11.0, 2.0));
+            float flow = 0.55 + 0.45 * sin(vUv.x * 3.2 - uTime * 0.42);
+            float amount = ribbon * flow * mask * 0.28;
+            vec3 teal = vec3(0.55, 0.92, 0.88);
+            gl_FragColor = vec4(c.rgb + teal * amount, c.a);
           }
         `,
       })
@@ -327,16 +337,14 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
 
       roadUniforms.uTime.value += t * (rush < 1 ? 1.15 : 0.35)
       auroraUniforms.uTime.value = elapsed * 0.001
-      auroraFill.intensity = 0.42 + 0.22 * (0.5 + 0.5 * Math.sin(elapsed * 0.0012))
+      auroraFill.intensity = 0.22 + 0.12 * (0.5 + 0.5 * Math.sin(elapsed * 0.0008))
       headGlow.position.set(1.5, 0.9, truckZ + 0.8)
       // 车灯闪：更亮、对比更大，这是主角光
       const blink = 0.5 + 0.5 * Math.sin(elapsed * 0.006)
       headGlow.intensity = 4.2 + blink * 3.2
       beam.material.opacity = 0.72 + blink * 0.28
       beam.scale.set(3.0 + blink * 0.7, 1.3 + blink * 0.25, 1)
-      // 扫光更慢更淡，不跟车灯抢戏
-      const cycle = ((elapsed / 4800) % 1)
-      sweepUniforms.uSweep.value = -0.12 + cycle * 1.24
+      sweepUniforms.uTime.value = elapsed * 0.001
 
       renderer.render(scene, camera)
     }
