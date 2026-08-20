@@ -5,8 +5,9 @@ import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
 import type { RouteCandidate, H2Station } from './route/types'
 
-/** 同一浏览器会话内引导只放一次；换标签或关闭浏览器再进又会看到 */
-const INTRO_KEY = 'hybot-intro-seen'
+/** 同一浏览器会话内引导只放一次；换标签或关闭浏览器再进又会看到。
+ *  PR#6 换了新钥匙，避免看过 PR#5 平面动效的人直接被跳过、看不到 3D 这一镜。 */
+const INTRO_KEY = 'hybot-intro-3d-seen'
 
 interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
 interface RouteResult { ok: boolean; routes?: RouteCandidate[]; msg?: string }
