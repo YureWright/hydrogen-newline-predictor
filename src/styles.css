@@ -838,20 +838,36 @@ body::before {
   100% { transform: scale(1.12) translate(2%, 1%); opacity: 0.28; }
 }
 
-/* 氢车盖住背景原图里的卡车：放大、居中偏右下（对齐原图卡车位置） */
+/* 氢车：匹配原图露营车比例，居中偏左下 */
 .intro-hero-truck {
   position: absolute;
   left: 50%;
-  bottom: 4%;
-  width: min(72vw, 920px);
-  transform: translateX(-46%);
+  bottom: 8%;
+  width: min(48vw, 580px);
+  transform: translateX(-50%);
   z-index: 2;
   pointer-events: none;
 }
 .intro-hero-truck img {
   width: 100%; height: auto;
   display: block;
-  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
+}
+/* 车灯呼吸闪烁 */
+.intro-hero-truck::after {
+  content: '';
+  position: absolute;
+  right: 6%; bottom: 32%;
+  width: 18px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,245,200,0.9) 0%, rgba(255,245,200,0) 70%);
+  box-shadow: 0 0 12px 4px rgba(255,245,200,0.4);
+  animation: headlight-breath 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes headlight-breath {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 0.85; transform: scale(1.1); }
 }
 
 /* 品牌层：官方 logo 原图直接贴，不再重绘字体 */
