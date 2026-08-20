@@ -1,18 +1,24 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 interface Props {
   onEnter: () => void
 }
 
-/**
- * 首屏按标注重做：
- * - 左上直接贴官方 logo 原图（不重画字体）
- * - 绿色极光营地原图做整屏背景，去掉水印文字
- * - 天上极光做延时摄影式变幻
- * - 原图红色卡车位置盖上首页氢车
- */
+function generateStars(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    top: Math.random() * 58,
+    size: 1 + Math.random() * 2,
+    delay: Math.random() * 6,
+    duration: 2 + Math.random() * 3,
+    opacity: 0.4 + Math.random() * 0.6,
+  }))
+}
+
 export default function IntroScreen({ onEnter }: Props) {
   const [leaving, setLeaving] = useState(false)
+  const stars = useMemo(() => generateStars(45), [])
 
   const leave = () => {
     if (leaving) return
@@ -22,20 +28,34 @@ export default function IntroScreen({ onEnter }: Props) {
 
   return (
     <div
-      className={'intro intro-photo' + (leaving ? ' intro-leave' : '')}
+      className={'intro intro-galaxy' + (leaving ? ' intro-leave' : '')}
       role="dialog"
       aria-label="欢迎"
       onClick={leave}
     >
-      <div className="intro-aurora" aria-hidden="true">
-        <img className="intro-aurora-base" src="/aurora-camp.jpg" alt="" />
-        <div className="intro-aurora-sky" />
-        <div className="intro-aurora-sky intro-aurora-sky-b" />
+      <img className="intro-bg" src="/hero-hybot.png" alt="" aria-hidden="true" />
+
+      <div className="intro-stars" aria-hidden="true">
+        {stars.map(s => (
+          <span
+            key={s.id}
+            className="intro-star"
+            style={{
+              left: `${s.left}%`,
+              top: `${s.top}%`,
+              width: `${s.size}px`,
+              height: `${s.size}px`,
+              animationDelay: `${s.delay}s`,
+              animationDuration: `${s.duration}s`,
+              opacity: s.opacity,
+            }}
+          />
+        ))}
       </div>
 
-      <div className="intro-hero-truck" aria-hidden="true">
-        <img src="/truck-cutout.png" alt="" />
-      </div>
+      <div className="intro-headlight-glow" aria-hidden="true" />
+
+      <div className="intro-energy-line" aria-hidden="true" />
 
       <div className="intro-brand" onClick={(e) => e.stopPropagation()}>
         <img className="intro-logo" src="/hybot-logo.png" alt="hybot 海珀特" />

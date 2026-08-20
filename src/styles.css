@@ -758,9 +758,7 @@ body::before {
 .src-warn { color: var(--amber); font-weight: 600; }
 .warn-sup { color: var(--amber); font-size: 10px; margin-left: 1px; }
 
-/* ================= 首屏引导：车从消失点驶来 → 驶出画面 ================= */
-/* 覆盖层锁死视口。z-index 拉到 1000 是为了压住 leaflet 的 z-index 800 弹窗，
-   点空白处也能跳过；driver 车贴图 pointer-events: none 让点击穿透到 .intro */
+/* ================= 首屏引导：hero-hybot 全屏 + 星空呼吸 ================= */
 .intro {
   position: fixed; inset: 0; z-index: 1000;
   background: #000;
@@ -770,107 +768,85 @@ body::before {
 }
 .intro.intro-leave { opacity: 0; pointer-events: none; }
 
-/* Three.js 全屏画布：真正的透视相机，不是 CSS 放大 */
-.intro-canvas {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  display: block;
-}
-.intro-vignette {
-  position: absolute; inset: 0;
-  pointer-events: none;
-  /* 只压四角，中间留给极光和车，避免再把画面压成一团黑 */
-  background: radial-gradient(ellipse 78% 72% at 50% 46%, transparent 52%, rgba(0, 0, 0, 0.32) 100%);
-}
-.intro-scan {
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 0%, rgba(58, 227, 255, 0.04) 50%, transparent 100%);
-  background-size: 100% 8px;
-  opacity: 0.35;
-  mix-blend-mode: screen;
-}
-.intro-hint {
-  position: absolute; left: 0; right: 0; bottom: 36px;
-  text-align: center;
-  font-size: 13px;
-  letter-spacing: 3px;
-  color: #fff;
-  pointer-events: none;
-  opacity: 0.85;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.7);
-}
-
-/* 极光营地原图铺满；天空单独一层做延时变幻 */
-.intro-aurora { position: absolute; inset: 0; overflow: hidden; background: #041018; }
-.intro-aurora-base {
+/* 官网首页原图铺满整屏 */
+.intro-bg {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  object-position: center 40%;
-}
-.intro-aurora-sky {
-  position: absolute;
-  left: -10%; right: -10%; top: -6%;
-  height: 68%;
-  background: url('/aurora-sky.jpg') center top / cover no-repeat;
-  mix-blend-mode: screen;
-  opacity: 0.72;
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  animation: aurora-timelapse 16s ease-in-out infinite;
+  object-position: center 60%;
   pointer-events: none;
-}
-.intro-aurora-sky-b {
-  opacity: 0.45;
-  animation: aurora-timelapse-b 11s ease-in-out infinite;
-  filter: hue-rotate(18deg) saturate(1.25);
-}
-@keyframes aurora-timelapse {
-  0%   { transform: scale(1.06) translate(-2.2%, 0); filter: hue-rotate(-10deg) saturate(1.15) brightness(1.05); }
-  35%  { transform: scale(1.16) translate(2.4%, -1.4%); filter: hue-rotate(14deg) saturate(1.4) brightness(1.28); }
-  65%  { transform: scale(1.10) translate(-1.2%, 1.1%); filter: hue-rotate(4deg) saturate(1.25) brightness(1.18); }
-  100% { transform: scale(1.06) translate(-2.2%, 0); filter: hue-rotate(-10deg) saturate(1.15) brightness(1.05); }
-}
-@keyframes aurora-timelapse-b {
-  0%   { transform: scale(1.12) translate(2%, 1%); opacity: 0.28; }
-  50%  { transform: scale(1.22) translate(-3%, -2%); opacity: 0.55; }
-  100% { transform: scale(1.12) translate(2%, 1%); opacity: 0.28; }
 }
 
-/* 氢车：匹配原图露营车比例，居中偏左下 */
-.intro-hero-truck {
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
-  width: min(48vw, 580px);
-  transform: translateX(-50%);
-  z-index: 2;
+/* 星点容器 */
+.intro-stars {
+  position: absolute; inset: 0;
   pointer-events: none;
 }
-.intro-hero-truck img {
-  width: 100%; height: auto;
-  display: block;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.5));
-}
-/* 车灯呼吸闪烁 */
-.intro-hero-truck::after {
-  content: '';
+.intro-star {
   position: absolute;
-  right: 6%; bottom: 32%;
-  width: 18px; height: 14px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(255,245,200,0.9) 0%, rgba(255,245,200,0) 70%);
-  box-shadow: 0 0 12px 4px rgba(255,245,200,0.4);
-  animation: headlight-breath 3.2s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(180, 240, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%);
+  animation: star-twinkle ease-in-out infinite alternate;
+}
+@keyframes star-twinkle {
+  0%   { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+/* 车灯呼吸光晕：覆盖在图片上车灯位置 */
+.intro-headlight-glow {
+  position: absolute;
+  right: 18%;
+  bottom: 22%;
+  width: 120px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 248, 210, 0.55) 0%,
+    rgba(255, 235, 160, 0.3) 30%,
+    rgba(255, 245, 200, 0) 70%
+  );
+  box-shadow:
+    0 0 40px 10px rgba(255, 245, 200, 0.2),
+    0 0 80px 20px rgba(255, 240, 180, 0.1);
+  animation: headlight-breath 3.5s ease-in-out infinite;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 @keyframes headlight-breath {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 0.85; transform: scale(1.1); }
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 0.75; transform: scale(1.1); }
 }
 
-/* 品牌层：官方 logo 原图直接贴，不再重绘字体 */
+/* 能量扫描线：底部水平光束 */
+.intro-energy-line {
+  position: absolute;
+  bottom: 12%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(58, 227, 255, 0) 10%,
+    rgba(58, 227, 255, 0.6) 30%,
+    rgba(100, 220, 255, 0.9) 50%,
+    rgba(58, 227, 255, 0.6) 70%,
+    rgba(58, 227, 255, 0) 90%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px 2px rgba(58, 227, 255, 0.3);
+  animation: energy-scan 6s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.6;
+}
+@keyframes energy-scan {
+  0%   { transform: translateX(-60%); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateX(60%); opacity: 0; }
+}
+
+/* 品牌层 */
 .intro-brand {
   position: absolute;
   top: 28px; left: 28px;
@@ -906,112 +882,7 @@ body::before {
   font-weight: 600;
 }
 
-@media (max-width: 640px) {
-  .intro-brand { top: 18px; left: 16px; max-width: 70vw; }
-  .intro-logo { height: 48px; }
-  .intro-slogan-cn { letter-spacing: 0.12em; }
-}
-
-/* 天空：从上到下的深空渐变，兼作路面上方的背景 */
-.intro-sky {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(1200px 700px at 50% 20%, #0e1738 0%, #06091a 45%, #000 100%),
-    linear-gradient(180deg, #04060c 0%, #06091a 50%, #050815 100%);
-}
-/* 星点：用两层不同大小/透明度的 radial-gradient tile 铺满，营造深邃星空 */
-.intro-stars {
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.9), transparent 60%),
-    radial-gradient(1px 1px at 70% 15%, rgba(255,255,255,0.75), transparent 60%),
-    radial-gradient(1.2px 1.2px at 85% 60%, rgba(255,255,255,0.7), transparent 60%),
-    radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,0.55), transparent 60%),
-    radial-gradient(1px 1px at 60% 40%, rgba(255,255,255,0.5), transparent 60%),
-    radial-gradient(0.8px 0.8px at 10% 80%, rgba(255,255,255,0.6), transparent 60%);
-  background-size: 480px 320px, 520px 340px, 460px 310px, 500px 330px, 490px 320px, 510px 330px;
-  opacity: 0.9;
-  /* 底部（路面区域）不要星点，做个平滑遮罩 */
-  mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 62%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 50%, transparent 62%);
-}
-/* 地平线：一条青色细光带，作为远方光源和视觉衔接线 */
-.intro-horizon {
-  position: absolute; left: 0; right: 0;
-  top: 55%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(58,227,255,0.7) 30%, rgba(164,115,255,0.7) 70%, transparent 100%);
-  box-shadow: 0 0 24px rgba(58,227,255,0.55), 0 0 60px rgba(58,227,255,0.35);
-}
-/* 透视马路：把矩形沿 X 轴向内翻转成斜面，创造"往画面深处延伸"的效果。
-   宽度做超宽（250%）+ 负 left 补偿，避免旋转后左右露白 */
-.intro-road {
-  position: absolute;
-  bottom: 0;
-  left: -75%;
-  width: 250%;
-  height: 55%;
-  transform-origin: 50% 0%;
-  transform: perspective(700px) rotateX(62deg);
-  background:
-    linear-gradient(180deg, #0a1226 0%, #050815 60%, #010204 100%);
-  overflow: hidden;
-}
-/* 虚线中央标线：靠 CSS keyframes 平移 background-position，形成"路面往画面外飞"的错觉。
-   路面在透视下，向下 = 往观察者靠近，所以标线要向下移 */
-.intro-road-lanes {
-  position: absolute; inset: 0;
-  background:
-    /* 白色主标线：粗虚线 */
-    repeating-linear-gradient(180deg, rgba(255,255,255,0.85) 0 40px, transparent 40px 100px) 50% 0 / 12px 100%,
-    /* 两侧车道分割线：细虚线 */
-    repeating-linear-gradient(180deg, rgba(255,255,255,0.35) 0 20px, transparent 20px 60px) 30% 0 / 3px 100%,
-    repeating-linear-gradient(180deg, rgba(255,255,255,0.35) 0 20px, transparent 20px 60px) 70% 0 / 3px 100%;
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  animation: road-rush 0.6s linear infinite;
-}
-@keyframes road-rush {
-  from { background-position: 50% 0, 30% 0, 70% 0; }
-  to   { background-position: 50% 100px, 30% 60px, 70% 60px; }
-}
-/* 卡车贴图：绝对定位在画面中前部，位置和大小通过 stage 类名切换驱动。
-   pointer-events: none 让 .intro 的整屏点击不被卡车吃掉 */
-.intro-truck {
-  position: absolute;
-  left: 50%; top: 55%;
-  width: min(70vw, 900px);
-  aspect-ratio: 538 / 312;
-  transform: translate(-50%, -50%) scale(0.14) translateY(-40%);
-  filter: blur(2px) brightness(0.65);
-  opacity: 0.85;
-  transition:
-    transform 1.5s cubic-bezier(0.22, 0.7, 0.24, 1),
-    filter 1.2s ease-out,
-    opacity 0.8s ease-out;
-  pointer-events: none;
-  will-change: transform, filter;
-}
-.intro-truck img {
-  width: 100%; height: 100%;
-  object-fit: contain;
-  display: block;
-  /* 车底自然阴影：让车"踩"在路上而不是"贴"在路上 */
-  filter: drop-shadow(0 20px 24px rgba(0, 0, 0, 0.55));
-}
-/* hold 阶段：车已到位、清晰、正常大小 */
-.intro-hold .intro-truck,
-.intro-leave .intro-truck {
-  transform: translate(-50%, 8%) scale(1) translateY(0);
-  filter: none;
-  opacity: 1;
-}
-/* leave 阶段：车加速向右冲出屏幕；缓动改成"起步慢、末段快"的加速曲线 */
-.intro-leave .intro-truck {
-  transform: translate(160%, 8%) scale(1);
-  transition: transform 1s cubic-bezier(0.55, 0, 0.85, 0.45);
-}
-
-/* 跳过按钮：右上角极简；点击时阻止事件冒泡到 .intro，避免触发两次 */
+/* 跳过按钮 */
 .intro-skip {
   position: absolute; top: 22px; right: 22px;
   z-index: 2;
@@ -1029,10 +900,27 @@ body::before {
 }
 .intro-skip:hover { color: var(--cyan); border-color: rgba(58, 227, 255, 0.5); background: rgba(58, 227, 255, 0.08); }
 
+.intro-hint {
+  position: absolute; left: 0; right: 0; bottom: 36px;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: #fff;
+  pointer-events: none;
+  opacity: 0.85;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  animation: hint-pulse 2.5s ease-in-out infinite;
+}
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 0.5; }
+}
+
 @media (max-width: 640px) {
-  .intro-truck { width: 92vw; }
-  .intro-road { height: 50%; }
-  .intro-horizon { top: 50%; }
+  .intro-brand { top: 18px; left: 16px; max-width: 70vw; }
+  .intro-logo { height: 48px; }
+  .intro-slogan-cn { letter-spacing: 0.12em; }
+  .intro-headlight-glow { right: 12%; bottom: 18%; width: 80px; height: 56px; }
 }
 
 /* ================= 卡车进度条：真车贴图沿路飞驰 ================= */
