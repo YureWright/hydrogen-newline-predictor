@@ -43,6 +43,14 @@ export default function IntroScreen({ onEnter }: Props) {
       <div className="intro-vignette" aria-hidden="true" />
       <div className="intro-scan" aria-hidden="true" />
 
+      <div className="intro-brand" onClick={(e) => e.stopPropagation()}>
+        <img className="intro-logo" src="/hybot-logo.png" alt="hybot 海珀特" />
+        <div className="intro-slogan">
+          <p className="intro-slogan-cn">以氢能创造无限可能</p>
+          <p className="intro-slogan-en"><em>Hydrogen</em> Powering Infinity</p>
+        </div>
+      </div>
+
       <button
         className="intro-skip"
         onClick={(e) => { e.stopPropagation(); leave() }}

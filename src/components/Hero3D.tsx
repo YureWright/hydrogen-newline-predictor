@@ -153,22 +153,63 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     horizon.position.set(0, 0.04, -42)
     scene.add(horizon)
 
+    // —— 淡银河：只铺在远天上半，压暗过的官网星空，不当整屏墙纸 ——
+    const loader = new THREE.TextureLoader()
+    loader.load('/galaxy-soft.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+      })
+      const sky = new THREE.Mesh(new THREE.PlaneGeometry(96, 38), mat)
+      sky.position.set(2, 16, -58)
+      scene.add(sky)
+    })
+
     // —— 卡车：透明贴图平面，放在三维世界里沿 Z 冲过来 ——
     const truckGroup = new THREE.Group()
     scene.add(truckGroup)
 
-    const loader = new THREE.TextureLoader()
+    const dummy = new THREE.Texture()
+    const sweepUniforms = {
+      uMap: { value: dummy },
+      uSweep: { value: -0.2 },
+    }
     loader.load('/truck-cutout.png', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+      sweepUniforms.uMap.value = tex
       const aspect = (tex.image?.width || 538) / (tex.image?.height || 312)
       const h = 2.55
       const w = h * aspect
-      // 车身已经是带打光的照片，再用 PBR 会把照片压暗；Basic 保留原图层次
-      const mat = new THREE.MeshBasicMaterial({
-        map: tex,
+      // 电流光：一道窄高光从车尾（uv.x≈0）扫到车头（uv.x≈1），只加在不透明像素上
+      const mat = new THREE.ShaderMaterial({
+        uniforms: sweepUniforms,
         transparent: true,
         depthWrite: false,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D uMap;
+          uniform float uSweep;
+          varying vec2 vUv;
+          void main() {
+            vec4 c = texture2D(uMap, vUv);
+            if (c.a < 0.08) discard;
+            float d = abs(vUv.x - uSweep);
+            float band = 1.0 - smoothstep(0.0, 0.16, d);
+            float core = 1.0 - smoothstep(0.0, 0.035, d);
+            vec3 glow = vec3(0.35, 0.92, 1.0) * band * 0.55 + vec3(0.95, 1.0, 1.0) * core * 0.85;
+            gl_FragColor = vec4(c.rgb + glow * c.a, c.a);
+          }
+        `,
       })
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat)
       mesh.position.y = h * 0.42
@@ -256,6 +297,9 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
       headGlow.position.set(1.5, 0.9, truckZ + 0.8)
       headGlow.intensity = 2.4 + Math.sin(elapsed * 0.004) * 0.5
       beam.material.opacity = 0.55 + Math.sin(elapsed * 0.005) * 0.15
+      // 3.2 秒一轮，从尾扫到头；冲过来阶段也扫，定格后继续慢扫
+      const cycle = ((elapsed / (rush < 1 ? 2200 : 3200)) % 1)
+      sweepUniforms.uSweep.value = -0.15 + cycle * 1.3
 
       renderer.render(scene, camera)
     }
