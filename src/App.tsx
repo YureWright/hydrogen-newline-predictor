@@ -69,9 +69,26 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* 头图整块用海珀特官网主视觉原图（已抹掉官网自带的「预约品鉴」按钮与导航控件），
+          logo 和「以氢能创造无限可能 / Hydrogen Powering Infinity」都在图里，
+          不另行排版，避免字体/字距跟官方对不上 */}
       <header className="hero">
-        <h1>新线路氢耗预测工具</h1>
-        <p className="sub">氢能车辆运营智能分析与决策助手 · T05 · 路线路况模块 Demo</p>
+        <div className="hero-media">
+          <div className="hero-scanline" aria-hidden="true" />
+          <div className="hero-fade" aria-hidden="true" />
+          <div className="hero-inner">
+            <div className="hero-rule" />
+            <h1>新线路氢耗预测工具</h1>
+            <p className="sub">面向 H49 燃料电池半挂牵引车 · 真实路网道路等级 / DEM 坡度剖面 / 沿线逐段天气</p>
+            <div className="hero-chips">
+              <span><b>OSM</b> 真实路网</span>
+              <span><b>DEM</b> 高程剖面</span>
+              <span><b>QWeather</b> 沿线天气</span>
+              <span><b>DeepSeek</b> AI 评估</span>
+            </div>
+          </div>
+          <span className="hero-tag">T05 · 氢能黑客松</span>
+        </div>
       </header>
       <main className="main">
         <div className="query-bar">

@@ -126,7 +126,9 @@ function cachePut(k: string, tile: DemTile): void {
   tileMemoryCache.set(k, tile)
 }
 
-async function fetchBytes(url: string, timeoutMs = 20000): Promise<Buffer> {
+// 单张超时从 20s 收到 8s：一张真正卡死的瓦片最多占用通道 8s 就放弃重试，
+// 不会像原来那样把一整个下载通道堵满 20 秒，明显更快也更少"假死"。
+async function fetchBytes(url: string, timeoutMs = 8000): Promise<Buffer> {
   const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
   if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url)
   return Buffer.from(await r.arrayBuffer())
@@ -137,7 +139,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** 带重试的下载（S3 偶发超时，重试 2 次） */
-async function fetchBytesWithRetry(url: string, timeoutMs = 20000, retries = 2): Promise<Buffer> {
+async function fetchBytesWithRetry(url: string, timeoutMs = 8000, retries = 2): Promise<Buffer> {
   let lastErr: Error | null = null
   for (let i = 0; i <= retries; i++) {
     try {
@@ -174,7 +176,9 @@ export async function loadDemTiles(
 ): Promise<DemTileResult> {
   const z = opts.z ?? 14
   const cacheDir = opts.cacheDir ?? join(process.cwd(), 'data', 'dem-cache')
-  const concurrency = opts.concurrency ?? 6
+  // S3 在美国、国内访问延迟高，靠"多开通道"来摊薄单张往返时间：并发从 6 提到 16。
+  // 瓦片就几十到几百 KB，S3 完全扛得住，通道越多进度前进得越细、越像实时。
+  const concurrency = opts.concurrency ?? 16
   const terrariumBase = (opts.terrariumBase ?? DEFAULT_TERRARIUM).replace(/\/$/, '')
   const needed = collectTileKeys(segments, z, opts.sampleM ?? 200)
   mkdirSync(cacheDir, { recursive: true })
@@ -189,38 +193,48 @@ export async function loadDemTiles(
 
   let next = 0
   let failures = 0
-  let doneCount = 0
+  let processed = 0
   let downloaded = 0
+  // 进度必须对"每一张处理过的瓦片"都上报一次——无论它来自缓存、下载成功还是失败跳过。
+  // 否则缓存命中和失败的瓦片不计数，done 永远追不上 total，进度条会卡在中途，
+  // 最后靠后续阶段硬跳到 100%（用户看到的"卡住→突然一跳"就是这么来的）。
+  const report = () => {
+    processed++
+    opts.onProgress?.({ phase: 'dem', done: processed, total: keys.length, cached: cachedCount })
+  }
   async function worker() {
     while (next < keys.length) {
       if (opts.shouldCancel?.()) throw new DemCancelledError()
       const k = keys[next++]
       const [x, y] = needed.get(k)!
-      const cached = tileMemoryCache.get(z + '_' + k)
-      if (cached) {
-        tiles.set(k, cached)
-        continue
-      }
-      const file = join(cacheDir, z + '_' + x + '_' + y + '.png')
-      let bytes: Buffer
-      if (existsSync(file)) {
-        bytes = readFileSync(file)
-      } else {
-        try {
-          bytes = await fetchBytesWithRetry(terrariumBase + '/' + z + '/' + x + '/' + y + '.png')
-          try { writeFileSync(file, bytes) } catch { /* 缓存写入失败不影响主流程 */ }
-        } catch {
-          failures++ // 单张失败跳过，不中断整批；对应点高程留空
+      try {
+        const cached = tileMemoryCache.get(z + '_' + k)
+        if (cached) {
+          tiles.set(k, cached)
           continue
         }
-        downloaded++
+        const file = join(cacheDir, z + '_' + x + '_' + y + '.png')
+        let bytes: Buffer
+        if (existsSync(file)) {
+          bytes = readFileSync(file)
+        } else {
+          try {
+            bytes = await fetchBytesWithRetry(terrariumBase + '/' + z + '/' + x + '/' + y + '.png')
+            try { writeFileSync(file, bytes) } catch { /* 缓存写入失败不影响主流程 */ }
+          } catch {
+            failures++ // 单张失败跳过，不中断整批；对应点高程留空
+            continue
+          }
+          downloaded++
+        }
+        const png = decodePng(bytes)
+        const tile = { x, y, z, width: png.width, height: png.height, channels: png.channels, data: png.data }
+        cachePut(z + '_' + k, tile)
+        tiles.set(k, tile)
+      } finally {
+        // finally 保证 continue 跳过的分支（缓存命中 / 下载失败）也照样计一次进度
+        report()
       }
-      const png = decodePng(bytes)
-      const tile = { x, y, z, width: png.width, height: png.height, channels: png.channels, data: png.data }
-      cachePut(z + '_' + k, tile)
-      tiles.set(k, tile)
-      doneCount++
-      opts.onProgress?.({ phase: 'dem', done: doneCount, total: keys.length, cached: cachedCount + downloaded })
     }
   }
   const workers: Promise<void>[] = []
