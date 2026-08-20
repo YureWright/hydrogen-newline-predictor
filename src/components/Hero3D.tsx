@@ -50,13 +50,14 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     }
 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    renderer.setClearColor(0x04060c, 1)
+    renderer.setClearColor(0x071018, 1)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.05
+    renderer.toneMappingExposure = 1.12
 
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2(0x04060c, 0.038)
+    // 雾淡一点：极光要透出来，车也不能溶进黑底
+    scene.fog = new THREE.FogExp2(0x07141c, 0.018)
 
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200)
     camera.position.set(0.15, 1.35, 10)
@@ -65,20 +66,23 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     const startMs = performance.now()
 
     // —— 灯光：主光 + 青色轮廓光，金属车身才有高光层次 ——
-    scene.add(new THREE.AmbientLight(0x6a7aa0, 0.55))
-    const key = new THREE.DirectionalLight(0xffffff, 1.35)
+    scene.add(new THREE.AmbientLight(0x8aa8b8, 0.72))
+    const key = new THREE.DirectionalLight(0xffffff, 1.55)
     key.position.set(6, 8, 4)
     scene.add(key)
-    const rim = new THREE.DirectionalLight(0x3ae3ff, 0.85)
+    const rim = new THREE.DirectionalLight(0x3ae3ff, 0.55)
     rim.position.set(-8, 3, -2)
     scene.add(rim)
-    const headGlow = new THREE.PointLight(0x3ae3ff, 3.2, 18, 2)
+    const auroraFill = new THREE.DirectionalLight(0x4dff88, 0.55)
+    auroraFill.position.set(-4, 10, -6)
+    scene.add(auroraFill)
+    const headGlow = new THREE.PointLight(0xb8ffff, 5.4, 22, 2)
     headGlow.position.set(1.6, 0.9, -2.2)
     scene.add(headGlow)
 
     // —— 星点：远处粒子，随雾淡出 ——
     {
-      const n = 900
+      const n = 420
       const pos = new Float32Array(n * 3)
       for (let i = 0; i < n; i++) {
         pos[i * 3] = (Math.random() - 0.5) * 80
@@ -92,7 +96,7 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
         size: 0.07,
         sizeAttenuation: true,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.45,
         depthWrite: false,
       })
       scene.add(new THREE.Points(geo, mat))
@@ -153,18 +157,45 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
     horizon.position.set(0, 0.04, -42)
     scene.add(horizon)
 
-    // —— 淡银河：只铺在远天上半，压暗过的官网星空，不当整屏墙纸 ——
+    // —— 极光天空：整面远景，shader 做窗帘漂移 + 亮度呼吸，不再用银河 ——
     const loader = new THREE.TextureLoader()
-    loader.load('/galaxy-soft.jpg', (tex) => {
+    const dummyTex = new THREE.Texture()
+    const auroraUniforms = {
+      uMap: { value: dummyTex },
+      uTime: { value: 0 },
+    }
+    loader.load('/aurora.jpg', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace
-      const mat = new THREE.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        opacity: 0.42,
+      auroraUniforms.uMap.value = tex
+      const mat = new THREE.ShaderMaterial({
+        uniforms: auroraUniforms,
         depthWrite: false,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D uMap;
+          uniform float uTime;
+          varying vec2 vUv;
+          void main() {
+            vec2 uv = vUv;
+            uv.x += sin(uTime * 0.18 + vUv.y * 3.2) * 0.016;
+            uv.y += sin(uTime * 0.11 + vUv.x * 2.4) * 0.010;
+            vec3 c = texture2D(uMap, clamp(uv, 0.001, 0.999)).rgb;
+            float pulse = 0.90 + 0.12 * sin(uTime * 0.65) + 0.07 * sin(uTime * 1.25 + 1.7);
+            float flash = 1.0 + 0.16 * sin(uTime * 1.9 + vUv.x * 5.5) * smoothstep(0.25, 0.75, vUv.y);
+            c.g *= flash;
+            c.b *= 0.96 + 0.06 * sin(uTime * 0.9 + vUv.y * 4.0);
+            gl_FragColor = vec4(c * pulse, 1.0);
+          }
+        `,
       })
-      const sky = new THREE.Mesh(new THREE.PlaneGeometry(96, 38), mat)
-      sky.position.set(2, 16, -58)
+      const sky = new THREE.Mesh(new THREE.PlaneGeometry(140, 78), mat)
+      sky.position.set(0, 8, -62)
       scene.add(sky)
     })
 
@@ -204,9 +235,10 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
             vec4 c = texture2D(uMap, vUv);
             if (c.a < 0.08) discard;
             float d = abs(vUv.x - uSweep);
-            float band = 1.0 - smoothstep(0.0, 0.16, d);
-            float core = 1.0 - smoothstep(0.0, 0.035, d);
-            vec3 glow = vec3(0.35, 0.92, 1.0) * band * 0.55 + vec3(0.95, 1.0, 1.0) * core * 0.85;
+            float band = 1.0 - smoothstep(0.0, 0.10, d);
+            float core = 1.0 - smoothstep(0.0, 0.022, d);
+            // 克制的金属扫光：暖白细线，不抢车灯的青色闪
+            vec3 glow = vec3(0.92, 0.96, 1.0) * (band * 0.10 + core * 0.16);
             gl_FragColor = vec4(c.rgb + glow * c.a, c.a);
           }
         `,
@@ -237,8 +269,8 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }))
-    beam.scale.set(2.4, 1.1, 1)
-    beam.position.set(1.55, 0.85, 0.15)
+    beam.scale.set(3.2, 1.45, 1)
+    beam.position.set(1.62, 0.88, 0.18)
     truckGroup.add(beam)
 
     const mouse = { x: 0, y: 0 }
@@ -294,12 +326,17 @@ export default function Hero3D({ phase, reducedMotion }: Props) {
       camera.lookAt(look)
 
       roadUniforms.uTime.value += t * (rush < 1 ? 1.15 : 0.35)
+      auroraUniforms.uTime.value = elapsed * 0.001
+      auroraFill.intensity = 0.42 + 0.22 * (0.5 + 0.5 * Math.sin(elapsed * 0.0012))
       headGlow.position.set(1.5, 0.9, truckZ + 0.8)
-      headGlow.intensity = 2.4 + Math.sin(elapsed * 0.004) * 0.5
-      beam.material.opacity = 0.55 + Math.sin(elapsed * 0.005) * 0.15
-      // 3.2 秒一轮，从尾扫到头；冲过来阶段也扫，定格后继续慢扫
-      const cycle = ((elapsed / (rush < 1 ? 2200 : 3200)) % 1)
-      sweepUniforms.uSweep.value = -0.15 + cycle * 1.3
+      // 车灯闪：更亮、对比更大，这是主角光
+      const blink = 0.5 + 0.5 * Math.sin(elapsed * 0.006)
+      headGlow.intensity = 4.2 + blink * 3.2
+      beam.material.opacity = 0.72 + blink * 0.28
+      beam.scale.set(3.0 + blink * 0.7, 1.3 + blink * 0.25, 1)
+      // 扫光更慢更淡，不跟车灯抢戏
+      const cycle = ((elapsed / 4800) % 1)
+      sweepUniforms.uSweep.value = -0.12 + cycle * 1.24
 
       renderer.render(scene, camera)
     }

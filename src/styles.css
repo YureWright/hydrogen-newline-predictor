@@ -779,7 +779,8 @@ body::before {
 .intro-vignette {
   position: absolute; inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 70% 65% at 50% 48%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  /* 只压四角，中间留给极光和车，避免再把画面压成一团黑 */
+  background: radial-gradient(ellipse 78% 72% at 50% 46%, transparent 52%, rgba(0, 0, 0, 0.32) 100%);
 }
 .intro-scan {
   position: absolute; inset: 0;
@@ -808,13 +809,16 @@ body::before {
   top: 28px; left: 28px;
   z-index: 2;
   pointer-events: none;
-  max-width: min(42vw, 420px);
+  max-width: min(46vw, 460px);
+  padding: 10px 28px 12px 10px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.18) 62%, transparent 100%);
+  border-radius: 8px;
 }
 .intro-logo {
   display: block;
-  height: 52px;
+  height: 64px;
   width: auto;
-  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.75));
 }
 .intro-slogan {
   margin-top: 18px;
@@ -849,7 +853,7 @@ body::before {
 
 @media (max-width: 640px) {
   .intro-brand { top: 18px; left: 16px; max-width: 70vw; }
-  .intro-logo { height: 40px; }
+  .intro-logo { height: 48px; }
   .intro-slogan-cn { letter-spacing: 0.12em; }
 }
 
