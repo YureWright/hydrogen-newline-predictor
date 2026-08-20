@@ -4,6 +4,7 @@ import type { RouteCandidate, SegmentData, SegmentSummary } from '../route/types
 import { ROAD_LEVEL_LABEL, expectedStopCount } from '../route/segment'
 import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
+import HydrogenHowItWorks from './HydrogenHowItWorks'
 
 interface DemInfo { z: number; tiles: number; source: string }
 interface OsmInfo { queries: number; coveredKm: number; fallbackKm: number }
@@ -112,6 +113,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     })
   }, [])
   const [aiText, setAiText] = useState('')
+  // 氢耗预测（机器学习）
+  const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [hydroResult, setHydroResult] = useState<{ total_h2_kg?: number; per100km_kg?: number; segments?: Array<{ index: number; h2_per_km_kg: number; h2_kg: number }> } | null>(null)
+  const [hydroError, setHydroError] = useState('')
+  const [showHowItWorks, setShowHowItWorks] = useState(false)
   const [aiModel, setAiModel] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
@@ -336,6 +342,27 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     summary,
   }), [origin, destination, candidate, segments, summary])
 
+  const runHydro = useCallback(async () => {
+    setHydroStage('running'); setHydroError('')
+    try {
+      // 精简 payload：只传模型需要的字段（去掉 coordsWgs84/profile 等大字段）
+      const slim = (data?.segments ?? []).map((s) => ({
+        index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, avgSpeedKmh: s.avgSpeedKmh,
+        gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
+        windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
+      }))
+      const r = await fetch('/api/predict-hydrogen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segments: slim, departureTime }),
+      })
+      const j = (await r.json()) as { ok?: boolean; total_h2_kg?: number; per100km_kg?: number; segments?: Array<{ index: number; h2_per_km_kg: number; h2_kg: number }>; msg?: string }
+      if (j.ok) { setHydroResult(j); setHydroStage('done') }
+      else { setHydroError(j.msg || '预测失败'); setHydroStage('error') }
+    } catch (e: any) {
+      setHydroError('预测失败：' + (e.message || e)); setHydroStage('error')
+    }
+  }, [data, departureTime])
   const runAi = useCallback(async () => {
     setAiLoading(true)
     setAiError('')
@@ -626,6 +653,30 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </div>
       </div>
 
+      <div className="h2-card">
+        <div className="ai-head">
+          <h4>⚡ 氢能消耗预测（机器学习）</h4>
+          <button className="btn-ai" onClick={() => setShowHowItWorks(true)}>📖 技术原理</button>
+        </div>
+        {hydroStage === 'idle' && (
+          <>
+            <p className="panel-sub">用两辆 H49 重卡实车数据训练的段级模型：系统分段 → 工况合成（模板拼接）→ 预测每段氢耗，无需实跑即可出结果。</p>
+            <button className="btn-primary" onClick={runHydro}>开始氢耗预测</button>
+          </>
+        )}
+        {hydroStage === 'running' && <div className="panel-loading">正在合成行驶工况并预测氢耗…（秒级）</div>}
+        {hydroError && <div className="error">{hydroError}</div>}
+        {hydroStage === 'done' && hydroResult && (
+          <div className="hydro-result">
+            <div className="hydro-metrics">
+              <div className="hydro-metric"><b>{hydroResult.total_h2_kg?.toFixed(2)}</b><span>总氢耗 kg</span></div>
+              <div className="hydro-metric"><b>{hydroResult.per100km_kg?.toFixed(2)}</b><span>百公里 kg/100km</span></div>
+              <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
+            </div>
+            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；预测基于实车工况模板，载重/驾驶习惯会影响实际值。</div>
+          </div>
+        )}
+      </div>
       <div className="ai-card">
         <div className="ai-head">
           <h4>🤖 AI 智能评估</h4>
@@ -638,6 +689,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         {aiError && <div className="error">{aiError}</div>}
         {aiText && <MarkdownLight text={aiText} />}
       </div>
+      {showHowItWorks && <HydrogenHowItWorks onClose={() => setShowHowItWorks(false)} />}
     </div>
   )
 }

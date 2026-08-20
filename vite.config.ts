@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync as fsRead } from 'node:fs'
@@ -142,6 +143,21 @@ function startDemJob(origin: string, destination: string, index: number, departu
   return job
 }
 
+/** 调 python 预测脚本（stdin/stdout JSON；cwd=ml/） */
+function runPythonScript(script: string, input: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const py = process.env.PYTHON || 'python'
+    const child = spawn(py, [script], { cwd })
+    let out = '', err = ''
+    child.stdout.on('data', (d: Buffer) => { out += d.toString('utf8') })
+    child.stderr.on('data', (d: Buffer) => { err += d.toString('utf8') })
+    child.on('close', (code: number) => resolve({ code, stdout: out, stderr: err }))
+    child.on('error', (e: Error) => resolve({ code: -1, stdout: out, stderr: e.message }))
+    child.stdin.write(input)
+    child.stdin.end()
+  })
+}
+
 function readBody(req: any): Promise<string> {
   return new Promise((resolve) => {
     let data = ''
@@ -243,6 +259,34 @@ export default defineConfig({
                 weather: { provider: weatherRes.provider, sampled: weatherRes.sampled, bySource: weatherRes.bySource, queries: weatherRes.queries, windySegments: weatherRes.windySegments },
               })
             }
+            if (path === '/predict-hydrogen' && req.method === 'POST') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const segs = Array.isArray(payload.segments) ? payload.segments : []
+              if (segs.length === 0) return send(res, 400, { ok: false, msg: '缺少 segments（请先完成路段测算）' })
+              // 按出发时间推算每段到达小时（hour 特征）
+              const dep = payload.departureTime ? new Date(payload.departureTime) : new Date()
+              if (Number.isNaN(dep.getTime())) dep.setTime(Date.now())
+              let accH = 0
+              const enriched = segs.map((s: any) => {
+                const hour = new Date(dep.getTime() + accH * 3600000).getHours()
+                accH += Number(s.durationH) || 0
+                return { ...s, hour }
+              })
+              const input = JSON.stringify({ departure_hour: dep.getHours(), segments: enriched })
+              const r = await runPythonScript('predict.py', input, join(__dirname, 'ml'))
+              if (r.code !== 0) {
+                console.error('[predict] python 失败:', r.stderr.slice(0, 500))
+                return send(res, 200, { ok: false, msg: '氢耗模型预测失败：' + (r.stderr.slice(0, 200) || 'python exit ' + r.code) })
+              }
+              try {
+                const j = JSON.parse(r.stdout)
+                return send(res, 200, { ok: true, ...j })
+              } catch {
+                return send(res, 200, { ok: false, msg: '氢耗模型返回无法解析' })
+              }
+            }
+
             if (path === '/ai/evaluate' && req.method === 'POST') {
               let cfg
               try { cfg = getAiConfig() } catch (e: any) {

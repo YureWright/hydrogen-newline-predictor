@@ -23,3 +23,15 @@ __pycache__/
 
 # ��ʱ�ύ��Ϣ
 .git-commit-msg.tmp
+
+# 实车数据（含 GPS 轨迹，隐私，不提交）
+/车辆1清洗_聚合60s_行驶窗口.csv
+/车辆2清洗_聚合60s_行驶窗口.csv
+/_v1_feat.csv
+/_v2_feat.csv
+
+# ML 缓存
+data/dem-cache-python/
+data/regeo-cache.json
+data/weather-history-cache/
+dev-server-*.log

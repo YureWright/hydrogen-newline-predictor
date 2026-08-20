@@ -1,0 +1,33 @@
+{
+  "features": [
+    "len_km",
+    "v_mean",
+    "grade_mean",
+    "elev_mean",
+    "temp_mean",
+    "wind_mean",
+    "hum_mean",
+    "hour",
+    "lv",
+    "v_std",
+    "v_p85",
+    "absa_mean",
+    "a_p90",
+    "cruise_ratio",
+    "stop_ratio",
+    "e_acc",
+    "e_aero",
+    "e_grade_up"
+  ],
+  "units": {
+    "speed": "km/h",
+    "h2": "kg/km",
+    "target": "h2_remain_diff"
+  },
+  "trained_at": "2026-08-21",
+  "n_segments": 1071,
+  "cv": {
+    "r2_mean": 0.504592670890237,
+    "rmse_mean": 0.045631623058277074
+  }
+}

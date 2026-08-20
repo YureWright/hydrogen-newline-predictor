@@ -1,0 +1,39 @@
+{
+  "name": "hydrogen-newline-predictor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "T05 新线路氢耗预测工具（命题二）：路线路况 + 氢耗物理模型 + 成本测算",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "verify:route": "tsx scripts/verify-route.ts",
+    "demo": "tsx scripts/demo.ts",
+    "verify:segment": "tsx scripts/verify-segment.ts",
+    "verify:dem": "tsx scripts/verify-dem.ts",
+    "enrich": "tsx scripts/enrich-route.ts",
+    "verify:split": "tsx scripts/verify-split.ts",
+    "verify:osm": "tsx scripts/verify-osm.ts",
+    "verify:weather": "tsx scripts/verify-weather.ts",
+    "point:row": "tsx scripts/query-point-row.ts",
+    "point:batch": "tsx scripts/run-point-history-csv.ts",
+    "verify:point-row": "tsx scripts/verify-point-history.ts"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
