@@ -4,21 +4,39 @@ interface Props {
   onEnter: () => void
 }
 
-function generateStars(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    top: Math.random() * 58,
-    size: 1 + Math.random() * 2,
-    delay: Math.random() * 6,
-    duration: 2 + Math.random() * 3,
-    opacity: 0.4 + Math.random() * 0.6,
-  }))
+interface Star {
+  id: number
+  left: number
+  top: number
+  size: number
+  delay: number
+  duration: number
+  type: 'bright' | 'medium' | 'regular'
+}
+
+function generateStars(count: number): Star[] {
+  return Array.from({ length: count }, (_, i) => {
+    const isBright = i < 5
+    const isMedium = !isBright && i < 17
+    return {
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 55,
+      size: isBright
+        ? 3 + Math.random() * 2
+        : isMedium
+          ? 2 + Math.random() * 1.5
+          : 1 + Math.random() * 1.5,
+      delay: Math.random() * 6,
+      duration: isBright ? 1.8 + Math.random() * 1.5 : 2 + Math.random() * 3,
+      type: isBright ? 'bright' : isMedium ? 'medium' : 'regular',
+    }
+  })
 }
 
 export default function IntroScreen({ onEnter }: Props) {
   const [leaving, setLeaving] = useState(false)
-  const stars = useMemo(() => generateStars(45), [])
+  const stars = useMemo(() => generateStars(55), [])
 
   const leave = () => {
     if (leaving) return
@@ -39,7 +57,7 @@ export default function IntroScreen({ onEnter }: Props) {
         {stars.map(s => (
           <span
             key={s.id}
-            className="intro-star"
+            className={`intro-star${s.type !== 'regular' ? ` intro-star-${s.type}` : ''}`}
             style={{
               left: `${s.left}%`,
               top: `${s.top}%`,
@@ -47,13 +65,15 @@ export default function IntroScreen({ onEnter }: Props) {
               height: `${s.size}px`,
               animationDelay: `${s.delay}s`,
               animationDuration: `${s.duration}s`,
-              opacity: s.opacity,
             }}
           />
         ))}
       </div>
 
-      <div className="intro-headlight-glow" aria-hidden="true" />
+      <div className="intro-headlight-fog" aria-hidden="true">
+        <div className="intro-hl intro-hl-r" />
+        <div className="intro-hl intro-hl-l" />
+      </div>
 
       <div className="intro-energy-line" aria-hidden="true" />
 
@@ -64,6 +84,8 @@ export default function IntroScreen({ onEnter }: Props) {
           <p className="intro-slogan-en"><em>Hydrogen</em> Powering Infinity</p>
         </div>
       </div>
+
+      <p className="intro-tagline">让每克氢都跑在刀刃上</p>
 
       <button
         className="intro-skip"

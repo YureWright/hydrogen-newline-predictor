@@ -785,37 +785,69 @@ body::before {
 .intro-star {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(180, 240, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(200, 240, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%);
   animation: star-twinkle ease-in-out infinite alternate;
 }
 @keyframes star-twinkle {
-  0%   { opacity: 0; transform: scale(0.6); }
-  100% { opacity: 1; transform: scale(1.2); }
+  0%   { opacity: 0.1; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1.3); }
+}
+.intro-star-medium {
+  background: radial-gradient(circle, rgba(210, 245, 255, 1) 0%, rgba(180, 230, 255, 0.45) 40%, transparent 70%);
+  box-shadow: 0 0 6px 2px rgba(180, 230, 255, 0.35);
+}
+.intro-star-bright {
+  background: radial-gradient(circle, #fff 0%, rgba(180, 240, 255, 0.8) 25%, rgba(100, 210, 255, 0.3) 55%, transparent 80%);
+  box-shadow: 0 0 10px 3px rgba(100, 220, 255, 0.5), 0 0 25px 8px rgba(58, 227, 255, 0.18);
+  animation-name: star-twinkle-bright;
+}
+@keyframes star-twinkle-bright {
+  0%   { opacity: 0.12; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1.5); }
 }
 
-/* 车灯呼吸光晕：覆盖在图片上车灯位置 */
-.intro-headlight-glow {
+/* 车灯呼吸雾光：两盏灯各一个超大软渐变，重叠融合成一片暖雾 */
+.intro-headlight-fog {
   position: absolute;
-  right: 18%;
-  bottom: 22%;
-  width: 120px;
-  height: 80px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center,
-    rgba(255, 248, 210, 0.55) 0%,
-    rgba(255, 235, 160, 0.3) 30%,
-    rgba(255, 245, 200, 0) 70%
-  );
-  box-shadow:
-    0 0 40px 10px rgba(255, 245, 200, 0.2),
-    0 0 80px 20px rgba(255, 240, 180, 0.1);
-  animation: headlight-breath 3.5s ease-in-out infinite;
+  inset: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
 }
-@keyframes headlight-breath {
-  0%, 100% { opacity: 0.25; transform: scale(0.85); }
-  50%      { opacity: 0.75; transform: scale(1.1); }
+.intro-hl {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  animation: hl-breath 3.8s ease-in-out infinite;
+}
+.intro-hl-r {
+  right: 14%;
+  bottom: 16%;
+  width: 340px;
+  height: 280px;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 248, 215, 0.35) 0%,
+    rgba(255, 240, 180, 0.16) 30%,
+    rgba(255, 245, 200, 0.05) 60%,
+    transparent 100%
+  );
+  filter: blur(40px);
+}
+.intro-hl-l {
+  right: 21%;
+  bottom: 13%;
+  width: 300px;
+  height: 250px;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 248, 215, 0.3) 0%,
+    rgba(255, 240, 180, 0.13) 30%,
+    rgba(255, 245, 200, 0.04) 60%,
+    transparent 100%
+  );
+  filter: blur(45px);
+  animation-delay: -0.5s;
+}
+@keyframes hl-breath {
+  0%, 100% { opacity: 0.08; transform: scale(0.92); }
+  50%      { opacity: 0.6; transform: scale(1.12); }
 }
 
 /* 能量扫描线：底部水平光束 */
@@ -882,6 +914,27 @@ body::before {
   font-weight: 600;
 }
 
+/* 核心标语 */
+.intro-tagline {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 82px;
+  text-align: center;
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  color: #fff;
+  text-shadow: 0 0 24px rgba(58, 227, 255, 0.2), 0 2px 12px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  animation: tagline-in 1.2s 0.6s ease-out forwards;
+}
+@keyframes tagline-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 0.92; transform: none; }
+}
+
 /* 跳过按钮 */
 .intro-skip {
   position: absolute; top: 22px; right: 22px;
@@ -920,7 +973,9 @@ body::before {
   .intro-brand { top: 18px; left: 16px; max-width: 70vw; }
   .intro-logo { height: 48px; }
   .intro-slogan-cn { letter-spacing: 0.12em; }
-  .intro-headlight-glow { right: 12%; bottom: 18%; width: 80px; height: 56px; }
+  .intro-hl-r { right: 8%; bottom: 14%; width: 200px; height: 160px; }
+  .intro-hl-l { right: 16%; bottom: 11%; width: 180px; height: 140px; }
+  .intro-tagline { bottom: 70px; letter-spacing: 0.18em; }
 }
 
 /* ================= 卡车进度条：真车贴图沿路飞驰 ================= */
