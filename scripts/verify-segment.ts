@@ -125,7 +125,13 @@ async function main() {
   assert('summarize: totalKm≈36', Math.abs(sum.totalKm - 36) < 0.01, String(sum.totalKm))
   assert('summarize: highwayKm=20', Math.abs(sum.roadLevelKm.highway - 20) < 0.01, String(sum.roadLevelKm.highway))
   assert('summarize: expresswayKm=12（北六环→快速路）', Math.abs(sum.roadLevelKm.expressway - 12) < 0.01, String(sum.roadLevelKm.expressway))
-  assert('summarize: 加权均速≈(20*80+12*36+4*24)/36≈59.1', Math.abs(sum.avgSpeedKmh - (20 * 80 + 12 * 36 + 4 * 24) / 36) < 0.5, String(sum.avgSpeedKmh))
+  // 全程均速 = 总里程/总时长（调和平均）。按里程加权求速度的算术平均会得到 59.1，系统性偏高 23%：
+  // 慢段占用的时间被低估。空气阻力 ∝ v²，这个偏差在氢耗上还会再放大一倍。
+  assert('summarize: 均速 = 总里程/总时长 = 36/0.75 = 48（不是里程加权的 59.1）',
+    Math.abs(sum.avgSpeedKmh - 36 / 0.75) < 0.5, String(sum.avgSpeedKmh))
+  assert('summarize: 均速与 totalKm/totalDurationH 自洽',
+    Math.abs(sum.avgSpeedKmh - sum.totalKm / sum.totalDurationH) < 0.1,
+    sum.avgSpeedKmh + ' vs ' + (sum.totalKm / sum.totalDurationH).toFixed(1))
   assert('summarize: 无坡度数据→null', sum.avgGradePercent === null)
 
   console.log('=== 真实线路分段（需 AMAP_KEY） ===')

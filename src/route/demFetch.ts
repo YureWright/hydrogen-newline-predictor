@@ -61,6 +61,8 @@ export interface DemOptions {
   sampleM?: number
   /** 坡度切分参数（覆盖默认值） */
   split?: SplitParams
+  /** 高程去噪死区（米，默认 ELEV_NOISE_DEADBAND_M=5；传 0 关闭去噪） */
+  deadbandM?: number
   /** 取消信号：返回 true 时立即停止下载并抛出 DemCancelledError（前端点"取消"用） */
   shouldCancel?: () => boolean
 }
@@ -402,6 +404,64 @@ function rebaseSlice(pts: ProfilePoint[], elevs: number[], a: number, b: number)
   }
 }
 
+/** 高程死区（米）：小于该幅度的高程起伏视为 DEM 采样噪声，不计入爬升/下降。
+ *
+ * terrarium z14 在 40°N 约 7m/px，SRTM 相对高程误差本身就有数米，200m 采样间隔逐点求和会把
+ * 这些噪声全部当成真实起伏累加。实测京津高速（纯平原，起点 56m→终点 7m）算出累计爬升 700m，
+ * 加 5m 死区后降到 207m；而京张高速（真山区）只降 14%，说明死区滤掉的确实是噪声不是信号。
+ * 累计爬升直接换算成势能耗氢（40t 重卡每 100m 爬升 ≈ 0.73kg H2），700m 的虚高约等于 3.6kg。 */
+export const ELEV_NOISE_DEADBAND_M = 5
+
+/**
+ * 高程序列去噪：只保留累计变化达到死区的"显著转折点"，其余点按里程线性插值。
+ *
+ * 之所以过滤序列本身、而不是在累加爬升时加阈值：去噪后的序列在相邻转折点之间是单调线性的，
+ * 后续无论把它切成多少子段，各子段爬升之和都等于整段爬升——切分方式不会改变全线势能。
+ * 若在累加处加阈值，每个子段都会重置参考点，长上坡会被逐段吃掉一个死区的高度。
+ *
+ * NaN（采样不到高程）原样保留，由下游判定为"未知"。
+ */
+export function denoiseElevations(
+  pts: ProfilePoint[],
+  elevs: number[],
+  deadbandM = ELEV_NOISE_DEADBAND_M,
+): number[] {
+  const n = Math.min(pts.length, elevs.length)
+  if (n === 0 || deadbandM <= 0) return elevs.slice()
+  const valid: number[] = []
+  for (let i = 0; i < n; i++) if (Number.isFinite(elevs[i])) valid.push(i)
+  if (valid.length < 3) return elevs.slice()
+
+  // ① 找显著转折点：相对上一个已确认点变化达到死区才确认，首尾必留
+  const anchors: number[] = [valid[0]]
+  let ref = elevs[valid[0]]
+  for (let k = 1; k < valid.length - 1; k++) {
+    const i = valid[k]
+    if (Math.abs(elevs[i] - ref) >= deadbandM) {
+      anchors.push(i)
+      ref = elevs[i]
+    }
+  }
+  anchors.push(valid[valid.length - 1])
+
+  // ② 转折点之间按累计里程线性插值，抹掉幅度不足死区的抖动
+  const out = elevs.slice()
+  for (let a = 0; a < anchors.length - 1; a++) {
+    const i0 = anchors[a]
+    const i1 = anchors[a + 1]
+    const d0 = pts[i0].cumM
+    const d1 = pts[i1].cumM
+    const e0 = elevs[i0]
+    const e1 = elevs[i1]
+    const span = d1 - d0
+    for (let i = i0 + 1; i < i1; i++) {
+      if (!Number.isFinite(elevs[i])) continue // 缺失点保持缺失
+      out[i] = span > 0 ? e0 + ((pts[i].cumM - d0) / span) * (e1 - e0) : e0
+    }
+  }
+  return out
+}
+
 /** 《公路路线设计规范》(JTG D20) 地形分类阈值：
  * - 平原：地面自然坡度 ≤3°(≈5.2%)，无明显起伏；
  * - 微丘：地面自然坡度 3°~20°(≈36.4%)，相对高差 <100m；
@@ -554,11 +614,13 @@ export function enrichWithTiles(
       ]
     }
     if (pts.length < 2) continue
-    const elevs = pts.map((p) => {
+    const raw = pts.map((p) => {
       const [tx, ty] = tileXY(p.lng, p.lat, z)
       const tile = tiles.get(tx + ',' + ty)
       return tile ? sampleElevationInTile(tile, p.lng, p.lat) : NaN
     })
+    // 先去噪再切分：坡度切分、爬升累加、地形判定都用同一份干净剖面
+    const elevs = denoiseElevations(pts, raw, o.deadbandM)
     const slices = shouldSplitByGrade(s.motionBehavior) ? splitGradeProfile(pts, elevs, o.split) : [{ pts, elevs }]
     const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))
@@ -627,8 +689,9 @@ async function enrichViaOpentopodata(segments: SegmentData[], opts: DemOptions =
     const s = merged[si]
     const pts = perSeg[si]
     if (pts.length < 2) continue
-    const segElevs: number[] = []
-    for (let i = 0; i < pts.length; i++) segElevs.push(elevs[k++])
+    const rawElevs: number[] = []
+    for (let i = 0; i < pts.length; i++) rawElevs.push(elevs[k++])
+    const segElevs = denoiseElevations(pts, rawElevs, opts.deadbandM)
     const slices = shouldSplitByGrade(s.motionBehavior) ? splitGradeProfile(pts, segElevs) : [{ pts, elevs: segElevs }]
     const subs = slicesToSubs(s, slices)
     out.push(...scaleSubs(s, subs))

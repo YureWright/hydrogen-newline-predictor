@@ -6,11 +6,14 @@
  *      location 传 "经度,纬度"，**中国大陆要求 GCJ-02** —— 与高德路线坐标零转换对齐；
  *      字段：温度 / 风速(km/h) / 风向(角度+中文) / 湿度 / 降水量
  *   2. 高德天气（兜底，复用 AMAP_KEY，无需新 key）：免费 30 万次/天，实时 + 未来 4 天日预报，
- *      无逐小时 → 时间匹配到"日"粒度；坐标系 GCJ-02 原生。
+ *      无逐小时 → 时间匹配到"日"粒度；坐标系 GCJ-02 原生。一次兜底消耗 2 次调用（regeo + weatherInfo）。
  *   3. OpenWeatherMap（可选，需 OPENWEATHER_KEY）：48h 逐小时，但 WGS-84 → 需 gcj02ToWgs84 转换。
  *
  * 时间匹配：用户设定出发时间 → 每段到达时刻 = 出发 + 累计时长（取段中点时刻）；
- *   QWeather 24h 预报按"到达时刻所在小时"匹配；行程超 24h 部分回退高德日预报。
+ *   逐小时预报按"到达时刻最近的整点"匹配（≤90 分钟）。
+ *   注意逐小时预报的 24h 窗口锚定在**请求时刻**而不是出发时刻，所以"明晚出发""下周出发"
+ *   这类查询在小时级预报里一条都对不上 —— 凡是没匹配上的网格都会再走一次高德日预报兜底，
+ *   而不是只在"抓取失败"时才兜底（只看抓取失败会让超窗口的段全部静默留空）。
  *
  * 坐标对齐：SegmentData.coordsWgs84 存 WGS-84（供 DEM/OSM），天气查询前转回 GCJ-02
  *   （wgs84ToGcj02）传给 QWeather/高德 —— 以高德坐标系为主；OpenWeather 用 WGS-84。
@@ -62,7 +65,12 @@ export interface WeatherResult {
   provider: string
   /** 风速 >= 阈值的段数（windAffects=true） */
   windySegments: number
+  /** 没匹配到任何天气的段数 —— 必须暴露给上层，否则"天气全空"和"恰好没数据"在界面上没法区分 */
+  unmatched: number
 }
+
+/** 默认风速阈值 km/h（≈3 m/s）：>= 阈值才认为值得计入风阻 */
+export const DEFAULT_WIND_THRESHOLD_KMH = 10.8
 
 export function getWeatherConfig() {
   return {
@@ -72,6 +80,7 @@ export function getWeatherConfig() {
     qweatherHost: process.env.QWEATHER_HOST || '',
     amapKey: process.env.AMAP_KEY || '',
     openweatherKey: process.env.OPENWEATHER_KEY || '',
+    windThresholdKmh: num(process.env.WIND_THRESHOLD_KMH) ?? DEFAULT_WIND_THRESHOLD_KMH,
   }
 }
 
@@ -104,9 +113,27 @@ export function gridCenter(key: string): [number, number] {
 
 /* ============================ 数据源抓取 ============================ */
 
+/** 报错/日志里把 URL 上的 key 打码——错误信息会打到控制台，演示时可能在投屏上 */
+function maskKey(url: string): string {
+  return url.replace(/([?&](?:key|appid)=)[^&]+/gi, '$1***')
+}
+
+/**
+ * 字符串数值安全解析：天气接口的数值字段都是字符串，空串 / 空白 / "-" 等占位值
+ * 用 Number() 会静默变成 0 或 NaN。温度被填成 0℃ 会让物理模型按低温工况算，
+ * 界面上显示"0"也看不出异常——必须让"取不到"保持 null。
+ */
+function num(v: unknown): number | null {
+  if (v == null) return null
+  const s = String(v).trim()
+  if (s === '') return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
+
 async function fetchJson(url: string, timeoutMs: number): Promise<any> {
   const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
-  if (!r.ok) throw new Error("HTTP " + r.status + " " + url.slice(0, 90))
+  if (!r.ok) throw new Error("HTTP " + r.status + " " + maskKey(url).slice(0, 120))
   return r.json()
 }
 
@@ -122,12 +149,12 @@ async function fetchQweatherHourly(lng: number, lat: number, key: string, host: 
     const d = new Date(h.fxTime || "")
     if (Number.isNaN(d.getTime())) continue
     out.set(hourKey(d), {
-      temperatureC: h.temp != null ? Number(h.temp) : null,
-      windSpeedKmh: h.windSpeed != null ? Number(h.windSpeed) : null,
-      windDirDeg: h.wind360 != null ? Number(h.wind360) : null,
+      temperatureC: num(h.temp),
+      windSpeedKmh: num(h.windSpeed),
+      windDirDeg: num(h.wind360),
       windDirText: h.windDir || "",
-      humidityPct: h.humidity != null ? Number(h.humidity) : null,
-      precipMm: h.precip != null ? Number(h.precip) : null,
+      humidityPct: num(h.humidity),
+      precipMm: num(h.precip),
       weatherText: h.text || "",
       source: 'qweather',
       time: h.fxTime || "",
@@ -149,11 +176,11 @@ async function fetchAmapDaily(lng: number, lat: number, key: string): Promise<{ 
   if (j.status !== "1" || !Array.isArray(j.forecasts)) throw new Error("高德天气 error: " + (j.info || JSON.stringify(j).slice(0, 160)))
   const now = j.lives && j.lives[0]
   const nowSample: WeatherSample | null = now ? {
-    temperatureC: now.temperature != null ? Number(now.temperature) : null,
-    windSpeedKmh: null,
+    temperatureC: num(now.temperature),
+    windSpeedKmh: beaufortToKmh(now.windpower),
     windDirDeg: null,
     windDirText: now.winddirection || "",
-    humidityPct: now.humidity != null ? Number(now.humidity) : null,
+    humidityPct: num(now.humidity),
     precipMm: null,
     weatherText: now.weather || "",
     source: 'amap',
@@ -165,16 +192,21 @@ async function fetchAmapDaily(lng: number, lat: number, key: string): Promise<{ 
     for (const c of fc.casts) {
       const d = c.date || ""
       if (!d) continue
-      const dayT = c.daytemp != null ? Number(c.daytemp) : NaN
-      const nightT = c.nighttemp != null ? Number(c.nighttemp) : NaN
-      const temp = Number.isFinite(dayT) && Number.isFinite(nightT) ? Math.round(((dayT + nightT) / 2) * 10) / 10 : (Number.isFinite(dayT) ? dayT : null)
+      const dayT = num(c.daytemp)
+      const nightT = num(c.nighttemp)
+      const temp = dayT != null && nightT != null ? Math.round(((dayT + nightT) / 2) * 10) / 10 : dayT
       byDate.set(d, {
         temperatureC: temp,
-        windSpeedKmh: null,
+        // 高德 casts 只有风力等级 daypower（蒲福风级），没有风速数值。
+        // 之前这里写死 null，导致高德兜底时 windAffects 恒为 false——
+        // "确实无风"和"根本没抓到风速"被压成同一个值，风阻永远不计。
+        windSpeedKmh: beaufortToKmh(c.daypower),
         windDirDeg: null,
         windDirText: c.daywind || "",
-        humidityPct: c.dayhumidity != null ? Number(c.dayhumidity) : null,
-        precipMm: c.dayprecip != null ? Number(c.dayprecip) : null,
+        // 高德日预报 casts 没有湿度和降水字段（官方字段表：date/week/dayweather/nightweather/
+        // daytemp/nighttemp/daywind/nightwind/daypower/nightpower），保持 null 表示未知
+        humidityPct: null,
+        precipMm: null,
         weatherText: (c.dayweather || "") + "/" + (c.nightweather || ""),
         source: 'amap',
         time: d,
@@ -182,6 +214,21 @@ async function fetchAmapDaily(lng: number, lat: number, key: string): Promise<{ 
     }
   }
   return { now: nowSample, byDate }
+}
+
+/** 蒲福风级 → 风速 km/h（取该级区间中值）。高德只给风力等级，形如 "4"、"≤3"、"5-6" */
+export function beaufortToKmh(power: unknown): number | null {
+  if (power == null) return null
+  const s = String(power).trim()
+  if (!s) return null
+  // 取字符串里最大的那个数字（"5-6" 取 6，"≤3" 取 3）作为风级
+  const nums = s.match(/\d+/g)
+  if (!nums) return null
+  const level = Math.max(...nums.map(Number))
+  if (!Number.isFinite(level)) return null
+  // 蒲福风级各级中值（km/h），0~12 级
+  const MID = [0.5, 3, 9, 15.5, 24.5, 34, 44, 55.5, 68.5, 82.5, 97.5, 113.5, 130]
+  return MID[Math.min(Math.max(Math.round(level), 0), 12)]
 }
 
 /** OpenWeather One Call 3.0（WGS-84）逐小时 48h → Map<hourKey, WeatherSample> */
@@ -192,13 +239,14 @@ async function fetchOpenweatherHourly(lng: number, lat: number, key: string): Pr
   const out = new Map<number, WeatherSample>()
   for (const h of j.hourly) {
     const hk = Math.floor((h.dt || 0) / 3600)
+    const ws = num(h.wind_speed)
     out.set(hk, {
-      temperatureC: h.temp != null ? Number(h.temp) : null,
-      windSpeedKmh: h.wind_speed != null ? Math.round(Number(h.wind_speed) * 3.6 * 10) / 10 : null,
-      windDirDeg: h.wind_deg != null ? Number(h.wind_deg) : null,
+      temperatureC: num(h.temp),
+      windSpeedKmh: ws != null ? Math.round(ws * 3.6 * 10) / 10 : null, // m/s → km/h
+      windDirDeg: num(h.wind_deg),
       windDirText: "",
-      humidityPct: h.humidity != null ? Number(h.humidity) : null,
-      precipMm: (h.rain && h.rain["1h"] != null) ? Number(h.rain["1h"]) : 0,
+      humidityPct: num(h.humidity),
+      precipMm: (h.rain && h.rain["1h"] != null) ? num(h.rain["1h"]) : 0,
       weatherText: (h.weather && h.weather[0] && h.weather[0].description) || "",
       source: 'openweather',
       time: new Date((h.dt || 0) * 1000).toISOString(),
@@ -213,12 +261,19 @@ function cachePath(cacheDir: string, provider: string, grid: string, day: string
   return join(cacheDir, provider + "_" + grid + "_" + day + ".json")
 }
 
+/** 预报缓存有效期：预报本身会被不断修订，早上抓的预报到晚上就不该再用了。
+ * 之前只判断文件存在就直接返回，savedAt 写了却从来没人读，缓存等于永不过期。 */
+export const WEATHER_CACHE_TTL_MS = 3 * 60 * 60 * 1000
+
 function loadCache(cacheDir: string, provider: string, grid: string, day: string): WeatherSample[] | null {
   try {
     const p = cachePath(cacheDir, provider, grid, day)
     if (!existsSync(p)) return null
-    const j = JSON.parse(readFileSync(p, "utf8")) as { samples?: WeatherSample[] }
-    return Array.isArray(j.samples) ? j.samples : null
+    const j = JSON.parse(readFileSync(p, "utf8")) as { savedAt?: string; samples?: WeatherSample[] }
+    if (!Array.isArray(j.samples)) return null
+    const savedAt = j.savedAt ? Date.parse(j.savedAt) : NaN
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > WEATHER_CACHE_TTL_MS) return null
+    return j.samples
   } catch { return null }
 }
 
@@ -241,11 +296,12 @@ export async function enrichSegmentsWithWeather(
   opts: WeatherOptions = {},
 ): Promise<WeatherResult> {
   const cacheDir = opts.cacheDir ?? "data/weather-cache"
-  const windThresholdKmh = opts.windThresholdKmh ?? 10.8
+  const cfg = getWeatherConfig()
+  const { qweatherKey, qweatherHost, amapKey, openweatherKey } = cfg
+  const windThresholdKmh = opts.windThresholdKmh ?? cfg.windThresholdKmh
   const useCache = opts.useCache ?? true
-  const { qweatherKey, qweatherHost, amapKey, openweatherKey } = getWeatherConfig()
-  const result: WeatherResult = { segments, sampled: 0, bySource: {}, queries: 0, provider: "none", windySegments: 0 }
-  if (segments.length === 0) return result
+  const result: WeatherResult = { segments, sampled: 0, bySource: {}, queries: 0, provider: "none", windySegments: 0, unmatched: segments.length }
+  if (segments.length === 0) { result.unmatched = 0; return result }
 
   const t0 = opts.departureTime ? new Date(opts.departureTime) : new Date()
   if (Number.isNaN(t0.getTime())) t0.setTime(Date.now())
@@ -281,6 +337,13 @@ export async function enrichSegmentsWithWeather(
 
   // 3) 网格去重 + 逐网格抓取
   const grids = [...new Set(metas.map((m) => m.grid).filter(Boolean))]
+  const metasByGrid = new Map<string, SegMeta[]>()
+  for (const m of metas) {
+    if (!m.grid) continue
+    const arr = metasByGrid.get(m.grid)
+    if (arr) arr.push(m)
+    else metasByGrid.set(m.grid, [m])
+  }
   const dayKey = localDateKey(t0)
   // hour 级样本：grid|hourKey → sample；day 级样本：grid|YYYY-MM-DD → sample；now：grid|now
   // hour 级样本按网格分组：Map<grid, Map<hourKey, sample>>（QWeather 从『下一个整点』开始，需按最近小时匹配）
@@ -288,9 +351,42 @@ export async function enrichSegmentsWithWeather(
   const daySamples = new Map<string, WeatherSample>();
   const nowSamples = new Map<string, WeatherSample>();
 
+  /** 从某网格的逐小时样本里取最接近该时刻的一条（QWeather 从『下一个整点』起报，
+   * 段中点时刻常落在两整点之间）。超过 90 分钟视为没覆盖到。
+   * 抓取阶段判断"要不要兜底"和赋值阶段判断"匹配到没有"必须用同一套口径，否则会各说各话。 */
+  const matchHourly = (gridHours: Map<number, WeatherSample> | undefined, timeMs: number): WeatherSample | null => {
+    if (!gridHours || gridHours.size === 0) return null
+    let best: WeatherSample | null = null
+    let bestDiff = 5400000 // 90 分钟上限
+    for (const [hk, s] of gridHours) {
+      const diff = Math.abs(hk * 3600000 - timeMs)
+      if (diff < bestDiff) { bestDiff = diff; best = s }
+    }
+    return best
+  }
+
+  /** 拉高德日预报（4 天）作为该网格的兜底样本 */
+  const loadAmapForGrid = async (grid: string, cx: number, cy: number): Promise<void> => {
+    // 先看缓存：QWeather 持续失败时（比如漏配 QWEATHER_HOST 一直 403），
+    // 不读缓存会导致每次测算都对每个网格重打两次高德接口
+    const cachedAmap = useCache ? loadCache(cacheDir, "amap", grid, dayKey) : null
+    if (cachedAmap) {
+      for (const s of cachedAmap) {
+        if (s.time === "now") nowSamples.set(grid + "|now", s)
+        else daySamples.set(grid + "|" + s.time, s)
+      }
+      return
+    }
+    const amap = await fetchAmapDaily(cx, cy, amapKey)
+    result.queries += 2 // regeo + weatherInfo 两次调用，额度统计不能只算一次
+    if (amap.now) nowSamples.set(grid + "|now", amap.now)
+    for (const [d, s] of amap.byDate) daySamples.set(grid + "|" + d, s)
+    if (useCache && amap.byDate.size) saveCache(cacheDir, "amap", grid, dayKey, [...amap.byDate.values(), ...(amap.now ? [amap.now] : [])])
+  }
+
   for (let gi = 0; gi < grids.length; gi++) {
     if (opts.shouldCancel?.()) break
-    opts.onProgress?.({ phase: "weather", done: gi, total: grids.length })
+    opts.onProgress?.({ phase: "weather", done: gi + 1, total: grids.length })
     const grid = grids[gi]
     const [cx, cy] = gridCenter(grid)
 
@@ -321,35 +417,25 @@ export async function enrichSegmentsWithWeather(
         let g = hourSamples.get(grid)
         if (!g) { g = new Map(); hourSamples.set(grid, g) }
         for (const [hk, s] of hourly) g.set(hk, s)
-      } else if (amapKey && provider === "qweather") {
-        // QWeather 失败 → 高德日预报兜底
+      }
+      if (opts.shouldCancel?.()) break
+      // 逐小时预报的窗口锚定在"当前时刻"，不是出发时刻：选明晚或下周出发时，
+      // 24h 窗口一条都对不上。此时抓取本身是成功的（hourly.size > 0），
+      // 只看"抓取失败才兜底"会让这些段全部静默留空 —— 必须按"有没有真的匹配上"来决定兜底。
+      const need = metasByGrid.get(grid) ?? []
+      const uncovered = need.filter((m) => !matchHourly(hourSamples.get(grid), m.time.getTime()))
+      if (uncovered.length > 0 && amapKey) {
         try {
-          const amap = await fetchAmapDaily(cx, cy, amapKey)
-          result.queries += 1
-          if (amap.now) nowSamples.set(grid + "|now", amap.now)
-          for (const [d, s] of amap.byDate) daySamples.set(grid + "|" + d, s)
-          if (useCache && amap.byDate.size) saveCache(cacheDir, "amap", grid, dayKey, [...amap.byDate.values(), ...(amap.now ? [amap.now] : [])])
+          await loadAmapForGrid(grid, cx, cy)
         } catch (e2) {
           console.warn("[weather] 高德兜底也失败:", (e2 as Error).message)
         }
       }
     } else if (provider === "amap") {
-      const cached = useCache ? loadCache(cacheDir, "amap", grid, dayKey) : null
-      if (cached) {
-        for (const s of cached) {
-          if (s.time === "now") nowSamples.set(grid + "|now", s)
-          else daySamples.set(grid + "|" + s.time, s)
-        }
-      } else {
-        try {
-          const amap = await fetchAmapDaily(cx, cy, amapKey)
-          result.queries += 1
-          if (amap.now) nowSamples.set(grid + "|now", amap.now)
-          for (const [d, s] of amap.byDate) daySamples.set(grid + "|" + d, s)
-          if (useCache && amap.byDate.size) saveCache(cacheDir, "amap", grid, dayKey, [...amap.byDate.values(), ...(amap.now ? [amap.now] : [])])
-        } catch (e) {
-          console.warn("[weather] 高德天气抓取失败:", (e as Error).message)
-        }
+      try {
+        await loadAmapForGrid(grid, cx, cy)
+      } catch (e) {
+        console.warn("[weather] 高德天气抓取失败:", (e as Error).message)
       }
     }
     if (provider === "qweather") await sleep(300)
@@ -359,19 +445,7 @@ export async function enrichSegmentsWithWeather(
   for (const m of metas) {
     if (!m.grid) continue
     let sample = hourSamples.get(m.grid)?.get(m.hk) ?? null
-    if (!sample) {
-      // QWeather 从『下一个整点』开始预报，路段时刻可能落在两整点之间 → 取最近小时（≤90 分钟）
-      const gridHours = hourSamples.get(m.grid)
-      if (gridHours) {
-        let best: WeatherSample | null = null
-        let bestDiff = 5400000 // 90 分钟上限
-        for (const [hk, s] of gridHours) {
-          const diff = Math.abs(hk * 3600000 - m.time.getTime())
-          if (diff < bestDiff) { bestDiff = diff; best = s }
-        }
-        sample = best
-      }
-    }
+    if (!sample) sample = matchHourly(hourSamples.get(m.grid), m.time.getTime())
     if (!sample) sample = daySamples.get(m.grid + "|" + m.day) ?? null
     if (!sample) sample = nowSamples.get(m.grid + "|now") ?? null
     if (!sample) continue
@@ -391,5 +465,9 @@ export async function enrichSegmentsWithWeather(
     if (seg.windAffects) result.windySegments += 1
   }
 
+  result.unmatched = segments.length - result.sampled
+  if (result.unmatched > 0) {
+    console.warn(`[weather] ${result.unmatched}/${segments.length} 段未匹配到天气（出发时间可能超出预报窗口）`)
+  }
   return result
 }

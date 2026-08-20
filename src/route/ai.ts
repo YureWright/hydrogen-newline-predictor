@@ -6,7 +6,8 @@
  *   DEEPSEEK_BASE_URL 可选，默认 https://api.deepseek.com（OpenAI 兼容端点）
  *   DEEPSEEK_MODEL    可选，默认 deepseek-v4-flash
  */
-import type { RouteCandidate, SegmentData, SegmentSummary } from './types'
+import type { RoadLevel, RouteCandidate, SegmentData, SegmentSummary } from './types'
+import { ROAD_LEVEL_LABEL } from './segment'
 
 export interface AiConfig {
   apiKey: string
@@ -48,7 +49,12 @@ function buildPrompt(input: RouteEvalInput): string {
   lines.push(`实时路况：畅通 ${c.traffic.smoothKm}km / 缓行 ${c.traffic.slowKm} / 拥堵 ${c.traffic.congestedKm} / 严重 ${c.traffic.severeKm}，拥堵占比 ${(c.traffic.congestionRatio * 100).toFixed(1)}%`)
   lines.push('')
   lines.push('【路段汇总】')
-  lines.push(`共 ${s.segmentCount} 段；高速 ${s.roadLevelKm.highway}km，国道 ${s.roadLevelKm.national}km，省道 ${s.roadLevelKm.provincial}km，城市 ${s.roadLevelKm.city}km，其他 ${s.roadLevelKm.other}km`)
+  // 由 ROAD_LEVEL_LABEL 生成，保证新增道路等级时不会漏列（漏列会让各等级里程之和对不上总里程，
+  // 模型拿到一份自相矛盾的数据）
+  const levelParts = (Object.keys(ROAD_LEVEL_LABEL) as RoadLevel[])
+    .filter((k) => (s.roadLevelKm[k] ?? 0) > 0)
+    .map((k) => `${ROAD_LEVEL_LABEL[k]} ${s.roadLevelKm[k]}km`)
+  lines.push(`共 ${s.segmentCount} 段，合计 ${s.totalKm}km；` + (levelParts.join('，') || '无等级数据'))
   if (s.avgGradePercent != null) lines.push(`里程加权平均坡度 ${s.avgGradePercent}%，平均海拔 ${s.avgElevationM ?? '-'}m`)
   const gains = segments.reduce((a, x) => a + (x.elevationGainM ?? 0), 0)
   const losses = segments.reduce((a, x) => a + (x.elevationLossM ?? 0), 0)
