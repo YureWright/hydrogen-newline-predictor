@@ -35,7 +35,6 @@ export default function IntroScreen({ onEnter }: Props) {
 
       <div className="intro-hero-truck" aria-hidden="true">
         <img src="/truck-cutout.png" alt="" />
-        <span className="intro-hero-sweep" />
       </div>
 
       <div className="intro-brand" onClick={(e) => e.stopPropagation()}>

@@ -838,36 +838,20 @@ body::before {
   100% { transform: scale(1.12) translate(2%, 1%); opacity: 0.28; }
 }
 
-/* 氢车盖在原图卡车位置：画面中下、居中 */
+/* 氢车盖住背景原图里的卡车：放大、居中偏右下（对齐原图卡车位置） */
 .intro-hero-truck {
   position: absolute;
   left: 50%;
-  bottom: 9%;
-  width: min(58vw, 760px);
-  transform: translateX(-50%);
+  bottom: 4%;
+  width: min(72vw, 920px);
+  transform: translateX(-46%);
   z-index: 2;
   pointer-events: none;
 }
 .intro-hero-truck img {
   width: 100%; height: auto;
   display: block;
-  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.55));
-}
-/* 淡青绿电流：从车尾滑到车头，慢，不做成一根死线 */
-.intro-hero-sweep {
-  position: absolute; inset: 18% 8% 28% 6%;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent 0%, rgba(90, 230, 210, 0.0) 35%, rgba(90, 230, 210, 0.38) 50%, rgba(90, 230, 210, 0.0) 65%, transparent 100%);
-  mix-blend-mode: screen;
-  animation: truck-current 7.5s linear infinite;
-  mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
-}
-@keyframes truck-current {
-  0% { transform: translateX(-70%); opacity: 0; }
-  12% { opacity: 0.85; }
-  88% { opacity: 0.85; }
-  100% { transform: translateX(70%); opacity: 0; }
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.6));
 }
 
 /* 品牌层：官方 logo 原图直接贴，不再重绘字体 */
