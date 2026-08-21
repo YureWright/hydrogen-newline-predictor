@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """生成训练报告：每特征与目标相关性 + 特征重要性（真实数据，不造假）"""
+import os
+os.environ.setdefault('LOKY_MAX_CPU_COUNT', '1')
+os.environ.setdefault('OMP_NUM_THREADS', '1')
 import pandas as pd, numpy as np, json, sys, os, warnings
 warnings.filterwarnings("ignore")
 from collections import Counter, defaultdict
@@ -62,12 +65,14 @@ s=s[(s["h2_per_km"]>0.02)&(s["h2_per_km"]<0.5)&(s["len_km"]>=1)]
 lib=defaultdict(list)
 for _,r in s.iterrows():
     b=bucket_of(r["lv"],r["v_mean"])
-    lib[b].append((np.array(r["v_series"],float), np.array(r["a_series"],float)))
+    lib[b].append(np.array(r["v_series"],float))
 
 # 实测深度特征 + 合成深度特征
 rng=np.random.default_rng(42)
 for i,r in s.iterrows():
-    mdf=deep_feats(r["v_series"],r["a_series"],r["g_series"],r["len_km"])
+    varr=np.array(r["v_series"],float)
+    aarr=np.diff(varr, prepend=varr[0])/3.6/60.0  # 加速度：v 差分（m/s²），H49 列是经度错位
+    mdf=deep_feats(varr, aarr, r["g_series"], r["len_km"])
     n=len(r["v_series"])
     vs,aa,gs=synth_segment(rng, r["v_mean"], r["grade_mean"], n, lib, bucket_of(r["lv"],r["v_mean"]))
     sdf=deep_feats(vs,aa,gs,r["len_km"])

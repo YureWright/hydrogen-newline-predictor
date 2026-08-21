@@ -3,6 +3,9 @@
 读取实车 60s 数据(已含坡度/海拔/温度/道路等级等回填特征) → 5km 段聚合
 → 工况合成深度特征 → HistGB 训练 → 导出 model.joblib + 模板片段库 + 元数据。
 """
+import os
+os.environ.setdefault('LOKY_MAX_CPU_COUNT', '1')
+os.environ.setdefault('OMP_NUM_THREADS', '1')
 import pandas as pd, numpy as np, json, sys, os, warnings
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -33,7 +36,8 @@ def aggregate(d):
     lat=d["lat_纬度"].values/1e6; lon=d["lon_经度"].values/1e6
     t=pd.to_datetime(d.iloc[:,0],errors="coerce").values
     v=d["canData_speed_车速"].astype(float).values/10.0   # ×10 → km/h
-    a=d["H49Data_longitudinal_acc_纵向加速度"].astype(float).values
+    # 注意：H49Data_longitudinal_acc 列实际是经度（清洗错位），加速度由 60s 平均速度差分得到 (m/s²)
+    a=np.diff(v, prepend=v[0])/3.6/60.0
     g=d["grade_pct"].astype(float).values; e=d["elev_m"].values
     tc=d["temp_c"].astype(float).values; w=d["wind_kmh"].astype(float).values; hu=d["hum_pct"].astype(float).values
     lv=d["road_level"].values
@@ -77,7 +81,7 @@ print("真实目标 h2_per_km(kg/km):",s["h2_per_km"].describe().round(4)[["mean
 lib=defaultdict(list)
 for _,r in s.iterrows():
     b=bucket_of(r["lv"],r["v_mean"])
-    lib[b].append((np.array(r["v_series"],float), np.array(r["a_series"],float)))
+    lib[b].append(np.array(r["v_series"],float))  # 只存 v（合成时 a 由 v 差分得到）
 print("片段库桶:",{k:len(v) for k,v in lib.items()})
 
 # 每段合成深度特征（固定随机种子，保证可复现）
@@ -106,7 +110,7 @@ print("\n按行程分组 CV: R2=%.4f±%.4f RMSE=%.4f kg/km"%(np.mean(r2s),np.std
 # 导出
 import joblib
 joblib.dump(model, OUT_MODEL)
-json.dump({k:[ (a.tolist(),b.tolist()) for a,b in v] for k,v in lib.items()}, open(OUT_TEMPLATES,"w",encoding="utf-8"))
+json.dump({k:[a.tolist() for a in v] for k,v in lib.items()}, open(OUT_TEMPLATES,"w",encoding="utf-8"))
 json.dump({"features":FEATURES,"units":{"speed":"km/h","h2":"kg/km","target":"h2_remain_diff"},"trained_at":"2026-08-21","n_segments":int(len(s)),
            "cv":{"r2_mean":float(np.mean(r2s)),"rmse_mean":float(np.mean(rms))}}, open(OUT_META,"w",encoding="utf-8"), ensure_ascii=False, indent=2)
 print("已导出:",OUT_MODEL,OUT_TEMPLATES,OUT_META)

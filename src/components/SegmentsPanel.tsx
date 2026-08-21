@@ -115,13 +115,25 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [aiText, setAiText] = useState('')
   // 氢耗预测（机器学习）
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [hydroResult, setHydroResult] = useState<{ total_h2_kg?: number; per100km_kg?: number; segments?: Array<{ index: number; h2_per_km_kg: number; h2_kg: number }> } | null>(null)
+  const [hydroResult, setHydroResult] = useState<{
+    total_h2_kg?: number; per100km_kg?: number;
+    segments?: Array<{
+      index: number; roadName?: string; distanceKm: number; avgSpeedKmh: number; gradePercent: number;
+      elevationM: number; temperatureC: number; roadLevel?: string;
+      v_std: number; v_p85: number; absa_mean: number; a_p90: number;
+      cruise_ratio: number; stop_ratio: number; e_acc: number; e_aero: number; e_grade_up: number;
+      h2_per_km_kg: number; h2_kg: number;
+    }>;
+  } | null>(null)
+  /** 预测进度步骤 0~3（单次 POST 无法真进度，用步骤动画做视觉反馈） */
+  const [hydroStep, setHydroStep] = useState(0)
   const [hydroError, setHydroError] = useState('')
   const [showHowItWorks, setShowHowItWorks] = useState(false)
   const [aiModel, setAiModel] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const jobIdRef = useRef('')
+  const hydroTimerRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clearTimer = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null } }
@@ -343,7 +355,10 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   }), [origin, destination, candidate, segments, summary])
 
   const runHydro = useCallback(async () => {
-    setHydroStage('running'); setHydroError('')
+    setHydroStage('running'); setHydroError(''); setHydroStep(1)
+    // 步骤动画：①提取段特征 → ②合成工况 → ③模型预测（请求本身秒级，动画只做视觉反馈）
+    const timer = window.setInterval(() => setHydroStep((s) => (s < 3 ? s + 1 : s)), 600)
+    hydroTimerRef.current = timer
     try {
       // 精简 payload：只传模型需要的字段（去掉 coordsWgs84/profile 等大字段）
       const slim = (data?.segments ?? []).map((s) => ({
@@ -356,13 +371,54 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segments: slim, departureTime }),
       })
-      const j = (await r.json()) as { ok?: boolean; total_h2_kg?: number; per100km_kg?: number; segments?: Array<{ index: number; h2_per_km_kg: number; h2_kg: number }>; msg?: string }
-      if (j.ok) { setHydroResult(j); setHydroStage('done') }
+      const j = await r.json() as typeof hydroResult & { ok?: boolean; msg?: string }
+      if (j.ok) { setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
       else { setHydroError(j.msg || '预测失败'); setHydroStage('error') }
     } catch (e: any) {
-      setHydroError('预测失败：' + (e.message || e)); setHydroStage('error')
+      setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
+      if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
     }
   }, [data, departureTime])
+
+  // 氢耗折线：x=累计里程，y=每公里氢耗（kg/100km）；高耗段打标记
+  const hydroPts = useMemo(() => {
+    const segs = hydroResult?.segments ?? []
+    let cum = 0
+    return segs.map((s) => { cum += s.distanceKm; return { x: Math.round(cum * 10) / 10, y: Math.round(s.h2_per_km_kg * 100 * 100) / 100 } })
+  }, [hydroResult])
+  const hydroMarkers = useMemo(() => {
+    const segs = hydroResult?.segments ?? []
+    const thr = Math.max(8, (segs.reduce((a, s) => a + s.h2_per_km_kg, 0) / Math.max(segs.length, 1)) * 100 * 1.5)
+    let cum = 0
+    return segs.filter((s) => s.h2_per_km_kg * 100 > thr).map((s) => { cum += s.distanceKm; return { x: cum, label: (s.h2_per_km_kg * 100).toFixed(0) + 'kg', color: '#ff6072' } })
+  }, [hydroResult])
+
+  // 氢耗明细导出 CSV（普通字段 + 深度工况字段）
+  const exportHydroCsv = useCallback(() => {
+    const segs = hydroResult?.segments ?? []
+    if (!segs.length) return
+    const esc = (v: any): string => {
+      const s = v == null ? '' : String(v)
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
+    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '温度℃',
+      '氢耗kg/km', '氢耗kg', '巡航速度v_p85', '加速能量e_acc', '空阻能量e_aero', '上坡能量e_grade_up',
+      '加速度均值absa', '巡航占比cruise', '停车占比stop', '速度波动v_std', '强加速a_p90']
+    const rows = segs.map((s) => [
+      s.index, s.roadName ?? '', s.roadLevel ?? '', s.distanceKm, s.avgSpeedKmh, s.gradePercent, s.elevationM, s.temperatureC,
+      (s.h2_per_km_kg * 100).toFixed(2), s.h2_kg, s.v_p85, s.e_acc, s.e_aero, s.e_grade_up,
+      s.absa_mean, s.cruise_ratio, s.stop_ratio, s.v_std, s.a_p90,
+    ].map(esc).join(','))
+    const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = '氢耗预测明细_route' + (routeIndex + 1) + '.csv'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [hydroResult, routeIndex])
+
   const runAi = useCallback(async () => {
     setAiLoading(true)
     setAiError('')
@@ -664,7 +720,17 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             <button className="btn-primary" onClick={runHydro}>开始氢耗预测</button>
           </>
         )}
-        {hydroStage === 'running' && <div className="panel-loading">正在合成行驶工况并预测氢耗…（秒级）</div>}
+        {hydroStage === 'running' && (
+          <div className="hydro-progress">
+            <div className="hydro-steps">
+              <span className={hydroStep >= 1 ? 'on' : ''}>① 提取段特征</span>
+              <span className={hydroStep >= 2 ? 'on' : ''}>② 合成行驶工况</span>
+              <span className={hydroStep >= 3 ? 'on' : ''}>③ 模型预测</span>
+            </div>
+            <div className="progress-track"><div className="progress-fill indeterminate" /></div>
+            <div className="hydro-progress-tip">正在按道路等级×均速从实车片段库拼接 60s 工况…</div>
+          </div>
+        )}
         {hydroError && <div className="error">{hydroError}</div>}
         {hydroStage === 'done' && hydroResult && (
           <div className="hydro-result">
@@ -673,7 +739,53 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               <div className="hydro-metric"><b>{hydroResult.per100km_kg?.toFixed(2)}</b><span>百公里 kg/100km</span></div>
               <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
             </div>
-            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；预测基于实车工况模板，载重/驾驶习惯会影响实际值。</div>
+            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；预测基于实车工况模板，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
+            <div className="hydro-chart">
+              <LineAreaChartMemo points={hydroPts} color="#3ae3ff" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
+            </div>
+            <div className="hydro-table-wrap">
+              <div className="hydro-table-head">
+                <span>路段氢耗明细（{hydroResult.segments?.length ?? 0} 段）</span>
+                <button className="btn-export" onClick={exportHydroCsv} disabled={!hydroResult.segments?.length}>⬇ 导出 CSV</button>
+              </div>
+              <div className="hydro-table-scroll">
+                <table className="hydro-table">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>道路</th><th>等级</th><th>里程km</th><th>均速</th><th>坡度%</th><th>海拔m</th><th>温度℃</th>
+                      <th>氢耗kg/km</th><th>氢耗kg</th>
+                      <th title="巡航速度第85分位(km/h)">v_p85</th><th title="加速能量/km">e_acc</th><th title="空阻能量/km">e_aero</th><th title="上坡能量/km">e_grade_up</th>
+                      <th title="加速度均值(m/s²)">absa</th><th title="巡航占比">cruise</th><th title="停车占比">stop</th><th title="速度波动">v_std</th><th title="强加速p90">a_p90</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hydroResult.segments?.map((s) => (
+                      <tr key={s.index}>
+                        <td className="mono">{s.index}</td>
+                        <td className="road-name">{s.roadName || "—"}</td>
+                        <td>{s.roadLevel ? (ROAD_LEVEL_LABEL as Record<string, string>)[s.roadLevel] : "—"}</td>
+                        <td className="mono">{s.distanceKm}</td>
+                        <td className="mono">{s.avgSpeedKmh}</td>
+                        <td className="mono">{s.gradePercent}</td>
+                        <td className="mono">{s.elevationM}</td>
+                        <td className="mono">{s.temperatureC}</td>
+                        <td className="mono hydro-strong">{(s.h2_per_km_kg * 100).toFixed(2)}</td>
+                        <td className="mono">{s.h2_kg}</td>
+                        <td className="mono">{s.v_p85}</td>
+                        <td className="mono">{s.e_acc}</td>
+                        <td className="mono">{s.e_aero}</td>
+                        <td className="mono">{s.e_grade_up}</td>
+                        <td className="mono">{s.absa_mean}</td>
+                        <td className="mono">{s.cruise_ratio}</td>
+                        <td className="mono">{s.stop_ratio}</td>
+                        <td className="mono">{s.v_std}</td>
+                        <td className="mono">{s.a_p90}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -836,3 +836,23 @@ body::before {
   padding: 14px 20px; border-top: 1px solid var(--line);
   font-size: 12px; color: var(--txt-3);
 }
+
+
+/* ============ 氢耗预测：进度/图表/明细表 ============ */
+.hydro-progress { margin-top: 12px; }
+.hydro-steps { display: flex; gap: 18px; margin-bottom: 8px; font-size: 13px; color: var(--txt-3); }
+.hydro-steps span.on { color: var(--cyan); }
+.hydro-steps span.on::before { content: "✓ "; }
+.hydro-progress-tip { margin-top: 8px; font-size: 12px; color: var(--txt-3); }
+.hydro-chart { margin-top: 14px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px; }
+.hydro-table-wrap { margin-top: 14px; }
+.hydro-table-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.hydro-table-head span { font-size: 13px; color: var(--txt-2); }
+.hydro-table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+.hydro-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.hydro-table th, .hydro-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.hydro-table th { background: var(--glass-2); color: var(--txt-2); position: sticky; top: 0; cursor: help; }
+.hydro-table td:first-child, .hydro-table th:first-child { text-align: left; }
+.hydro-table .road-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.hydro-table tbody tr:hover { background: var(--glass-2); }
+.hydro-strong { color: var(--cyan); font-weight: 600; }

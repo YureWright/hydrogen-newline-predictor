@@ -44,27 +44,26 @@ def deep_feats(vs, aa, gs, L):
         "e_grade_up": float(np.sum(np.clip(vs*gs, 0, None)*DT)/L),
     }
 
-# ---------- 工况合成：模板拼接（从片段库按桶随机抽 v/a 片段） ----------
+# ---------- 工况合成：模板拼接（从片段库按桶随机抽 v 片段；加速度由 v 差分得到） ----------
 def synth_segment(rng, v_mean_kmh, grade_mean, n_points, lib, bucket):
     """为一段路合成 60s 分辨率的 v/a 序列。
     v_mean_kmh: 段均速(km/h)；grade_mean: 段平均坡度(%)；n_points: 段内 60s 点数。
+    lib: 片段库（每桶存 v 片段数组，km/h）；加速度 = Δv/Δt（60s，m/s²）。
     返回 (v_list, a_list, grade_list)"""
     v_mean = max(v_mean_kmh, 1.0)
     n = max(2, int(n_points))
     gs = np.full(n, float(grade_mean or 0.0))
     cands = lib.get(bucket) or lib.get("road_mid") or []
     if not cands:
-        vv = np.full(n, v_mean); aa = np.zeros(n)
+        vv = np.full(n, v_mean)
+        aa = np.zeros(n)
         return vv.tolist(), aa.tolist(), gs.tolist()
-    def paste(idx):
-        pieces = []
-        while sum(len(p) for p in pieces) < n:
-            p = cands[int(rng.integers(0, len(cands)))]
-            pieces.append(p[idx])
-        seq = np.concatenate(pieces)[:n]
-        if len(seq) < n: seq = np.pad(seq, (0, n-len(seq)))
-        return seq
-    vs = paste(0); aa = paste(1)
+    pieces = []
+    while sum(len(p) for p in pieces) < n:
+        p = cands[int(rng.integers(0, len(cands)))]
+        pieces.append(p)
+    vs = np.concatenate(pieces)[:n]
+    if len(vs) < n: vs = np.pad(vs, (0, n-len(vs)))
     vs = np.asarray(vs, float)
     if len(vs) > 2:
         vs = np.array([vs[0]] + [(vs[j-1]+2*vs[j]+vs[j+1])/4 for j in range(1, len(vs)-1)] + [vs[-1]])
@@ -73,7 +72,9 @@ def synth_segment(rng, v_mean_kmh, grade_mean, n_points, lib, bucket):
     nz = vs > 0
     if nz.sum() > 0:
         vs[nz] = np.clip(vs[nz]*(v_mean*n/(nz.sum())/np.mean(vs[nz])), 0, v_mean*1.8)
-    return vs.tolist(), np.asarray(aa, float).tolist(), gs.tolist()
+    # 加速度：60s 平均速度差分 → m/s²（(km/h)/60s /3.6）
+    aa = np.diff(vs, prepend=vs[0]) / 3.6 / DT
+    return vs.tolist(), aa.tolist(), gs.tolist()
 
 # ---------- 训练/预测共用的段特征装配 ----------
 ACQUIRABLE = ["len_km","v_mean","grade_mean","elev_mean","temp_mean","wind_mean","hum_mean","hour","lv"]

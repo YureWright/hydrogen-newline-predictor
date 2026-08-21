@@ -17,7 +17,7 @@ TPL = os.path.join(HERE, "templates.json")
 
 def load_lib():
     raw = json.load(open(TPL, encoding="utf-8"))
-    return {k: [(np.array(a, float), np.array(b, float)) for a, b in v] for k, v in raw.items()}
+    return {k: [np.array(a, float) for a in v] for k, v in raw.items()}
 
 model = None
 lib = None
@@ -46,7 +46,30 @@ def predict_segment(seg, rng, hour_default=12):
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
     h2_kg = max(h2_per_km_kg, 0.0) * L
-    return {"index": seg.get("index", 0), "distanceKm": L, "h2_per_km_kg": round(max(h2_per_km_kg, 0.0), 4), "h2_kg": round(h2_kg, 3)}
+    return {
+      "index": seg.get("index", 0),
+      "roadName": seg.get("roadName", ""),
+      "distanceKm": round(L, 2),
+      "avgSpeedKmh": round(v_mean, 1),
+      "gradePercent": round(grade, 2),
+      "elevationM": round(elev, 0),
+      "temperatureC": round(temp, 1),
+      "windSpeedKmh": round(wind, 1),
+      "humidityPct": round(hum, 0),
+      "roadLevel": seg.get("roadLevel") or "other",
+      # 合成深度工况字段
+      "v_std": round(deep["v_std"], 2),
+      "v_p85": round(deep["v_p85"], 1),
+      "absa_mean": round(deep["absa_mean"], 3),
+      "a_p90": round(deep["a_p90"], 3),
+      "cruise_ratio": round(deep["cruise_ratio"], 3),
+      "stop_ratio": round(deep["stop_ratio"], 3),
+      "e_acc": round(deep["e_acc"], 3),
+      "e_aero": round(deep["e_aero"], 2),
+      "e_grade_up": round(deep["e_grade_up"], 3),
+      "h2_per_km_kg": round(max(h2_per_km_kg, 0.0), 4),
+      "h2_kg": round(h2_kg, 3),
+    }
 
 def main():
     raw = sys.stdin.read()
