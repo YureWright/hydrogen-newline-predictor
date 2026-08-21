@@ -856,3 +856,20 @@ body::before {
 .hydro-table .road-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .hydro-table tbody tr:hover { background: var(--glass-2); }
 .hydro-strong { color: var(--cyan); font-weight: 600; }
+
+
+/* ============ 技术原理页（纯 JSX 版） ============ */
+.howitworks-body .hw-lead { color: var(--txt); margin-bottom: 12px; }
+.hw-sec { margin: 18px 0; }
+.hw-sec h4 { font-size: 15px; color: var(--cyan); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.hw-sec p, .hw-sec ul, .hw-sec ol { margin: 6px 0; line-height: 1.8; }
+.hw-sec li { margin: 3px 0; }
+.hw-sec code { background: var(--glass-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 12.5px; color: var(--mint); }
+.hw-note { font-size: 12.5px; color: var(--txt-3); margin-top: 10px; }
+.hw-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+.hw-table table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.hw-table th, .hw-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.hw-table th { background: var(--glass-2); color: var(--txt-2); font-weight: 600; white-space: nowrap; }
+.hw-table td { color: var(--txt); }
+.hw-table tbody tr:last-child td { border-bottom: none; }
+.hw-table tbody tr:hover { background: var(--glass-2); }
