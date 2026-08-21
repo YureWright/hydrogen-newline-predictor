@@ -848,10 +848,20 @@ body::before {
 .hydro-table-wrap { margin-top: 14px; }
 .hydro-table-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .hydro-table-head span { font-size: 13px; color: var(--txt-2); }
-.hydro-table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+.hydro-table-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.24);
+}
 .hydro-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 .hydro-table th, .hydro-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
 .hydro-table th { background: var(--glass-2); color: var(--txt-2); position: sticky; top: 0; cursor: help; }
+.hydro-table th.sortable { cursor: pointer; user-select: none; transition: color 0.15s; }
+.hydro-table th.sortable:hover { color: var(--cyan); }
+.hydro-table th.sortable:active { color: var(--mint); }
 .hydro-table td:first-child, .hydro-table th:first-child { text-align: left; }
 .hydro-table .road-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
 .hydro-table tbody tr:hover { background: var(--glass-2); }

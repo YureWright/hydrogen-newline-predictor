@@ -64,6 +64,10 @@ const MOTION_MARK: Record<string, { label: string; color: string }> = {
 }
 
 type SortKey = 'index' | 'distanceKm' | 'gradePercent' | 'elevationM' | 'avgSpeedKmh'
+type HydroSortKey =
+  | 'index' | 'roadName' | 'distanceKm' | 'avgSpeedKmh' | 'gradePercent' | 'elevationM' | 'temperatureC'
+  | 'h2_per_km_kg' | 'h2_kg' | 'v_p85' | 'e_acc' | 'e_aero' | 'e_grade_up' | 'absa_mean'
+  | 'cruise_ratio' | 'stop_ratio' | 'v_std' | 'a_p90'
 type Stage = 'idle' | 'running' | 'done' | 'error'
 
 /** 模块级常量：无数据时的稳定空数组引用（见下方 segments 的说明） */
@@ -114,6 +118,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   }, [])
   const [aiText, setAiText] = useState('')
   // 氢耗预测（机器学习）
+  // 氢耗明细表排序（点击表头；与路段表同一套交互）
+  const [hydroSortKey, setHydroSortKey] = useState<HydroSortKey>('index')
+  const [hydroSortDesc, setHydroSortDesc] = useState(false)
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [hydroResult, setHydroResult] = useState<{
     total_h2_kg?: number; per100km_kg?: number;
@@ -297,6 +304,23 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   const totalStops = useMemo(() => segments.reduce((a, s) => a + expectedStopCount(s), 0), [segments])
 
+  // 氢耗明细表排序：null 沉底；字符串列（道路名）用 localeCompare，数值列直接比较
+  const hydroSorted = useMemo(() => {
+    const arr = hydroResult?.segments ? [...hydroResult.segments] : []
+    arr.sort((a, b) => {
+      const av: unknown = a[hydroSortKey]
+      const bv: unknown = b[hydroSortKey]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      let r: number
+      if (typeof av === 'string' && typeof bv === 'string') r = av.localeCompare(bv, 'zh')
+      else r = Number(av) < Number(bv) ? -1 : Number(av) > Number(bv) ? 1 : 0
+      return r * (hydroSortDesc ? -1 : 1)
+    })
+    return arr
+  }, [hydroResult, hydroSortKey, hydroSortDesc])
+
   // 导出 CSV（所见即所得：按当前排序导出行；\uFEFF BOM 保证 Excel 打开中文不乱码）
   const exportCsv = useCallback(() => {
     if (!segments.length) return
@@ -444,6 +468,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     else { setSortKey(k); setSortDesc(false) }
   }
   const sortArrow = (k: SortKey) => (sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : '')
+  const headerSortHydro = (k: HydroSortKey) => {
+    if (hydroSortKey === k) setHydroSortDesc(!hydroSortDesc)
+    else { setHydroSortKey(k); setHydroSortDesc(false) }
+  }
+  const sortArrowHydro = (k: HydroSortKey) => (hydroSortKey === k ? (hydroSortDesc ? ' ↓' : ' ↑') : '')
 
   /* ---------- 未测算：开始按钮 ---------- */
   if (stage === 'idle') {
@@ -771,21 +800,36 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             </div>
             <div className="hydro-table-wrap">
               <div className="hydro-table-head">
-                <span>路段氢耗明细（{hydroResult.segments?.length ?? 0} 段）</span>
+                <span>路段氢耗明细（{hydroResult.segments?.length ?? 0} 段）<span className="table-tip">点击表头排序（# = 起点→终点顺序）</span></span>
                 <button className="btn-export" onClick={exportHydroCsv} disabled={!hydroResult.segments?.length}>⬇ 导出 CSV</button>
               </div>
               <div className="hydro-table-scroll">
                 <table className="hydro-table">
                   <thead>
                     <tr>
-                      <th>#</th><th>道路</th><th>等级</th><th>里程km</th><th>均速</th><th>坡度%</th><th>海拔m</th><th>温度℃</th>
-                      <th>氢耗kg/km</th><th>氢耗kg</th>
-                      <th title="巡航速度第85分位(km/h)">v_p85</th><th title="加速能量/km">e_acc</th><th title="空阻能量/km">e_aero</th><th title="上坡能量/km">e_grade_up</th>
-                      <th title="加速度均值(m/s²)">absa</th><th title="巡航占比">cruise</th><th title="停车占比">stop</th><th title="速度波动">v_std</th><th title="强加速p90">a_p90</th>
+                      <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('roadName')}>道路{sortArrowHydro('roadName')}</th>
+                      <th>等级</th>
+                      <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
+                      <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
+                      <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>v_p85{sortArrowHydro('v_p85')}</th>
+                      <th className="sortable" title="加速能量/km" onClick={() => headerSortHydro('e_acc')}>e_acc{sortArrowHydro('e_acc')}</th>
+                      <th className="sortable" title="空阻能量/km" onClick={() => headerSortHydro('e_aero')}>e_aero{sortArrowHydro('e_aero')}</th>
+                      <th className="sortable" title="上坡能量/km" onClick={() => headerSortHydro('e_grade_up')}>e_grade_up{sortArrowHydro('e_grade_up')}</th>
+                      <th className="sortable" title="加速度均值(m/s²)" onClick={() => headerSortHydro('absa_mean')}>absa{sortArrowHydro('absa_mean')}</th>
+                      <th className="sortable" title="巡航占比" onClick={() => headerSortHydro('cruise_ratio')}>cruise{sortArrowHydro('cruise_ratio')}</th>
+                      <th className="sortable" title="停车占比" onClick={() => headerSortHydro('stop_ratio')}>stop{sortArrowHydro('stop_ratio')}</th>
+                      <th className="sortable" title="速度波动" onClick={() => headerSortHydro('v_std')}>v_std{sortArrowHydro('v_std')}</th>
+                      <th className="sortable" title="强加速p90" onClick={() => headerSortHydro('a_p90')}>a_p90{sortArrowHydro('a_p90')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {hydroResult.segments?.map((s) => (
+                    {hydroSorted.map((s) => (
                       <tr key={s.index}>
                         <td className="mono">{s.index}</td>
                         <td className="road-name">{s.roadName || "—"}</td>
