@@ -873,3 +873,18 @@ body::before {
 .hw-table td { color: var(--txt); }
 .hw-table tbody tr:last-child td { border-bottom: none; }
 .hw-table tbody tr:hover { background: var(--glass-2); }
+
+
+/* ============ 技术原理页 v2（LaTeX + SVG + 论文级） ============ */
+.tex-inline { display: inline-block; margin: 0 3px; vertical-align: middle; }
+.tex-block { display: block; text-align: center; margin: 10px 0; overflow-x: auto; }
+.tex-block .katex-display { margin: 0; }
+.hw-svg { width: 100%; height: auto; margin: 10px 0; background: var(--glass); border: 1px solid var(--line); border-radius: 10px; }
+.hw-num { display: inline-block; min-width: 22px; height: 22px; line-height: 22px; text-align: center; margin-right: 8px; border-radius: 6px; background: rgba(58,227,255,0.12); color: var(--cyan); font-size: 13px; }
+.hw-sub { margin: 10px 0 6px 0; }
+.hw-sub h5 { font-size: 13.5px; color: var(--txt); margin-bottom: 6px; }
+.hw-sub p, .hw-sub ol, .hw-sub ul { margin: 5px 0; line-height: 1.85; }
+.hw-sub li { margin: 3px 0; }
+
+
+.hydro-warn { margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(255,96,114,0.4); border-radius: 8px; background: rgba(255,96,114,0.08); color: #ffb3bb; font-size: 12.5px; line-height: 1.6; }

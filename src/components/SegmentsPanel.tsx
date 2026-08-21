@@ -538,6 +538,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const totalGain = segments.reduce((a, s) => a + (s.elevationGainM ?? 0), 0)
   const totalLoss = segments.reduce((a, s) => a + (s.elevationLossM ?? 0), 0)
   const weather = data.weather
+  // 数据完整性：天气/OSM 缺失时预测用默认值/规则推断，明确提示
+  const weatherWarn = weather && weather.sampled != null && weather.sampled < segments.length
+    ? '⚠️ 部分路段未匹配到真实天气（' + weather.sampled + '/' + segments.length + ' 段）：温度/湿度/风速将用默认值，预测结果仅供参考'
+    : (!segments.some((s) => s.roadSource === 'osm')
+      ? '⚠️ OSM 路网不可用，道路等级为规则推断，预测精度会受影响'
+      : '')
 
   return (
     <div className="segments-panel">
@@ -717,6 +723,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         {hydroStage === 'idle' && (
           <>
             <p className="panel-sub">用两辆 H49 重卡实车数据训练的段级模型：系统分段 → 工况合成（模板拼接）→ 预测每段氢耗，无需实跑即可出结果。</p>
+            {weatherWarn && <div className="hydro-warn">{weatherWarn}</div>}
             <button className="btn-primary" onClick={runHydro}>开始氢耗预测</button>
           </>
         )}

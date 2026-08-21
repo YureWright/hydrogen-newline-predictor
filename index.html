@@ -13,6 +13,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <!-- KaTeX 公式渲染（本地化资源 public/vendor/katex，不依赖 CDN） -->
+    <link rel="stylesheet" href="/vendor/katex/katex.min.css" />
     <!-- 首屏底色与主题一致，避免深色页面加载瞬间闪一下白 -->
     <style>
       html, body { background: #04060c; }
@@ -20,6 +22,7 @@
   </head>
   <body>
     <div id="root"></div>
+    <script src="/vendor/katex/katex.min.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
