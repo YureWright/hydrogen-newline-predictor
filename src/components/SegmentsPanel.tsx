@@ -539,11 +539,17 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const totalLoss = segments.reduce((a, s) => a + (s.elevationLossM ?? 0), 0)
   const weather = data.weather
   // 数据完整性：天气/OSM 缺失时预测用默认值/规则推断，明确提示
-  const weatherWarn = weather && weather.sampled != null && weather.sampled < segments.length
-    ? '⚠️ 部分路段未匹配到真实天气（' + weather.sampled + '/' + segments.length + ' 段）：温度/湿度/风速将用默认值，预测结果仅供参考'
-    : (!segments.some((s) => s.roadSource === 'osm')
+  // 数据来源完整性（兜底策略透明化）：天气/OSM/DEM 各自覆盖情况
+  const weatherOk = !weather || weather.sampled == null || weather.sampled >= segments.length
+  const weatherSampled = weather?.sampled ?? 0
+  const osmCount = segments.filter((s) => s.roadSource === 'osm').length
+  const demCount = segments.filter((s) => s.elevationM != null).length
+  const hasFallback = !weatherOk || osmCount === 0 || demCount < segments.length
+  const weatherWarn = !weatherOk
+    ? '⚠️ 部分路段未匹配到真实天气（' + weatherSampled + '/' + segments.length + ' 段）：预测将用默认温度/湿度/风速（20℃/60%/10km/h），结果仅供参考'
+    : (osmCount === 0
       ? '⚠️ OSM 路网不可用，道路等级为规则推断，预测精度会受影响'
-      : '')
+      : (demCount < segments.length ? '⚠️ 部分路段缺少 DEM 高程，坡度/海拔使用默认值' : ''))
 
   return (
     <div className="segments-panel">
@@ -553,6 +559,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           <button className="btn-back btn-clear-hl" onClick={() => setSelectedSegs(new Set())}>✕ 清除高亮（{selectedSegs.size}）</button>
         )}
         <h3>路段数据分析（{segments.length} 段）</h3>
+        <div className={"data-src-bar" + (hasFallback ? " warn" : " ok")}>
+          <span className="dsi"><b>天气</b> {weatherSampled}/{segments.length} 段（{weather?.provider === 'qweather' ? 'QWeather' : weather?.provider || '未抓取'}）</span>
+          <span className="dsi"><b>道路等级</b> OSM {osmCount}/{segments.length} 段{osmCount < segments.length ? ' · 其余规则推断' : ''}</span>
+          <span className="dsi"><b>DEM 高程</b> {demCount}/{segments.length} 段</span>
+          {hasFallback && <span className="dsi-warn">⚠️ 部分外部数据不可用，已用默认值/规则推断兜底，结果仅供参考</span>}
+        </div>
         <span className="panel-sub">
           {data.dem?.source === 'terrarium'
             ? `高程源：terrarium z${data.dem.z}（${data.dem.tiles} 张瓦片）`
@@ -747,6 +759,13 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
             </div>
             <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；预测基于实车工况模板，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
+            <div className="hydro-src-note">
+              <b>本次预测数据来源（兜底透明）：</b>
+              温度/湿度/风速：{weatherOk ? '真实抓到 ' + weatherSampled + ' 段' : '⚠️ 未全量匹配（' + weatherSampled + '/' + segments.length + '），已用默认值 20℃/60%/10km/h 兜底'}
+              · 道路等级：OSM {osmCount} 段 + 规则推断 {segments.length - osmCount} 段
+              · 坡度/海拔：DEM {demCount}/{segments.length} 段
+              {hasFallback && ' · 有兜底项，结果精度受影响，仅供参考'}
+            </div>
             <div className="hydro-chart">
               <LineAreaChartMemo points={hydroPts} color="#3ae3ff" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
             </div>

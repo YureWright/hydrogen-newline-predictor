@@ -888,3 +888,13 @@ body::before {
 
 
 .hydro-warn { margin: 8px 0; padding: 8px 10px; border: 1px solid rgba(255,96,114,0.4); border-radius: 8px; background: rgba(255,96,114,0.08); color: #ffb3bb; font-size: 12.5px; line-height: 1.6; }
+
+
+/* ============ 数据来源状态条（兜底透明） ============ */
+.data-src-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin: 10px 0; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; }
+.data-src-bar.ok { background: rgba(61,220,151,0.07); border: 1px solid rgba(61,220,151,0.3); color: var(--txt-2); }
+.data-src-bar.warn { background: rgba(255,181,71,0.08); border: 1px solid rgba(255,181,71,0.4); color: var(--txt-2); }
+.dsi b { color: var(--txt); font-weight: 600; margin-right: 2px; }
+.dsi-warn { color: var(--amber); font-weight: 600; }
+.hydro-src-note { margin-top: 10px; padding: 8px 10px; border: 1px dashed rgba(255,181,71,0.35); border-radius: 8px; background: rgba(255,181,71,0.05); font-size: 12px; color: var(--txt-2); line-height: 1.7; }
+.hydro-src-note b { color: var(--txt); }
