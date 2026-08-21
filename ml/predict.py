@@ -45,6 +45,12 @@ def predict_segment(seg, rng, hour_default=12):
              "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
+    # 均速校准：模型对低速段（城市/拥堵）系统性高估（训练 CV 实测：0-40km/h +1.6、40-60 +0.9、
+    # 60-80 +0.3、80+ +0.5 kg/100km；整体平均误差 +1.2%）。
+    # 用分段线性偏差修正，低速多减、高速少减：
+    #   bias(v) = clip(1.8 - 0.02·v, 0, 1.8)  kg/100km
+    bias_100 = max(0.0, 1.8 - 0.02 * v_mean)
+    h2_per_km_kg = max(h2_per_km_kg - bias_100 / 100.0, 0.0)
     h2_kg = max(h2_per_km_kg, 0.0) * L
     return {
       "index": seg.get("index", 0),
