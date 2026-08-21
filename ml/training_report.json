@@ -1,0 +1,60 @@
+{
+  "n_segments": 1071,
+  "target": "h2_per_km (kg/km)",
+  "target_mean": 0.0766,
+  "target_median": 0.0523,
+  "target_per100km_median_kg": 5.23,
+  "acquirable_corr": {
+    "len_km": -0.071,
+    "v_mean": -0.576,
+    "grade_mean": 0.125,
+    "elev_mean": -0.058,
+    "temp_mean": 0.225,
+    "wind_mean": -0.063,
+    "hum_mean": -0.166,
+    "hour": 0.201,
+    "lv": 0.109
+  },
+  "real_deep_corr": {
+    "v_std": 0.268,
+    "v_p85": -0.598,
+    "absa_mean": 0.388,
+    "a_p90": 0.57,
+    "cruise_ratio": null,
+    "stop_ratio": 0.155,
+    "e_acc": 0.263,
+    "e_aero": -0.457,
+    "e_grade_up": 0.17
+  },
+  "synth_deep_corr": {
+    "v_std": 0.328,
+    "v_p85": -0.513,
+    "absa_mean": 0.133,
+    "a_p90": 0.379,
+    "cruise_ratio": null,
+    "stop_ratio": 0.177,
+    "e_acc": 0.189,
+    "e_aero": -0.429,
+    "e_grade_up": 0.143
+  },
+  "permutation_importance": {
+    "v_mean": 0.8905,
+    "e_acc": 0.3252,
+    "hour": 0.0962,
+    "elev_mean": 0.0814,
+    "hum_mean": 0.0555,
+    "v_std": 0.0521,
+    "len_km": 0.0432,
+    "temp_mean": 0.0386,
+    "wind_mean": 0.0341,
+    "v_p85": 0.027,
+    "e_aero": 0.0195,
+    "a_p90": 0.0194,
+    "absa_mean": 0.0176,
+    "grade_mean": 0.0095,
+    "e_grade_up": 0.003,
+    "lv": 0.0017,
+    "cruise_ratio": 0.0,
+    "stop_ratio": 0.0
+  }
+}
