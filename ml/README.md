@@ -17,7 +17,7 @@ python ml/train.py        # 需要本地 _v1_feat.csv / _v2_feat.csv（由回填
 
 ## 性能
 - 按行程分组 CV（预测全新线路）：R²≈0.50，RMSE≈0.046 kg/km
-- 目标：氢气剩余量差分（真实消耗，中位 ≈5.2 kg/100km）
+- 目标：氢气剩余量差分（= h2_consum_per_sec 同源，每 60s 消耗 kg；中位 ≈5.2 kg/100km）
 - 单位：km/h / kg/km；预测输出 kg 与 kg/100km
 
 ## 数据隐私

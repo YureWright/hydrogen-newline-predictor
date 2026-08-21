@@ -151,7 +151,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
               </ol>
             </Sub>
             <Sub title="2.3 目标变量（真实氢耗）">
-              <p>原始 h2_consum_per_sec 数值偏小约 20 倍（采集口径问题），改用<b>氢气剩余量差分</b>作为真实目标：</p>
+              <p>目标变量 <b>h2_consum_per_sec 即由氢气剩余量差分得到</b>（每 60s 采样点消耗量，kg；列名 per_sec 为采集命名，实为 60s 聚合值），与 h2_remain 差分同源同单位（实测比例≈1）。本方案直接以氢气剩余量差分构造目标：</p>
               <Tex block math="\Delta H_{2,i} = -\big(H_{2,remain,i} - H_{2,remain,i-1}\big),\quad 仅取 0<\Delta H_2<1\,kg" />
               <p>段氢耗（目标）：<Tex math="h_{2,per\,km} = \sum_{i\in seg}\Delta H_{2,i}\;\big/\;L_{seg}" />，中位 ≈5.2 kg/100km，符合重卡实况。</p>
             </Sub>
