@@ -27,17 +27,27 @@ def ensure():
         model = joblib.load(MODEL)
         lib = load_lib()
 
+def _get(seg, key1, key2, default):
+    """取值：key1 优先，key2 兜底；只有 None 才用默认值（0 是合法值，不能当缺失）"""
+    v = seg.get(key1)
+    if v is not None:
+        return v
+    v = seg.get(key2)
+    if v is not None:
+        return v
+    return default
+
 def predict_segment(seg, rng, hour_default=12):
     ensure()
-    L = float(seg.get("distanceKm") or seg.get("len_km") or 5.0)
-    v_mean = float(seg.get("avgSpeedKmh") or seg.get("v_mean") or 60.0)
-    grade = float(seg.get("gradePercent") if seg.get("gradePercent") is not None else seg.get("grade_mean", 0.0) or 0.0)
-    elev = float(seg.get("elevationM") if seg.get("elevationM") is not None else seg.get("elev_mean", 100.0) or 100.0)
-    temp = float(seg.get("temperatureC") if seg.get("temperatureC") is not None else seg.get("temp_mean", 20.0) or 20.0)
-    wind = float(seg.get("windSpeedKmh") if seg.get("windSpeedKmh") is not None else seg.get("wind_mean", 10.0) or 10.0)
-    hum  = float(seg.get("humidityPct") if seg.get("humidityPct") is not None else seg.get("hum_mean", 60.0) or 60.0)
-    hour = int(seg.get("hour", hour_default) or hour_default)
-    lv   = lv_ordinal(seg.get("roadLevel") or seg.get("lv") or "other")
+    L = float(_get(seg, "distanceKm", "len_km", 5.0))
+    v_mean = float(_get(seg, "avgSpeedKmh", "v_mean", 60.0))
+    grade = float(_get(seg, "gradePercent", "grade_mean", 0.0))
+    elev = float(_get(seg, "elevationM", "elev_mean", 100.0))
+    temp = float(_get(seg, "temperatureC", "temp_mean", 20.0))
+    wind = float(_get(seg, "windSpeedKmh", "wind_mean", 10.0))
+    hum  = float(_get(seg, "humidityPct", "hum_mean", 60.0))
+    hour = int(_get(seg, "hour", None, hour_default))
+    lv   = lv_ordinal(_get(seg, "roadLevel", "lv", "other"))
     n_points = max(2, int(round(L / (max(v_mean, 5.0) / 60.0))))
     vs, aa, gs = synth_segment(rng, v_mean, grade, n_points, lib, bucket_of(lv, v_mean))
     deep = deep_feats(vs, aa, gs, L)
