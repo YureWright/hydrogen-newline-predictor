@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>物理氢耗模型 · 设计方案（H49 氢能重卡）</title>
+<link rel="stylesheet" href="../public/vendor/katex/katex.min.css">
+<style>
+:root{
+  --bg:#04060c; --bg2:#070a13; --bg3:#0b1020;
+  --glass:rgba(255,255,255,.035); --glass2:rgba(255,255,255,.06); --glass3:rgba(255,255,255,.09);
+  --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+  --txt:#e9edf7; --txt2:#9aa6c0; --txt3:#6a7691;
+  --cyan:#3ae3ff; --blue:#4d8dff; --violet:#a473ff; --mint:#3ddc97; --amber:#ffb547; --red:#ff6072;
+  --grad:linear-gradient(120deg,#3ae3ff 0%,#4d8dff 52%,#a473ff 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,sans-serif;background:var(--bg);color:var(--txt);line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:28px 22px 80px}
+/* hero */
+.hero{position:relative;border:1px solid var(--line2);border-radius:22px;padding:44px 38px;overflow:hidden;background:radial-gradient(1200px 420px at 18% -10%,rgba(77,141,255,.16),transparent 60%),radial-gradient(900px 380px at 85% 110%,rgba(164,115,255,.14),transparent 55%),linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015))}
+.hero .kicker{font-size:12px;letter-spacing:3px;color:var(--cyan);text-transform:uppercase;margin-bottom:14px}
+.hero h1{font-size:34px;font-weight:800;line-height:1.3;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:10px}
+.hero .sub{color:var(--txt2);font-size:15px;max-width:820px}
+.hero .meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--txt2);background:var(--glass)}
+.tag.hl{color:var(--cyan);border-color:rgba(58,227,255,.4)}
+/* toc */
+.toc{margin:26px 0;border:1px solid var(--line);border-radius:16px;background:var(--glass);padding:18px 22px}
+.toc h3{font-size:14px;color:var(--cyan);letter-spacing:2px;margin-bottom:10px}
+.toc ol{padding-left:20px;color:var(--txt2);font-size:13.5px;display:grid;grid-template-columns:1fr 1fr;gap:4px 22px}
+.toc a{color:var(--txt2);text-decoration:none}
+.toc a:hover{color:var(--cyan)}
+/* sections */
+section{margin-top:44px}
+h2{font-size:23px;font-weight:800;display:flex;align-items:center;gap:12px;margin-bottom:6px}
+h2 .num{flex:0 0 auto;width:38px;height:38px;border-radius:10px;background:var(--grad);color:#04101f;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:900}
+h2 .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+h3{font-size:17px;font-weight:700;margin:26px 0 10px;color:#fff}
+h4{font-size:15px;font-weight:600;margin:18px 0 8px;color:var(--cyan)}
+p{margin:8px 0;color:var(--txt)}
+.lead{color:var(--txt2)}
+strong{color:#fff}
+em{color:var(--cyan);font-style:normal}
+.code-var{color:var(--amber);font-family:"JetBrains Mono",Consolas,monospace;font-size:.92em}
+/* boxes */
+.box{border:1px solid var(--line);border-radius:14px;background:var(--glass);padding:16px 18px;margin:14px 0}
+.box.tip{border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.05)}
+.box.warn{border-color:rgba(255,181,71,.4);background:rgba(255,181,71,.05)}
+.box.idea{border-color:rgba(164,115,255,.4);background:rgba(164,115,255,.06)}
+.box.story{border-color:rgba(255,255,255,.14);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02))}
+.box .bt{font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+/* equations */
+.eq{overflow-x:auto;padding:12px 16px;margin:12px 0;border-radius:12px;background:rgba(4,10,22,.65);border:1px solid var(--line);text-align:center;font-size:16.5px}
+.eq .katex{white-space:nowrap}
+/* tables */
+.tbl{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th{background:var(--glass3);color:#fff;font-weight:600;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--txt)}
+tr:last-child td{border-bottom:none}
+td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"JetBrains Mono",Consolas,monospace}
+/* svg */
+.fig{border:1px solid var(--line);border-radius:16px;background:var(--bg2);padding:16px;margin:16px 0;text-align:center}
+.fig .cap{font-size:12.5px;color:var(--txt3);margin-top:10px}
+.fig svg{max-width:100%;height:auto}
+/* story */
+.story-zh{font-size:14px;color:var(--txt2)}
+.flow{margin:14px 0;font-family:"JetBrains Mono",Consolas,monospace;font-size:12.5px;line-height:1.9;color:var(--txt2);background:rgba(4,10,22,.7);border:1px solid var(--line);border-radius:12px;padding:14px 16px;overflow-x:auto;white-space:pre}
+.flow b{color:var(--cyan);font-weight:600}
+/* refs */
+.refs li{font-size:13px;color:var(--txt2);margin:6px 0;list-style:decimal;margin-left:20px}
+.refs a{color:var(--blue);text-decoration:none}
+.refs a:hover{text-decoration:underline}
+.footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;color:var(--txt3);font-size:12.5px;text-align:center}
+.kbd{font-family:"JetBrains Mono",Consolas,monospace;font-size:.9em;color:var(--mint)}
+@media(max-width:760px){ .toc ol{grid-template-columns:1fr} .hero h1{font-size:26px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="kicker">Physics-based Hydrogen Consumption Model · Design V1</div>
+  <h1>物理氢耗模型 · 设计方案</h1>
+  <p class="sub">面向海珀特 H49 氢能重卡的"路段级、可插拔、可校准"物理能耗模型 —— 输入一段路的里程 / 均速 / 坡度 / 温度 / 载重，即可算出它要吃掉多少公斤氢气。设计参考中外文献、官方实车数据与开源工具，并在最后给出 <b>8 个创新点</b>，全部可解释、可验证。</p>
+  <div class="meta">
+    <span class="tag hl">T05 命题二 · 新线路氢耗预测</span>
+    <span class="tag">对象：海珀特 H49（49t 干线氢能重卡）</span>
+    <span class="tag">类型：准静态（quasi-static）能耗模型</span>
+    <span class="tag">设计稿 · 尚未编码</span>
+    <span class="tag">2026-08-21</span>
+  </div>
+</div>
+
+<div class="toc">
+  <h3>目录</h3>
+  <ol>
+    <li><a href="#s1">为什么要有物理模型？</a></li>
+    <li><a href="#s2">模型全景：五层能量流水线</a></li>
+    <li><a href="#s3">第 1 层 · 路段能量矩积分（坡度怎么切、怎么合）</a></li>
+    <li><a href="#s4">第 2 层 · 纵向动力学四阻力</a></li>
+    <li><a href="#s5">第 3 层 · 动力总成：传动效率 + 附件功耗 + 电池削峰</a></li>
+    <li><a href="#s6">第 4 层 · 燃料电池效率（极化曲线）</a></li>
+    <li><a href="#s7">第 5 层 · 氢耗折算与三重锚点校准</a></li>
+    <li><a href="#s8">8 个创新点一览（对比传统做法）</a></li>
+    <li><a href="#s9">H49 参数表（官网 + 文献）</a></li>
+    <li><a href="#s10">怎么验证它没算错（验收路径）</a></li>
+    <li><a href="#s11">参考文献</a></li>
+  </ol>
+</div>
+
+<section id="s1">
+<h2><span class="num">1</span>为什么要有物理模型？<span class="ln"></span></h2>
+<p class="lead">我们已经有了一台效果不错的数据模型（HistGB 机器学习）。为什么还要再"手搓"一台物理模型？因为它们的<b>性格刚好互补</b>：</p>
+<div class="tbl"><table>
+<tr><th style="width:16%">对比项</th><th>数据模型（HistGB，已有）</th><th>物理模型（本设计）</th></tr>
+<tr><td><b>靠什么算</b></td><td>两辆实车的历史数据 + 特征工程</td><td>能量守恒 + 车辆动力学公式</td></tr>
+<tr><td><b>换车能行吗</b></td><td>换一辆没学过的车，基本抓瞎</td><td>改几个参数（重量/风阻/电堆功率）就能适配新车型</td></tr>
+<tr><td><b>换载重能行吗</b></td><td>训练数据里载重覆盖有限，外推不稳</td><td>质量 m 直接进公式，空载/满载天然可算</td></tr>
+<tr><td><b>能解释吗</b></td><td>黑箱，只能看特征重要度</td><td>每一步都有物理意义，答辩能讲清楚</td></tr>
+<tr><td><b>短板</b></td><td>数据覆盖不到的场景会偏</td><td>对"没写进公式的细节"（驾驶风格等）不敏感</td></tr>
+<tr><td><b>定位</b></td><td>经验派：见多识广</td><td>理论派：原理清晰</td></tr>
+</table></div>
+<div class="box idea"><div class="bt">💡 设计定位</div>
+物理模型不是要取代数据模型，而是与它<b>并列成双引擎</b>：用户选"物理 / 数据 / 双模型对比"三种模式。
+两个引擎对同一段路各算一份氢耗，一致则互相印证，分歧大则把差异亮给用户看（透明 = 加分项）。
+另外预留企业 MATLAB 高保真模型的可插拔接口——等企业数据模型到位，直接"拔掉我们的、插上他们的"。
+</div>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>模型全景：五层能量流水线<span class="ln"></span></h2>
+<p>氢气不是直接变成"车轮往前滚"的。它先被燃料电池变成电，电经过电机变成机械能，机械能经过传动到车轮，最后才去克服滚动阻力、空气阻力、坡度阻力和加速阻力。能量每过一道手都会"漏掉"一点（效率 &lt; 100%）。物理模型就是把这条流水线<b>一层一层算清楚</b>：</p>
+<div class="fig">
+<svg viewBox="0 0 900 330" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9aa6c0"/></marker>
+  <marker id="arC" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#3ae3ff"/></marker>
+  <marker id="arM" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#3ddc97"/></marker>
+  <marker id="arV" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#a473ff"/></marker>
+</defs>
+<rect x="20" y="40" width="150" height="70" rx="10" fill="rgba(58,227,255,.08)" stroke="rgba(58,227,255,.5)"/>
+<text x="95" y="72" text-anchor="middle" fill="#3ae3ff" font-size="13" font-weight="700">氢气罐</text>
+<text x="95" y="92" text-anchor="middle" fill="#9aa6c0" font-size="11">70MPa · 化学能</text>
+<line x1="170" y1="75" x2="225" y2="75" stroke="#9aa6c0" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="230" y="40" width="170" height="70" rx="10" fill="rgba(77,141,255,.1)" stroke="rgba(77,141,255,.55)"/>
+<text x="315" y="66" text-anchor="middle" fill="#4d8dff" font-size="13" font-weight="700">燃料电池系统</text>
+<text x="315" y="86" text-anchor="middle" fill="#9aa6c0" font-size="11">η_fc(P) ≈ 50~55%</text>
+<text x="315" y="101" text-anchor="middle" fill="#9aa6c0" font-size="11">H₂ → 电 + 热 + 水</text>
+<line x1="400" y1="75" x2="455" y2="75" stroke="#9aa6c0" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="460" y="40" width="150" height="70" rx="10" fill="rgba(164,115,255,.1)" stroke="rgba(164,115,255,.55)"/>
+<text x="535" y="72" text-anchor="middle" fill="#a473ff" font-size="13" font-weight="700">电机 + 传动</text>
+<text x="535" y="92" text-anchor="middle" fill="#9aa6c0" font-size="11">η_m·η_dt ≈ 0.85~0.93</text>
+<line x1="610" y1="75" x2="665" y2="75" stroke="#9aa6c0" stroke-width="1.6" marker-end="url(#ar)"/>
+<rect x="670" y="40" width="210" height="70" rx="10" fill="rgba(255,181,71,.09)" stroke="rgba(255,181,71,.5)"/>
+<text x="775" y="66" text-anchor="middle" fill="#ffb547" font-size="13" font-weight="700">车轮（克服四阻力）</text>
+<text x="775" y="86" text-anchor="middle" fill="#9aa6c0" font-size="11">滚动 + 空气 + 坡度 + 加速</text>
+<text x="775" y="101" text-anchor="middle" fill="#9aa6c0" font-size="11">P_wheel = F·v</text>
+<!-- battery -->
+<rect x="230" y="170" width="170" height="62" rx="10" fill="rgba(61,220,151,.08)" stroke="rgba(61,220,151,.5)"/>
+<text x="315" y="196" text-anchor="middle" fill="#3ddc97" font-size="13" font-weight="700">动力电池 75kWh</text>
+<text x="315" y="215" text-anchor="middle" fill="#9aa6c0" font-size="11">削峰填谷 · 再生回收</text>
+<line x1="315" y1="110" x2="315" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<line x1="460" y1="168" x2="460" y2="112" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<!-- accessories -->
+<rect x="460" y="170" width="150" height="62" rx="10" fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.35)"/>
+<text x="535" y="196" text-anchor="middle" fill="#3ddc97" font-size="13" font-weight="700">附件功耗</text>
+<text x="535" y="215" text-anchor="middle" fill="#9aa6c0" font-size="11">空调/气泵/转向 2~8kW</text>
+<line x1="535" y1="110" x2="535" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<!-- regeneration loop -->
+<path d="M 775 112 L 775 245 Q 775 260 760 260 L 320 260 Q 305 260 305 245 L 305 234" fill="none" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#arM)"/>
+<text x="540" y="252" text-anchor="middle" fill="#3ddc97" font-size="11">减速/下坡 → 再生制动回收（受 SOC 门限限制）</text>
+<text x="120" y="150" text-anchor="middle" fill="#6a7691" font-size="11.5">五层能量流水线：H₂ → 电 → 机械 → 轮边，每层都有损耗</text>
+</svg>
+<div class="cap">图 1 · 能量流水线。氢气化学能 → 燃料电池发电 →（动力电池削峰/再生回流）→ 电机传动 → 车轮克服四阻力。</div>
+</div>
+
+<p>对应到计算流程，模型分 <b>5 层</b>，每一层的输入输出都是上一层的输入：</p>
+<div class="flow"><b>输入</b>：SegmentData[]（里程 s / 均速 v̄ / 坡度序列 / 海拔 / 温度 / 道路等级 / 行为区概率 / 载重 m）
+│
+<b>L1 路段能量矩积分</b>：把"一段路"按坡度切成"坡段"，逐坡段做能量积分 → E_wheel（轮边机械能）
+│
+<b>L2 纵向动力学</b>：四阻力 + 海拔空气密度修正 + 旋转质量 + 再生制动回收 → P_wheel(t)
+│
+<b>L3 动力总成</b>：P_drive = P_wheel/(η_m·η_dt) + P_aux(T)；电池削峰 → P_fc 工作点
+│
+<b>L4 燃料电池效率</b>：Larminie–Dicks 极化曲线 → η_fc(P, T) → 氢气质量流率
+│
+<b>L5 氢耗折算 + 校准</b>：LHV 效率法 ⊕ 法拉第定律双口径 → 三重锚点校准 k_cal
+│
+<b>输出</b>：每段氢耗 kg + 总氢耗 + 百公里氢耗 + 分项能量 + 敏感性</div>
+<p class="lead">下面逐层展开。每层都先给<b>严谨公式</b>，再配一张图和一个"老奶奶能听懂"的比喻。</p>
+</section>
+<section id="s3">
+<h2><span class="num">3</span>第 1 层 · 路段能量矩积分（坡度怎么切、怎么合）<span class="ln"></span></h2>
+
+<h3>3.1 先回答一个尖锐问题：为什么"一段路只记爬坡/下降多少"不够？</h3>
+<p class="lead">你最关心的问题："一段路只记录爬坡和下降多少，但<b>分开爬坡</b>和<b>连在一起爬坡</b>最后的耗氢应该不一样"——对，完全正确。原因藏在两个地方：</p>
+<div class="tbl"><table>
+<tr><th style="width:22%">为什么不一样</th><th>物理本质</th><th>均速×均坡的粗模型</th><th>能量矩积分（本设计）</th></tr>
+<tr><td><b>动能"存钱罐"</b></td><td>下坡加速时把重力给的势能<b>存成动能</b>，紧接着的上坡再把动能花掉；连着的长上坡没有"预存动能"，只能靠电机硬拉</td><td>完全忽略动能项</td><td>动能项 δm·Δ(v²)/2 逐坡段结算</td></tr>
+<tr><td><b>速度-坡度耦合</b></td><td>上坡时车速下降 → 空气阻力按 v² 快速变小；用"均速"算会把这段的阻力算偏</td><td>v̄² 一刀切</td><td>用 E[v²]=v̄²+σ² 修正 + 坡段细分</td></tr>
+<tr><td><b>下坡回血</b></td><td>下坡的重力做功可以<b>再生回收</b>回电池，均速模型当它不存在</td><td>不考虑</td><td>再生制动回收模块显式建模</td></tr>
+</table></div>
+
+<div class="box story"><div class="bt">👵 老奶奶版 · 爬山能量账本</div>
+<p class="story-zh">奶奶，把车想成一个背着氢气罐的登山客。登山客花力气（氢）分两种：<b>往上爬</b>（克服重力）和<b>平路跑</b>（克服摩擦和风）。
+<br>· 如果先下一段坡再爬一段坡：下坡时他根本不用费力，反而越走越快，相当于"白捡"了速度（动能存钱罐存满了钱），爬坡时把存的钱花掉——这笔账很划算。
+<br>· 如果是一段长长的上坡：没有下坡给他"存钱"，从头到尾都得自己出力气——同样总爬升高度，这笔账就贵得多。
+<br>· 中间坡怎么"切成小段"再"拼起来"算，就是看他把存钱罐用得多聪明。重力是"老实人"（势能只看你总爬了多高），但<b>风和速度是"精明的账房"</b>——路怎么弯、坡怎么断，它们算出来的钱不一样。
+<br>所以我们的模型不满足于"这段路爬升 300 米、均速 70"，而是把路段切细、把每段的速度和坡度<b>一起算账</b>。这就是"能量矩积分"。</p>
+</div>
+
+<h3>3.2 能量矩积分：一段路的"能量账本"</h3>
+<p>把第 k 段路再切成 J 个坡段（每段坡度基本不变、只上坡或只下坡，由切分算法产出），轮边机械能是四笔账的和：</p>
+<div class="eq" data-k="1">E_{wheel,k} \;=\; \underbrace{C_{rr}\, m\, g\, s_k}_{\text{①滚动}} \;+\; \underbrace{\tfrac12 \rho C_d A\, E[v^2]\, s_k}_{\text{②空气}} \;+\; \underbrace{m g\, \Delta h_k}_{\text{③坡度}} \;+\; \underbrace{\tfrac12 \delta m\, \Delta(v^2)}_{\text{④动能}}</div>
+<div class="tbl"><table>
+<tr><th>项</th><th>含义</th><th>关键点</th></tr>
+<tr><td>① 滚动阻力 <span class="code-var">C_rr·m·g·s</span></td><td>轮胎压地摩擦发热</td><td>跟<b>载重 m</b>和<b>里程 s</b>成正比——重卡半挂最重的一笔账之一</td></tr>
+<tr><td>② 空气阻力 <span class="code-var">½ρCdA·E[v²]·s</span></td><td>撞开空气</td><td>E[v²]=v̄²+σ²，<b>σ 是段内速度波动</b>——走走停停同样均速更费氢</td></tr>
+<tr><td>③ 坡度 <span class="code-var">m·g·Δh</span></td><td>爬升/下落的势能</td><td>只跟<b>高程差</b>有关，与怎么切无关（重力是保守力）</td></tr>
+<tr><td>④ 动能 <span class="code-var">½δm·Δ(v²)</span></td><td>起终点速度变化</td><td>Δ(v²)=v_end²−v_start²，可正可负；坡度切分越细，此项越准</td></tr>
+</table></div>
+
+<div class="box idea"><div class="bt">🔑 关键洞见（本设计的理论支点）</div>
+<p>重力是<b>保守力</b>：只要起点和终点海拔定了，势能这一笔账（<span class="code-var">mgΔh</span>）跟中间怎么爬完全无关。<b>但空气阻力和动能是"路径相关"的</b>——中间坡怎么断、速度怎么变，它们算出来的数不一样。<br>
+所以切分算法（坡度变化率 &gt; 阈值就切、每段只上坡或只下坡）的真正科学意义是：<b>把"路径相关的两项"算准</b>。切得越细，段内坡度越接近常数、速度分布越接近真实，E[v²] 与动能交换的估计就越准。<br>
+这与 2026 年 Li 等在 <i>Journal of Cleaner Production</i> / <i>ECM</i> 提出的"坡度耦合工况合成"思路一致——重卡能耗代表工况必须显式携带坡度信息，否则高估/低估可达两位数百分比。</p>
+</div>
+
+<h3>3.3 坡段怎么切（衔接已有切分算法）</h3>
+<div class="fig">
+<svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#9aa6c0"/></marker></defs>
+<!-- road profile -->
+<polyline points="40,230 140,205 220,215 300,160 400,120 480,135 560,95 640,150 720,140 800,110" fill="none" stroke="#3ae3ff" stroke-width="2.5"/>
+<!-- ground dashed baseline -->
+<line x1="40" y1="250" x2="800" y2="250" stroke="rgba(255,255,255,.15)" stroke-dasharray="4,4"/>
+<!-- segment dividers -->
+<g stroke="rgba(255,255,255,.35)" stroke-dasharray="3,3">
+<line x1="140" y1="205" x2="140" y2="250"/><line x1="220" y1="215" x2="220" y2="250"/>
+<line x1="300" y1="160" x2="300" y2="250"/><line x1="400" y1="120" x2="400" y2="250"/>
+<line x1="480" y1="135" x2="480" y2="250"/><line x1="560" y1="95" x2="560" y2="250"/>
+<line x1="640" y1="150" x2="640" y2="250"/><line x1="720" y1="140" x2="720" y2="250"/>
+</g>
+<!-- labels -->
+<text x="90" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段1</text>
+<text x="180" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段2</text>
+<text x="260" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段3</text>
+<text x="350" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段4</text>
+<text x="440" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段5</text>
+<text x="520" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段6</text>
+<text x="600" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段7</text>
+<text x="680" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段8</text>
+<text x="760" y="268" text-anchor="middle" fill="#9aa6c0" font-size="10.5">坡段9</text>
+<text x="250" y="150" fill="#ffb547" font-size="11">+4%</text>
+<text x="430" y="112" fill="#ffb547" font-size="11">+5%</text>
+<text x="560" y="80" fill="#ffb547" font-size="11">+4%</text>
+<text x="660" y="165" fill="#3ddc97" font-size="11">−3%</text>
+<text x="760" y="125" fill="#ffb547" font-size="11">+1%</text>
+<text x="170" y="238" fill="#3ddc97" font-size="11">−1%</text>
+<text x="40" y="20" fill="#6a7691" font-size="11">坡度变化率超阈值 → 切开；每坡段只保留一种符号（只上坡 / 只下坡），段内坡度近似常数</text>
+</svg>
+<div class="cap">图 2 · 路段 → 坡段。蓝色折线是真实纵剖面，虚线把坡度符号变化 / 变化率过大的位置切开，每段标注坡度值。</div>
+</div>
+<p>切分规则（已有算法的科学版表述）：</p>
+<div class="flow">对第 k 段路（已含 GPS 高程序列）：
+<b>step 1</b> 计算逐点坡度 g_i = Δh_i / Δs_i；
+<b>step 2</b> 在坡度<b>变号</b>处强制切开（上坡/下坡不混在同一坡段）；
+<b>step 3</b> 在坡度变化率 |g_{i+1} − g_i| / Δs_i 超过阈值处切开（≤ 1~2% 每百米，可配置）；
+<b>step 4</b> 对过短的坡段（&lt; 50 m）并入相邻坡段（避免数值噪声），但<b>保持总高程差不变</b>；
+<b>step 5</b> 输出坡段序列 {(Δs_j, θ_j, v̄_j)} → 喂给能量矩积分。</div>
+<div class="box tip"><div class="bt">✅ 这样做保证了什么</div>
+每段内坡度近似常数 → ③坡度项按 mg·Δh 精确结算；②空气阻力用该坡段的 E[v²]；④动能项只在坡段边界结算。
+总账在坡段之间"闭合"：把 J 个坡段的 ③加起来必然等于 m·g·(终点海拔−起点海拔)，不会丢能量。</div>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>第 2 层 · 纵向动力学四阻力<span class="ln"></span></h2>
+
+<h3>4.1 从"能量"到"功率"</h3>
+<p>能量账本算的是<b>一趟</b>要多少焦耳；功率账本算的是<b>某一瞬间</b>要多大功率——燃料电池和电池是按"功率"分配工作的，所以还得把每个坡段的受力写成逐时刻形式：</p>
+<div class="eq" data-k="1">F_{wheel}(t) \;=\; \underbrace{C_{rr}\,m g\cos\theta}_{\text{滚动}} \;+\; \underbrace{\tfrac12 \rho(H)\, C_d A\, v^2(t)}_{\text{空气}} \;+\; \underbrace{m g\sin\theta}_{\text{坡度}} \;+\; \underbrace{\delta\, m\, a(t)}_{\text{加速}},\qquad P_{wheel}=F_{wheel}\cdot v</div>
+<div class="tbl"><table>
+<tr><th>符号</th><th>含义</th><th>取值 / 说明</th></tr>
+<tr><td class="code-var">m</td><td>整车质量 = 整备 + 载重</td><td>满载 49 t；整备 &lt;10 t（H49 2.0）；载重用户输入</td></tr>
+<tr><td class="code-var">C_rr</td><td>滚动阻力系数</td><td>0.006~0.012，默认 0.009（重载卡车典型）</td></tr>
+<tr><td class="code-var">ρ(H)</td><td>空气密度（随海拔修正）</td><td>海平面 1.225 kg/m³；乌兰察布 1372m 比天津约低 15%</td></tr>
+<tr><td class="code-var">C_d · A</td><td>风阻系数 × 迎风面积</td><td>C_d=0.35（H49 官方），A≈7.5 m²（Class 8 平头牵引车）</td></tr>
+<tr><td class="code-var">θ</td><td>坡度角</td><td>θ = atan(grade/100)，grade 为百分比</td></tr>
+<tr><td class="code-var">δ</td><td>旋转质量换算系数</td><td>≈1.05（含车轮/传动系转动惯量）</td></tr>
+</table></div>
+
+<h3>4.2 海拔修正空气密度（相对 FASTSim 默认工况的改进）</h3>
+<div class="eq" data-k="1">\rho(H) \;=\; 1.225 \times \bigl(1 - 2.25577\times10^{-5} H\bigr)^{4.25588}</div>
+<p>H 是路段平均海拔（米）。国际标准大气模型。平原（几十米）到高原（一两千米）空气密度差可达 10%~15%，直接修正风阻项。这条数据我们系统里已经有了（DEM 高程），不用额外抓取。</p>
+
+<h3>4.3 等效摩擦角：什么时候"下坡白捡"、什么时候"下坡要刹车"</h3>
+<p>把坡度阻力与滚动阻力比一比，会冒出一个很有意思的临界坡度：</p>
+<div class="eq" data-k="1">\theta_c \;=\; \arctan(C_{rr}) \;\approx\; 0.5^\circ \;\text{（约 0.9\% 坡度）}</div>
+<div class="tbl"><table>
+<tr><th>下坡坡度</th><th>重力沿坡分量 vs 滚动阻力</th><th>车会怎样</th><th>模型怎么处理</th></tr>
+<tr><td>0 &lt; θ &lt; θ_c（缓下坡）</td><td>重力 &lt; 滚动阻力</td><td>仍需轻微驱动</td><td>正常按阻力公式算</td></tr>
+<tr><td>θ = θ_c</td><td>重力 = 滚动阻力</td><td>松油门能匀速滑行</td><td>轮端功率 ≈ 0</td></tr>
+<tr><td>θ &gt; θ_c（陡下坡）</td><td>重力 &gt; 滚动阻力</td><td>越滑越快，必须制动</td><td>先再生回收，回收上限见 4.4</td></tr>
+</table></div>
+<p>这个"摩擦角"概念来自经典车辆动力学（Gillespie 1992；余志生《汽车理论》），它把"下坡到底是省还是费"讲得明明白白：<b>缓下坡省的是滚动阻力的钱，陡下坡才真正"白捡"重力能（且要防超速）</b>。</p>
+
+<h3>4.4 再生制动回收（带 SOC 门限）</h3>
+<div class="eq" data-k="1">E_{regen} \;=\; \min\!\Bigl(\,\eta_{regen}\cdot E_{brake},\;\; E_{avail}(SOC)\,\Bigr),\qquad \eta_{regen}\approx 0.6\sim0.7</div>
+<div class="tbl"><table>
+<tr><th>项</th><th>说明</th></tr>
+<tr><td><span class="code-var">E_brake</span></td><td>减速段动能损失 + 陡下坡需耗散的机械能</td></tr>
+<tr><td><span class="code-var">η_regen</span></td><td>回收链路效率（电机发电→电池），0.6~0.7 文献典型值</td></tr>
+<tr><td><span class="code-var">E_avail(SOC)</span></td><td>电池还能"吃"进多少电。SOC 高 → 回收受限 → 只能机械制动（这是"下坡并不总能省钱"的物理原因）</td></tr>
+</table></div>
+<div class="box story"><div class="bt">👵 老奶奶版 · 下坡</div>
+<p class="story-zh">奶奶，下坡就像下楼梯。楼梯不陡的时候你慢慢走还省力；楼梯很陡的时候你不得不一路扶着栏杆（刹车）。"再生回收"就像在楼梯口装了个<b>发电机</b>，下楼梯的力气顺便发了点电。但如果楼下的<b>充电宝已经满了</b>（SOC 高），发电机再发也没地方存，只能让刹车片干磨（机械制动）。所以模型里，回收多少不是拍脑袋，而是看<b>坡度够不够陡 + 电池还有没有空位</b>。</p>
+</div>
+</section>
+<section id="s5">
+<h2><span class="num">5</span>第 3 层 · 动力总成：传动效率 + 附件功耗 + 电池削峰<span class="ln"></span></h2>
+
+<h3>5.1 从"轮边功率"到"电堆该出多少电"</h3>
+<p>轮边功率是机械能，但电机吃的是电。中间隔着电机效率 η_m（负载率相关）和传动效率 η_dt；另外车上还有空调、气泵、转向泵、散热风扇这些"附件"一直在耗电——它们不产生前进动力，但必须喂饱：</p>
+<div class="eq" data-k="1">P_{drive}(t) \;=\; \underbrace{\frac{P_{wheel}(t)}{\eta_m(P_{load})\cdot\eta_{dt}}}_{\text{驱动电功率}} \;+\; \underbrace{P_{aux}\bigl(T(t)\bigr)}_{\text{附件功耗}}</div>
+<div class="tbl"><table>
+<tr><th>环节</th><th>取值</th><th>说明 / 来源</th></tr>
+<tr><td>传动效率 η_dt</td><td>0.92~0.94</td><td>H49 官方公布传动效率 94%；行业典型 0.92</td></tr>
+<tr><td>电机效率 η_m</td><td>轻载 0.88 / 中载 0.93 / 重载 0.90</td><td>永磁同步电机负载率效率表（文献典型值）</td></tr>
+<tr><td>附件 P_aux</td><td>2~8 kW，随温度</td><td>NRC《21st Century Truck Partnership》：干线卡车附件 3~5 kW；极寒热管理可达 10 kW</td></tr>
+</table></div>
+
+<h3>5.2 附件功耗的温度耦合（天气数据直接进模型）</h3>
+<div class="eq" data-k="1">P_{aux}(T) \;=\; \mathrm{clip}\!\Bigl(P_0 + k_T\,|T - 20^\circ\mathrm{C}|,\;\; 2,\;\; 8\Bigr)\ \mathrm{kW},\qquad P_0=3\ \mathrm{kW},\ k_T=0.15\ \mathrm{kW/^\circ C}</div>
+<p class="lead">这条公式的设计动机：我们系统已经能从 QWeather / ERA5 抓到<b>每段路的实时温度</b>。温度直接决定：</p>
+<div class="tbl"><table>
+<tr><th>场景</th><th>附件功率变化</th><th>物理原因</th></tr>
+<tr><td>常温 20℃</td><td>≈3 kW（基础负荷）</td><td>气泵、转向、低压电子设备</td></tr>
+<tr><td>夏天 35℃</td><td>≈5.3 kW</td><td>驾驶室空调 + 散热风扇功耗上升</td></tr>
+<tr><td>冬天 −15℃</td><td>≈8 kW（上限）</td><td>座舱 PTC 加热 + 电池/电堆保温</td></tr>
+</table></div>
+<div class="box idea"><div class="bt">🔑 为什么要单独建模附件功耗？</div>
+<p>对重卡，附件功耗 3~8 kW 看似不大，但折算到氢耗：1 kg 氢气 ≈ 33.3 kWh，8 kW 跑 1 小时 ≈ 0.24 kg。一趟 500 km 高速（约 7 小时）附件就要吃掉 <b>≈1.7 kg 氢气</b>，相当于总氢耗的 5% 上下。极寒天气这个占比还能翻倍——不建模就漏账。</p>
+</div>
+
+<h3>5.3 电池削峰 + SOC 平衡（简化 ECMS，不用逐秒优化）</h3>
+<p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
+<div class="eq" data-k="1">P_{fc}(t) \;=\; \mathrm{clamp}\!\Bigl(P_{drive}(t),\ \ P_{fc}^{min},\ \ P_{fc}^{max}\Bigr),\qquad P_{bat}(t)=P_{drive}(t)-P_{fc}(t)</div>
+<div class="eq" data-k="1">\dot m_{H_2}^{eq} \;=\; \dot m_{H_2}^{FC} \;+\; \lambda \cdot \frac{P_{bat}}{\eta_{bat}},\qquad \lambda=\lambda_0 + k_\lambda\,(SOC_{target}-SOC)</div>
+<div class="tbl"><table>
+<tr><th>项</th><th>含义</th></tr>
+<tr><td><span class="code-var">P_fc^min / P_fc^max</span></td><td>电堆最低稳定功率（约 10% 额定）与最高允许功率——让电堆总在高效区</td></tr>
+<tr><td><span class="code-var">λ</span></td><td>等效因子：把"电池的电"折算成"本来要烧多少氢气"（Zheng 2012 / Sun 2022 ECMS 思想）</td></tr>
+<tr><td><span class="code-var">SOC_target − SOC</span></td><td>SOC 平衡项：电量低了 λ 变大 → 电堆多出力顺便充电；高了 λ 变小 → 电池多出力</td></tr>
+<tr><td>长路段约束</td><td>全程 SOC 终值 ≈ 初值（不把"电池偷的电"算成免费氢耗，账目公平）</td></tr>
+</table></div>
+<p class="lead">这比 Ahn &amp; Rakha 2022 的"4 段功率阈值规则"更进一步：把电池电量纳入<b>等效氢耗</b>账本，避免"先耗尽电池再烧氢"造成的假省氢。同时比完整 MPC 简单得多，纯前端毫秒级可算。</p>
+
+<h3>5.4 载重显式建模（重卡氢耗的第一敏感因素）</h3>
+<div class="eq" data-k="1">m \;=\; m_{curb} + m_{cargo},\qquad E_{roll} \propto m,\quad E_{grade} \propto m</div>
+<div class="fig">
+<svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+<line x1="70" y1="200" x2="700" y2="200" stroke="rgba(255,255,255,.2)"/>
+<line x1="70" y1="40" x2="70" y2="200" stroke="rgba(255,255,255,.2)"/>
+<text x="40" y="205" fill="#6a7691" font-size="11">氢耗 kg/100km</text>
+<rect x="95" y="150" width="80" height="50" rx="6" fill="rgba(61,220,151,.5)"/>
+<rect x="235" y="108" width="80" height="92" rx="6" fill="rgba(58,227,255,.5)"/>
+<rect x="375" y="66" width="80" height="134" rx="6" fill="rgba(77,141,255,.5)"/>
+<rect x="515" y="30" width="80" height="170" rx="6" fill="rgba(164,115,255,.55)"/>
+<text x="135" y="145" text-anchor="middle" fill="#04101f" font-size="12" font-weight="700">空载 10t</text>
+<text x="135" y="228" text-anchor="middle" fill="#3ddc97" font-size="12">≈4.6</text>
+<text x="275" y="103" text-anchor="middle" fill="#04101f" font-size="12" font-weight="700">半载 30t</text>
+<text x="275" y="228" text-anchor="middle" fill="#3ae3ff" font-size="12">≈6.0</text>
+<text x="415" y="61" text-anchor="middle" fill="#04101f" font-size="12" font-weight="700">重载 40t</text>
+<text x="415" y="228" text-anchor="middle" fill="#4d8dff" font-size="12">≈6.8</text>
+<text x="555" y="25" text-anchor="middle" fill="#04101f" font-size="12" font-weight="700">满载 49t</text>
+<text x="555" y="228" text-anchor="middle" fill="#a473ff" font-size="12">≈7.1（官方锚点）</text>
+<text x="415" y="248" text-anchor="middle" fill="#6a7691" font-size="11">同一段高速、同一均速：载重从 10t→49t，氢耗约 +55%（量级示意，按物理模型初算）</text>
+</svg>
+<div class="cap">图 3 · 载重敏感性示意。滚动阻力与坡度阻力都正比于总质量 m，载重是重卡氢耗最大的"旋钮"。</div>
+</div>
+<p class="lead">用户在前端输入载重（空载/半载/满载或自定义吨数），物理模型把 m 直接代进公式——这是数据模型最头疼、物理模型最拿手的地方。</p>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>第 4 层 · 燃料电池效率（极化曲线）<span class="ln"></span></h2>
+<p>氢气不是"一烧就全变成电"。燃料电池的效率随输出功率像一座<b>山丘</b>：轻载和满负荷都低，中间有个"最舒服"的高效区。这个形状来自电化学极化曲线：</p>
+
+<h3>6.1 Larminie–Dicks 极化曲线（底层电化学）</h3>
+<div class="eq" data-k="1">V_{cell}(i) \;=\; E_{oc} \;-\; A\,\ln(i) \;-\; R\,i \;-\; m\,\exp(n\,i)</div>
+<div class="tbl"><table>
+<tr><th>项</th><th>物理含义</th></tr>
+<tr><td><span class="code-var">E_oc</span></td><td>开路电压（无电流时单电池电压，约 0.95~1.0 V）</td></tr>
+<tr><td><span class="code-var">A·ln(i)</span></td><td>活化过电压：让反应"启动"要付的代价（对数项，小电流时占主导）</td></tr>
+<tr><td><span class="code-var">R·i</span></td><td>欧姆过电压：质子膜和导体的电阻（线性项，中等电流主导）</td></tr>
+<tr><td><span class="code-var">m·exp(n·i)</span></td><td>浓度过电压：大电流时氢气供不上（指数项，大电流主导）</td></tr>
+</table></div>
+
+<h3>6.2 从"电压"到"效率"</h3>
+<div class="eq" data-k="1">\eta_{stack}(P) \;=\; \frac{V_{cell}}{1.253},\qquad \eta_{fc}(P) \;=\; \eta_{stack}(P)\times\eta_{BOP},\qquad \eta_{BOP}\approx 0.85\sim0.90</div>
+<p class="lead">1.253 V 是氢燃料电池的<b>LHV 当量电压</b>（ΔH_LHV/(2F) = 241.8 kJ/mol ÷ 2×96485 C/mol）。电压越接近 1.253 V，电化学效率越高。再乘上系统辅机（空压机、水泵、散热）的效率 η_BOP，就得到系统效率。现代 PEM 系统峰值系统效率约 <b>50%~55%</b>，正好对上海珀特官方公布的"燃料电池系统综合效率 &gt;55%"。</p>
+<div class="fig">
+<svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg">
+<line x1="80" y1="250" x2="820" y2="250" stroke="rgba(255,255,255,.2)"/>
+<line x1="80" y1="30" x2="80" y2="250" stroke="rgba(255,255,255,.2)"/>
+<text x="450" y="275" text-anchor="middle" fill="#6a7691" font-size="11">电流密度 i（A/cm²）→</text>
+<text x="36" y="150" text-anchor="middle" fill="#6a7691" font-size="11" transform="rotate(-90 36 150)">电压 V / 效率 η</text>
+<!-- voltage curve -->
+<path d="M 90 60 Q 220 70 340 100 T 700 205 Q 760 222 800 240" fill="none" stroke="#3ae3ff" stroke-width="2.5"/>
+<text x="700" y="196" fill="#3ae3ff" font-size="12">V_cell(i)（极化曲线）</text>
+<!-- efficiency curve -->
+<path d="M 90 250 L 120 250 Q 300 190 480 150 Q 640 130 800 175" fill="none" stroke="#ffb547" stroke-width="2.5" stroke-dasharray="6,4"/>
+<text x="500" y="122" fill="#ffb547" font-size="12">η_fc(P)（山丘曲线）· 峰值 ~55%</text>
+<!-- high efficiency zone -->
+<rect x="420" y="130" width="120" height="120" fill="rgba(61,220,151,.08)" stroke="rgba(61,220,151,.4)" stroke-dasharray="4,4"/>
+<text x="480" y="262" text-anchor="middle" fill="#3ddc97" font-size="11">高效区（约 20%~60% 额定功率）</text>
+<circle cx="480" cy="148" r="4" fill="#3ddc97"/>
+</svg>
+<div class="cap">图 4 · 极化曲线（蓝）与系统效率曲线（橙）。效率在中等负荷达到峰值，两端的"启动费"和"供气不足"都会拉低效率——这正是电池削峰的意义：让电堆总待在山丘顶部。</div>
+</div>
+
+<h3>6.3 温度与海拔对效率的修正</h3>
+<div class="eq" data-k="1">\eta_{fc}(P,T,H) \;=\; \eta_{fc,0}(P)\times \underbrace{\bigl(1 - k_{T}^{loss}\,|T - T_{ref}|\bigr)}_{\text{低温损耗}} \times \underbrace{\bigl(1 - k_{H}\,(H/H_{ref})\bigr)}_{\text{高海拔空压机负荷}}</div>
+<p class="lead">低温时电堆活性下降、需要保温，η 下降；高海拔空气稀薄，空压机要更卖力压气（BOP 功耗上升）。这两条修正都直接消费我们系统已抓到的<b>温度</b>和<b>海拔</b>数据。</p>
+<div class="box story"><div class="bt">👵 老奶奶版 · 山丘</div>
+<p class="story-zh">奶奶，燃料电池就像一个<b>烧柴的锅炉</b>：火太小，光顾着生火不产热（轻载效率低）；火太旺，柴还没烧透就冒黑烟（重载效率低）；不紧不慢地烧（中等负荷），同样的柴产的热最多。所以聪明的司机让锅炉<b>一直保持"中火"</b>，需要猛劲时让旁边的充电宝（电池）顶上——这就是"电池削峰"的全部意义。</p>
+</div>
+</section>
+
+<section id="s7">
+<h2><span class="num">7</span>第 5 层 · 氢耗折算与三重锚点校准<span class="ln"></span></h2>
+
+<h3>7.1 双口径折算（互相查账，防止模型"自嗨"）</h3>
+<div class="eq" data-k="1">\textbf{口径 A（LHV 效率法）}\quad m_{H_2,k} \;=\; \sum_j \frac{P_{fc,j}\cdot \Delta t_j}{\eta_{fc}(P_{fc,j})} \;\Big/\; LHV_{H_2},\qquad LHV_{H_2}=120\ \mathrm{MJ/kg}=33.33\ \mathrm{kWh/kg}</div>
+<div class="eq" data-k="1">\textbf{口径 B（法拉第定律）}\quad \dot m_{H_2} \;=\; \frac{M_{H_2}\cdot N_{cell}\cdot I_{stack}}{2F},\qquad I_{stack}=\frac{P_{fc}}{N_{cell}\cdot V_{cell}}</div>
+<div class="tbl"><table>
+<tr><th>口径</th><th>思路</th><th>数据要求</th></tr>
+<tr><td>A · LHV 效率法</td><td>电堆输出电能 ÷ 效率 ÷ 氢热值</td><td>η_fc(P) 曲线 + 电功率</td></tr>
+<tr><td>B · 法拉第定律</td><td>每个电子对应 1/2 个氢分子（电荷守恒）</td><td>电流 I、单电池数 N、电压 V</td></tr>
+</table></div>
+<p class="lead">当极化曲线与效率曲线自洽时，两口径结果差异应 &lt; 3%。实现时两边都算、互相比对——这是"不造假"的工程化保障。</p>
+
+<h3>7.2 三重锚点校准（让模型站在官方实车数据的肩膀上）</h3>
+<p>纯物理公式难免有参数偏差（滚阻、附件、效率曲线的系数）。我们用海珀特官方实车数据<b>标定一个综合修正系数 k_cal</b>，而不是拍脑袋调参：</p>
+<div class="eq" data-k="1">k_{cal} \;=\; \frac{\text{官方锚点氢耗}}{\text{模型初算氢耗}\bigl(\text{同工况}\bigr)},\qquad \hat m_{H_2} \;=\; m_{H_2}^{raw}\times k_{cal}</div>
+<div class="tbl"><table>
+<tr><th>锚点</th><th>数值</th><th>工况</th><th>来源（均已核实）</th></tr>
+<tr><td>A · 官方发布</td><td>≤8 kg/100km</td><td>满载 49t、高速</td><td>2023-12 全球首发（北极星氢能网 / 21 经济）</td></tr>
+<tr><td>B · 交付口径</td><td>7.8 kg/100km</td><td>满载 49t、高速、续航 1000km</td><td>2024-08 武汉晚报；湖北日报小批量交付</td></tr>
+<tr><td>C · 2.0 实车验证</td><td>≤7.1 kg/100km</td><td>满载 49t、均速 75km/h（青岛—天津、武汉—宜昌）</td><td>2025-11 北京氢能创新中心；2026-06 CEO 访谈</td></tr>
+</table></div>
+<div class="box idea"><div class="bt">🔑 校准的"诚实设计"</div>
+<p>界面永远同时展示 <b>纯物理值</b> 与 <b>校准值</b> 两组数字，并在数据来源状态条里标注"已用官方锚点校准"。
+k_cal 是一个全局标量（不随路段变化），只负责把系统性的参数偏差拉回来；路段之间的差异仍然完全由物理公式决定——不会出现"校准把路况差异都抹平"的造假式拟合。</p>
+</div>
+<div class="box warn"><div class="bt">⚠️ 已知边界（诚实披露）</div>
+准静态模型对"秒级瞬态"（电堆动态响应、热管理延时）不敏感；对驾驶风格（激进/平稳）只能通过速度波动 σ 间接体现。预期整段精度 ±10% 内、常 ±5% 内（NREL FASTSim 官方口径，SAE 2022-01-0556）。企业 MATLAB 高保真模型接入后，通过 adapter 升级到 L3 瞬态精度。</div>
+</section>
+<section id="s8">
+<h2><span class="num">8</span>8 个创新点一览（对比传统做法）<span class="ln"></span></h2>
+<div class="tbl"><table>
+<tr><th style="width:20%">创新点</th><th>传统准静态做法</th><th>本设计</th><th>解决的问题 / 依据</th></tr>
+<tr><td><b>① 路段能量矩积分</b></td><td>均速 × 均坡 × 时间</td><td>坡段切分 + 四项能量积分（含动能项）</td><td>"分开爬坡 vs 连续爬坡"氢耗不同；保守力/路径相关力分开算</td></tr>
+<tr><td><b>② 速度波动修正 E[v²]</b></td><td>v̄² 一刀切</td><td>E[v²]=v̄²+σ²，σ 来自行为区概率</td><td>走走停停同样均速更费氢；行为区（停止/启动/减速）数据直接利用</td></tr>
+<tr><td><b>③ 等效摩擦角 θ_c</b></td><td>坡度一律线性叠加</td><td>θ_c=arctan(C_rr) 分"缓下坡/临界/陡下坡"</td><td>明确下坡何时免费、何时需制动（Gillespie / 余志生）</td></tr>
+<tr><td><b>④ 再生制动 + SOC 门限</b></td><td>下坡直接算负功</td><td>E_regen=min(η·E_brake, E_avail(SOC))</td><td>SOC 高时回收受限——"下坡并非总能省钱"</td></tr>
+<tr><td><b>⑤ 温度-附件-电堆耦合</b></td><td>附件功率写死 3~4 kW</td><td>P_aux(T) 2~8 kW + η_fc(T,H) 修正</td><td>直接把 QWeather/ERA5 温度、DEM 海拔喂进公式（NRC 3~5kW、极寒 10kW 依据）</td></tr>
+<tr><td><b>⑥ 载重显式建模</b></td><td>模型按固定总质量</td><td>m=m_curb+m_cargo，前端可输入</td><td>滚阻/坡度 ∝ m；重卡载重是第一敏感因素</td></tr>
+<tr><td><b>⑦ 简化 ECMS 的 SOC 平衡</b></td><td>固定功率阈值分配</td><td>削峰规则 + λ 等效氢耗 + SOC 终值约束</td><td>避免"先耗电池再烧氢"的假省氢（Zheng 2012 / Sun 2022）</td></tr>
+<tr><td><b>⑧ 双口径折算 + 三重锚点校准</b></td><td>单公式 + 手工调参</td><td>LHV 效率法 ⊕ 法拉第定律交叉验证；官方 7.1/7.8/8.0 锚点标定 k_cal；纯物理值 &amp; 校准值并列展示</td><td>不造假、可对标、可复现；企业模型可插拔</td></tr>
+</table></div>
+<div class="box tip"><div class="bt">一句话总结</div>
+传统模型"用平均把细节抹平"，本设计"把细节切出来分别算准、再拼回去"——<b>切（坡段）→ 分（四项能量）→ 补（波动/温度/SOC）→ 校（官方锚点）</b>。每一处都有物理依据与文献出处，没有拍脑袋参数。</div>
+</section>
+
+<section id="s9">
+<h2><span class="num">9</span>H49 参数表（官网 + 文献）<span class="ln"></span></h2>
+<div class="box warn"><div class="bt">⚠️ 版本说明</div>
+海珀特官网产品页给出的是<b>量产/商务版</b>参数（35MPa 储氢、160kW 电堆、155kWh 电池、最高车速 89km/h）；
+而新闻与官方发布会口径的 <b>H49 2.0 / 旗舰版</b>为 300kW 电堆、75kWh 电池、三电机、70MPa、120km/h、百公里氢耗 7.1kg。
+本模型默认使用 <b>2.0 口径</b>（与官方实测锚点 7.1 kg/100km 一致），并在参数配置里把两套都备好，用户可切换。</div>
+<div class="tbl"><table>
+<tr><th>参数</th><th>默认值（2.0 口径）</th><th>来源</th></tr>
+<tr><td>总质量 GVW</td><td class="num">49 t（满载）</td><td>官方</td></tr>
+<tr><td>整备质量</td><td class="num">&lt;10 t（发布口径 &lt;9 t）</td><td>官方 2.0 / 2023 发布</td></tr>
+<tr><td>燃料电池系统额定功率</td><td class="num">300 kW</td><td>官方发布（2025-12 百科）</td></tr>
+<tr><td>燃料电池系统综合效率</td><td class="num">&gt;55%</td><td>官网新闻（2025-11 CTOY）</td></tr>
+<tr><td>动力电池</td><td class="num">75 kWh（三元锂）</td><td>媒体（2025-12）</td></tr>
+<tr><td>驱动形式</td><td>三电机（中 320kW + 后 2×220kW）、电驱桥</td><td>媒体 / 交接总结</td></tr>
+<tr><td>传动效率</td><td class="num">94%</td><td>官方发布（2023-12）</td></tr>
+<tr><td>电能-机械能综合转换效率</td><td class="num">92%</td><td>官方发布（2023-12）</td></tr>
+<tr><td>风阻系数 C_d</td><td class="num">0.35</td><td>官方（CCTV 商用车展报道）</td></tr>
+<tr><td>迎风面积 A</td><td class="num">≈7.5 m²</td><td>Class 8 平头牵引车典型（GEM 表）</td></tr>
+<tr><td>最高车速（满载）</td><td class="num">120 km/h</td><td>官方</td></tr>
+<tr><td>储氢</td><td>70MPa（续航 &gt;1000km）</td><td>官方发布；量产版为 35MPa 6×390L IV型 56/50kg</td></tr>
+<tr><td>氢耗锚点</td><td class="num">7.1 / 7.8 / ≤8 kg/100km</td><td>三重锚点（见 §7.2）</td></tr>
+<tr><td>环境适应</td><td>−30℃~45℃、海拔 3500m</td><td>官方</td></tr>
+</table></div>
+</section>
+
+<section id="s10">
+<h2><span class="num">10</span>怎么验证它没算错（验收路径）<span class="ln"></span></h2>
+<div class="flow"><b>验收 1 · 金样 B 复现</b>：H49 × 济青高速 340km × 载重 34.11t × 氢价 30
+  → 目标：单趟氢耗 26.52 kg（=7.8 kg/100km），单趟 1796 元 / 柴油 1925.2 元 / 节省 129.2 元
+<b>验收 2 · 三重锚点区间</b>：满载 49t、高速 75km/h 工况 → 模型输出 ∈ [7.1, 8.0] kg/100km
+<b>验收 3 · 双引擎对比</b>：与 HistGB 数据模型在同一批线路上对比，差异 &gt;20% 时提示用户（不藏丑）
+<b>验收 4 · 敏感性 tornado</b>：坡度 / 载重 / 均速 / 温度 / 路况各 ±10% → 画 tornado 图，检查方向是否物理合理
+<b>验收 5 · 开源对照</b>：与 NREL FASTSim（同参数、CHTC-TT 工况）对照量级；与 OPEM 极化曲线交叉验证</div>
+<div class="box tip"><div class="bt">误差来源排序（预期）</div>
+坡度 &gt; 载重 &gt; 合成工况 vs 实际驾驶 &gt; 附件功耗 &gt; 路况 &gt; 海拔空气密度。
+坡度误差已被"坡段切分"显著降低；"合成工况 vs 实际驾驶"是准静态模型的天花板，通过分段巡航 + 行为区概率近似控制，并在界面如实披露。</div>
+</section>
+
+<section id="s11">
+<h2><span class="num">11</span>参考文献<span class="ln"></span></h2>
+<div class="refs"><ol>
+<li><b>Ahn K., Rakha H.</b> Developing a Hydrogen Fuel Cell Vehicle (HFCV) Energy Consumption Model for Transportation Applications. <i>Energies</i>, 2022, 15(2): 529. DOI 10.3390/en15020529.（HFCV 微观能耗模型：四阻力 + 电池/电堆功率分配，误差 &lt;3%）</li>
+<li><b>曾小华, 纪人桓, 宋大凤, 等.</b> 燃料电池汽车的氢耗分析模型与应用. 湖南大学学报(自然科学版), 2019, 46(2): 36-43.（能量流动 + 平均综合传动效率 + 氢耗潜力 0.6kg/100km）</li>
+<li><b>袁结, 杨继斌, 徐晓惠, 等.</b> 燃料电池客车系统建模与能量管理策略. 西华大学学报(自然科学版), 2022, 41(6): 98-104.（4 种规则 EMS 对比，最优等效氢耗 6.447 kg/100km，CHTC-C）</li>
+<li><b>Duan Y., Yang Y., Chen Q., et al.</b> Fuel consumption and driving range estimation of fuel cell vehicles by on-road testing in China. <i>Energy Conversion and Management</i>, 2021, 245: 114612.（CLTC-P 中国工况实测；FC 效率-负载曲线）</li>
+<li><b>Zheng C., et al.</b> Energy management strategy of fuel cell/battery hybrid vehicle based on equivalent fuel consumption. 2012.（等效氢耗最小化 ECMS 理论源头）</li>
+<li><b>Sun H., et al.</b> 改进 ECMS 降低氢耗新方法. 2022.（见知识库 英文10）</li>
+<li><b>林歆悠, 等.</b> 里程自适应等效氢耗最小控制. 2024.（见知识库 中文05）</li>
+<li><b>Li D., Su Z., Yang M., et al.</b> Accurate energy assessment for cleaner heavy-duty transport: Driving cycle synthesis with steady–transient constraints... <i>Journal of Cleaner Production</i>, 2026, 571.（坡度耦合工况合成）</li>
+<li><b>Li D., Song H., et al.</b> Construction of slope-included energy consumption-representative driving cycle for heavy-duty commercial vehicles... <i>Energy Conversion and Management</i>, 2026, 356.（含坡度重卡代表工况）</li>
+<li><b>Gillespie T.D.</b> Fundamentals of Vehicle Dynamics. SAE International, 1992.（四阻力模型）</li>
+<li><b>Guzzella L., Sciarretta A.</b> Vehicle Propulsion Systems. Springer, 3rd ed., 2013.（准静态建模；旋转质量系数）</li>
+<li><b>余志生.</b> 汽车理论（第 6 版）. 机械工业出版社.（行驶阻力四力模型）</li>
+<li><b>Larminie J., Dicks A.</b> Fuel Cell Systems Explained. Wiley, 2nd ed., 2003.（LHV=120 MJ/kg、极化曲线、1.253 V 当量电压）</li>
+<li><b>NREL.</b> FASTSim: A Model to Estimate Vehicle Efficiency, Cost and Performance. SAE 2015-01-0973.（准静态整车仿真；精度 ±10% 内、常 ±5% 内，SAE 2022-01-0556）</li>
+<li><b>NRC.</b> Review of the 21st Century Truck Partnership. National Academies Press, 2008.（干线卡车附件负荷 3~5 kW）；TIAX, 2009（4 kW）；DiVA 2021（极寒热管理 ~10 kW）</li>
+<li><b>GB/T 38146.2-2019</b> 中国汽车行驶工况 第 2 部分：重型商用车辆（CHTC-TT：1800s/23.29km/巡航58.61%/怠速8.61%）</li>
+<li><b>GB/T 27840-2021</b> 重型商用车辆燃料消耗量测量方法（附录 C 阻力测定、附录 E 阻力系数推荐方案）</li>
+<li><b>海珀特 H49 官方</b>：北京海珀特氢能科技有限公司官网（hybot.com.cn）产品页与新闻；2023-12 全球首发、2025-11 CTOY 2026 获奖新闻、2025-12 百度百科词条。（300kW 电堆、C_d=0.35、自重&lt;10t、7.1kg/100km 实车验证等）</li>
+</ol></div>
+<p class="lead">更多笔记见项目内《氢能源车辆氢耗建模知识库》（00_总览与阅读入口.md）与 <span class="code-var">docs/physics-model-research.md</span>（本设计的调研底稿，含全部文献 DOI 与核实记录）。</p>
+</section>
+
+<div class="footer">
+物理氢耗模型设计方案 V1 · T05 氢能车辆运营智能分析与决策助手 · 2026-08-21<br>
+设计原则：不造假、可解释、可验证、可插拔。请先审阅本设计，确认后再进入编码实现。
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+(function () {
+  function loadScript(src, cb) { var s = document.createElement('script'); s.src = src; s.onload = cb; s.onerror = function(){ cb && cb(true); }; document.head.appendChild(s); }
+  function renderAll() {
+    if (!window.katex) { return; }
+    document.querySelectorAll('.eq[data-k]').forEach(function (el) {
+      try { window.katex.render(el.textContent.trim(), el, { displayMode: true, throwOnError: false }); }
+      catch (e) { el.textContent = el.textContent.trim(); }
+    });
+  }
+  if (window.katex) { renderAll(); }
+  else { loadScript('../public/vendor/katex/katex.min.js', function (failed) { if (failed) { loadScript('https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js', function(){ renderAll(); }); } else { renderAll(); } }); }
+})();
+</script>
+</body>
+</html>
