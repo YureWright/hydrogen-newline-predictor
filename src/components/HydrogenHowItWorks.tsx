@@ -125,7 +125,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
           <button className="btn-close" onClick={onClose} title="关闭">✕</button>
         </div>
         <div className="howitworks-body">
-          <p className="hw-lead"><b>摘要：</b>用两辆 H49 燃料电池重卡 2026-08 实车数据（60s×5504 条），经数据清洗、外部特征回填、5km 段聚合，构造 18 维特征；新线路分段后先按「道路等级×均速」从实车片段库<b>合成行驶工况</b>，再由梯度提升树（HistGB）预测每段氢耗。按行程分组 5 折交叉验证 R²≈0.35、RMSE≈0.053 kg/km。</p>
+          <p className="hw-lead"><b>摘要：</b>用两辆 H49 燃料电池重卡 2026-08 实车数据（60s×5504 条），经数据清洗、外部特征回填、5km 段聚合，构造 18 维特征；新线路分段后先按「道路等级×均速」从实车片段库<b>合成行驶工况</b>，再由梯度提升树（HistGB）预测每段氢耗。按行程分组 5 折交叉验证 R²≈0.34、RMSE≈0.053 kg/km。</p>
 
           <Sec num="1" title="问题定义">
             <p>目标：给定一条<b>新线路</b>（起点/终点），预测氢能重卡（49t 半挂）整线氢耗（kg）与百公里氢耗（kg/100km）。</p>
@@ -153,7 +153,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
             <Sub title="2.3 目标变量（真实氢耗）">
               <p>目标变量 <b>h2_consum_per_sec 即由氢气剩余量差分得到</b>（每 60s 采样点消耗量，kg；列名 per_sec 为采集命名，实为 60s 聚合值），与 h2_remain 差分同源同单位（实测比例≈1）。本方案直接以氢气剩余量差分构造目标：</p>
               <Tex block math="\Delta H_{2,i} = -\big(H_{2,remain,i} - H_{2,remain,i-1}\big),\quad 仅取 0<\Delta H_2<1\,kg" />
-              <p>段氢耗（目标）：<Tex math="h_{2,per\,km} = \sum_{i\in seg}\Delta H_{2,i}\;\big/\;L_{seg}" />，中位 ≈5.2 kg/100km，符合重卡实况。</p>
+              <p>段氢耗（目标）：<Tex math="h_{2,per\,km} = \sum_{i\in seg}\Delta H_{2,i}\;\big/\;L_{seg}" />，中位 ≈5.1 kg/100km，符合重卡实况。</p>
             </Sub>
             <Sub title="2.4 段聚合">
               <p>按行程（相邻时间差 &gt;300s 视为新行程）把 60s 点按 5km 累计里程分桶 → <b>1071 个路段样本</b>（两车混合）。每段统计：均速/坡度/海拔/温度/风速/湿度/道路等级/时段/段长 + 真实目标 kg/km。</p>
@@ -244,11 +244,11 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
 
           <Sec num="6" title="结果与评估（实测）">
             <Sub title="6.1 交叉验证">
-              <p><b>按行程分组 5 折 CV：R²=0.35，RMSE=0.053 kg/km</b>（目标中位 ≈5.2 kg/100km）。此值使用真实 v 差分加速度，为诚实水平。</p>
+              <p><b>按行程分组 5 折 CV：R²=0.34，RMSE=0.051 kg/km</b>（目标中位 ≈5.1 kg/100km）。此值使用真实 v 差分加速度，为诚实水平。</p>
             </Sub>
             <Sub title="6.2 特征重要性（permutation，按 R² 下降量）">
               <Table head={["特征","重要性"]} rows={[
-                ["v_mean 均速","1.11"], ["e_aero 空阻能量","0.17"], ["elev_mean 海拔","0.11"],
+                ["v_mean 均速","0.92"], ["e_aero 空阻能量","0.18"], ["elev_mean 海拔","0.11"],
                 ["hour 时段","0.11"], ["hum_mean 湿度","0.09"], ["temp_mean 温度","0.08"],
                 ["wind_mean 风速","0.07"], ["len_km 段长","0.05"], ["v_p85 巡航速度","0.05"],
                 ["e_acc 加速能量","0.04"], ["其余","≤0.02"],
@@ -267,7 +267,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
 
           <Sec num="7" title="局限与展望">
             <ul>
-              <li><b>60s 颗粒度</b>：加速度只能由 60s 平均速度差分近似，秒级加速/起步细节丢失——当前 R²≈0.35 的主要瓶颈；拿到秒级数据可显著提升</li>
+              <li><b>60s 颗粒度</b>：加速度只能由 60s 平均速度差分近似，秒级加速/起步细节丢失——当前 R²≈0.34 的主要瓶颈；拿到秒级数据可显著提升</li>
               <li><b>载重未知</b>：氢耗对载重最敏感，当前学习「平均载重」水平；有载重列可大幅改善</li>
               <li><b>外部数据依赖</b>：天气/OSM 在线源偶发不可用，降级为默认值/规则推断（§5.2 透明标注）</li>
               <li><b>工况模板</b>：可随更多实车数据扩充；坡度调制系数、启停参数可继续用实车校准</li>
@@ -275,7 +275,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
           </Sec>
         </div>
         <div className="howitworks-foot">
-          <span>模型：HistGB · 按行程分组 CV · R²≈0.35 · 数据/相关性/报告均为实测</span>
+          <span>模型：HistGB · 按行程分组 CV · R²≈0.34 · 数据/相关性/报告均为实测</span>
           <button className="btn-primary" onClick={onClose}>知道了</button>
         </div>
       </div>
