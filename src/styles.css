@@ -928,3 +928,10 @@ body::before {
 .mass-add { align-self: flex-start; background: transparent; border: 1px dashed var(--line-2); color: var(--cyan); border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
 .mass-add:hover { border-color: var(--cyan); }
 .mass-tip { font-size: 11px; color: var(--txt-3); margin-top: 2px; }
+
+/* 技术原理页：通俗理解块（老奶奶版） */
+.hw-story { margin: 12px 0; padding: 12px 14px; border: 1px solid rgba(164,115,255,.35); border-radius: 10px; background: rgba(164,115,255,.06); font-size: 13px; line-height: 1.85; }
+.hw-story > b { color: #c3aaff; font-size: 13.5px; }
+.hw-story ul { margin: 6px 0 6px 18px; }
+.hw-story li { margin: 3px 0; }
+.hw-story p { margin: 6px 0; }
