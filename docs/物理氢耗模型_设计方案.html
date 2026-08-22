@@ -361,6 +361,34 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <p>对重卡，附件功耗 3~8 kW 看似不大，但折算到氢耗：1 kg 氢气 ≈ 33.3 kWh，8 kW 跑 1 小时 ≈ 0.24 kg。一趟 500 km 高速（约 7 小时）附件就要吃掉 <b>≈1.7 kg 氢气</b>，相当于总氢耗的 5% 上下。极寒天气这个占比还能翻倍——不建模就漏账。</p>
 </div>
 
+<h3>5.2b 附件氢耗的完整链路（拷打点：别只算"开车"的氢）</h3>
+<p><b>车上所有耗电，最终都由氢气买单</b>——空调、气泵这些附件不产生驱动力，但它们的电来自燃料电池（经母线），一样要烧氢。物理模型里附件功耗通过并入 <span class="mi" data-k="1">P_{drive}</span> 进入燃料电池，折算成氢耗：</p>
+<div class="eq" data-k="1">\dot m_{H_2}^{aux} = \frac{P_{aux}\cdot\Delta t}{\eta_{fc}(P)\cdot LHV_{H_2}}, \qquad \dot m_{H_2}^{total} = \frac{(P_{wheel}/\eta_{mt} + P_{aux})\cdot\Delta t}{\eta_{fc}(P)\cdot LHV_{H_2}}</div>
+<p class="lead">即：<b>总氢耗 = 驱动氢耗 + 附件氢耗</b>，两者都经燃料电池效率折算。<span class="code-var">P_aux</span> 从 §5.1 就并入 <span class="code-var">P_drive</span>，再由 §5.3 的电池削峰决定电堆工作点、§7 折算氢耗——<b>链路完整，不漏附件这一笔账</b>。</p>
+
+<h4>附件到底有哪些？（区分"整车附件"与"燃料电池 BOP"，避免重复计）</h4>
+<div class="tbl"><table>
+<tr><th>类别</th><th>具体设备</th><th>典型功率</th><th>在哪计算</th></tr>
+<tr><td><b>整车附件</b>（不产生驱动力，单列）</td><td>驾驶室空调（制冷 / PTC 制热）</td><td>0~8 kW（随温度，P_aux 主因）</td><td rowspan="4"><span class="mi" data-k="1">P_{aux}</span> 显式计入</td></tr>
+<tr><td></td><td>气泵（制动） / 转向泵 EHPS</td><td>1~3 kW</td></tr>
+<tr><td></td><td>高压水泵 / 散热风扇</td><td>1~3 kW</td></tr>
+<tr><td></td><td>DCDC + 24V 低压电子</td><td>0.5~1 kW</td></tr>
+<tr><td><b>燃料电池 BOP</b>（供气/散热，已含在电堆系统效率）</td><td>空压机 / 氢循环泵 / 电堆冷却</td><td>5~30 kW（随功率、海拔升高）</td><td>已含在 <span class="mi" data-k="1">\eta_{fc}=\eta_{stack}\times\eta_{BOP}</span>（η_BOP≈0.85~0.9）</td></tr>
+</table></div>
+<div class="box warn"><div class="bt">⚠️ 防重复计算</div>
+<p>空压机是<b>燃料电池系统自身的供气设备</b>，其功耗已折算进 <span class="code-var">η_fc</span> 的 BOP 效率（§6.2），<b>不要</b>再往 <span class="code-var">P_aux</span> 里加，否则氢耗会重复计算。整车附件（空调/气泵/水泵/低压）才是 <span class="code-var">P_aux</span> 的组成。</p>
+</div>
+
+<h4>和机器学习模型的口径一致性（交叉验证的基础）</h4>
+<div class="tbl"><table>
+<tr><th>对比项</th><th>机器学习模型（已做）</th><th>物理模型（本设计）</th></tr>
+<tr><td>是否含附件氢耗</td><td>✅ 目标 <span class="mi" data-k="1">h_2</span> 消耗（氢气差分）天然是<b>总氢耗</b>，附件已隐式包含</td><td>✅ 显式 <span class="mi" data-k="1">P_{aux}</span> 并入并折算，同为总氢耗</td></tr>
+<tr><td>附件怎么进模型</td><td>隐式：通过温度/湿度等特征间接学习（模型自己拟合空调/附件的影响）</td><td>显式：<span class="mi" data-k="1">P_{aux}(T)</span> 公式直接进能量链</td></tr>
+<tr><td>能否回答"开空调多耗多少氢"</td><td>❌ 黑箱，无法单独拆出附件贡献</td><td>✅ 可做敏感性：单独给 <span class="mi" data-k="1">P_{aux}</span> 加 Δ，看氢耗变化</td></tr>
+<tr><td>交叉验证意义</td><td colspan="2">两模型对同一段路的输出都应包含附件——若物理模型（驱动+附件）≈ ML 预测，说明两者口径闭合，互相印证</td></tr>
+</table></div>
+<p class="lead">结论：<b>附件氢耗必须算，本设计已显式计入</b>（不是"只算开车"），且与 ML 目标口径一致，可作为双引擎交叉验证的对账项之一。</p>
+
 <h3>5.3 电池削峰 + SOC 平衡（简化 ECMS，不用逐秒优化）</h3>
 <p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
 <div class="eq" data-k="1">P_{fc}(t) \;=\; \mathrm{clamp}\!\Bigl(P_{drive}(t),\ \ P_{fc}^{min},\ \ P_{fc}^{max}\Bigr),\qquad P_{bat}(t)=P_{drive}(t)-P_{fc}(t)</div>
