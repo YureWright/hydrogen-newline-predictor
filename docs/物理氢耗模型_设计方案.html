@@ -246,6 +246,11 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 所以切分算法（坡度变化率 &gt; 阈值就切、每段只上坡或只下坡）的真正科学意义是：<b>把"路径相关的两项"算准</b>。切得越细，段内坡度越接近常数、速度分布越接近真实，E[v²] 与动能交换的估计就越准。<br>
 这与 2026 年 Li 等在 <i>Journal of Cleaner Production</i> / <i>ECM</i> 提出的"坡度耦合工况合成"思路一致——重卡能耗代表工况必须显式携带坡度信息，否则高估/低估可达两位数百分比。</p>
 </div>
+<div class="box warn"><div class="bt">⚠️ 动能和势能会不会重复算？（拷打点，答：不会，代数相加）</div>
+<p>能量守恒：<span class="mi" data-k="1">F\cdot ds = dKE + dPE + \text{摩擦热} + \text{风阻功}</span>——动能和势能是能量的两个<b>独立去向</b>，<b>代数相加</b>（不是各自算完再叠加）。上坡减速时 <span class="mi" data-k="1">\Delta KE &lt; 0</span>（车释放动能），自动抵消一部分 <span class="mi" data-k="1">\Delta PE</span>。</p>
+<p>例：40t 车上坡 100m、速度 80→60 km/h：<span class="mi" data-k="1">\Delta PE = mg\Delta h = +39.2</span> MJ、<span class="mi" data-k="1">\Delta KE = \tfrac12 m(v_{end}^2-v_{start}^2) = -4.28</span> MJ → 轮边做功 <b>34.9 MJ</b>（动能帮了 4.28MJ），<b>不重复</b>。</p>
+<p>前提：段内必须"只上坡或只下坡"（§3.3 切分保证），否则段级 <span class="mi" data-k="1">\Delta KE</span>、<span class="mi" data-k="1">\Delta PE</span> 只反映起终点净变化，段内"动能↔势能"中间交换会被平均掉。</p>
+</div>
 
 <h3>3.3 坡段怎么切（衔接已有切分算法）</h3>
 <div class="fig">
