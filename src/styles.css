@@ -912,3 +912,19 @@ body::before {
 .dsi-warn { color: var(--amber); font-weight: 600; }
 .hydro-src-note { margin-top: 10px; padding: 8px 10px; border: 1px dashed rgba(255,181,71,0.35); border-radius: 8px; background: rgba(255,181,71,0.05); font-size: 12px; color: var(--txt-2); line-height: 1.7; }
 .hydro-src-note b { color: var(--txt); }
+
+/* ============ 载重输入（固定/重量曲线） ============ */
+.mass-input { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--glass); }
+.mass-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.mass-label { font-size: 13px; color: var(--txt); font-weight: 600; }
+.mass-head select { background: var(--bg-3); color: var(--txt); border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.mass-row { display: flex; align-items: center; gap: 8px; }
+.mass-row input, .mass-point input { background: var(--bg-3); color: var(--txt); border: 1px solid var(--line-2); border-radius: 6px; padding: 4px 8px; font-size: 12.5px; width: 90px; font-variant-numeric: tabular-nums; }
+.mass-curve { display: flex; flex-direction: column; gap: 6px; }
+.mass-point { display: flex; align-items: center; gap: 6px; }
+.mass-unit { font-size: 11px; color: var(--txt-3); }
+.mass-del { background: transparent; border: none; color: var(--txt-3); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.mass-del:hover { color: var(--red); }
+.mass-add { align-self: flex-start; background: transparent; border: 1px dashed var(--line-2); color: var(--cyan); border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.mass-add:hover { border-color: var(--cyan); }
+.mass-tip { font-size: 11px; color: var(--txt-3); margin-top: 2px; }

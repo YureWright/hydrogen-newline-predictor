@@ -72,6 +72,8 @@ type Stage = 'idle' | 'running' | 'done' | 'error'
 
 /** 模块级常量：无数据时的稳定空数组引用（见下方 segments 的说明） */
 const EMPTY_SEGMENTS: SegmentData[] = []
+/** H49 整备质量 kg（官方自重 <10t，取 9.7t） */
+const CURB_KG = 9700
 
 const PHASE_TEXT: Record<string, string> = {
   route: '获取路线分段…',
@@ -122,6 +124,25 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [hydroSortKey, setHydroSortKey] = useState<HydroSortKey>('index')
   const [hydroSortDesc, setHydroSortDesc] = useState(false)
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  // 载重输入：固定载重（t）或按里程的重量曲线（线性插值到每段）
+  const [massMode, setMassMode] = useState<'fixed' | 'curve'>('fixed')
+  const [fixedLoadT, setFixedLoadT] = useState(30)
+  const [weightPoints, setWeightPoints] = useState<Array<{ km: number; loadT: number }>>([{ km: 0, loadT: 30 }])
+  const loadTAtKm = useCallback((km: number) => {
+    if (massMode === 'fixed' || !weightPoints.length) return fixedLoadT
+    const pts = [...weightPoints].sort((a, b) => a.km - b.km)
+    if (km <= pts[0].km) return pts[0].loadT
+    const last = pts[pts.length - 1]
+    if (km >= last.km) return last.loadT
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (km >= pts[i].km && km <= pts[i + 1].km) {
+        const span = Math.max(pts[i + 1].km - pts[i].km, 0.001)
+        const t = (km - pts[i].km) / span
+        return pts[i].loadT + (pts[i + 1].loadT - pts[i].loadT) * t
+      }
+    }
+    return last.loadT
+  }, [massMode, fixedLoadT, weightPoints])
   const [hydroResult, setHydroResult] = useState<{
     total_h2_kg?: number; per100km_kg?: number;
     segments?: Array<{
@@ -384,12 +405,19 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     const timer = window.setInterval(() => setHydroStep((s) => (s < 3 ? s + 1 : s)), 600)
     hydroTimerRef.current = timer
     try {
-      // 精简 payload：只传模型需要的字段（去掉 coordsWgs84/profile 等大字段）
-      const slim = (data?.segments ?? []).map((s) => ({
-        index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, avgSpeedKmh: s.avgSpeedKmh,
-        gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
-        windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
-      }))
+      // 精简 payload：只传模型需要的字段（去掉 coordsWgs84/profile 等大字段）；每段按"段中点里程"插值载重
+      let cumKm = 0
+      const slim = (data?.segments ?? []).map((s) => {
+        const midKm = cumKm + s.distanceKm / 2
+        cumKm += s.distanceKm
+        const loadT = loadTAtKm(midKm)
+        return {
+          index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, avgSpeedKmh: s.avgSpeedKmh,
+          gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
+          windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
+          massKg: Math.round(CURB_KG + loadT * 1000),
+        }
+      })
       const r = await fetch('/api/predict-hydrogen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -770,6 +798,39 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           <>
             <p className="panel-sub">用两辆 H49 重卡实车数据训练的段级模型：系统分段 → 工况合成（模板拼接）→ 预测每段氢耗，无需实跑即可出结果。</p>
             {weatherWarn && <div className="hydro-warn">{weatherWarn}</div>}
+            <div className="mass-input">
+              <div className="mass-head">
+                <span className="mass-label">⚖️ 载重输入</span>
+                <select value={massMode} onChange={(e) => setMassMode(e.target.value as 'fixed' | 'curve')}>
+                  <option value="fixed">固定载重</option>
+                  <option value="curve">重量曲线（按里程）</option>
+                </select>
+              </div>
+              {massMode === 'fixed' ? (
+                <div className="mass-row">
+                  <input type="number" min={0} max={40} step={1} value={fixedLoadT}
+                         onChange={(e) => setFixedLoadT(Math.max(0, Math.min(40, Number(e.target.value) || 0)))} />
+                  <span>吨（总质量 ≈ {(9.7 + fixedLoadT).toFixed(1)} t）</span>
+                </div>
+              ) : (
+                <div className="mass-curve">
+                  {weightPoints.map((p, i) => (
+                    <div className="mass-point" key={i}>
+                      <input type="number" min={0} placeholder="里程 km" value={p.km}
+                             onChange={(e) => { const n = [...weightPoints]; n[i] = { ...n[i], km: Math.max(0, Number(e.target.value) || 0) }; setWeightPoints(n) }} />
+                      <span className="mass-unit">km</span>
+                      <input type="number" min={0} max={40} placeholder="载重 t" value={p.loadT}
+                             onChange={(e) => { const n = [...weightPoints]; n[i] = { ...n[i], loadT: Math.max(0, Math.min(40, Number(e.target.value) || 0)) }; setWeightPoints(n) }} />
+                      <span className="mass-unit">t</span>
+                      <button className="mass-del" title="删除该关键点"
+                              onClick={() => setWeightPoints(weightPoints.filter((_, j) => j !== i))}>✕</button>
+                    </div>
+                  ))}
+                  <button className="mass-add" onClick={() => setWeightPoints([...weightPoints, { km: 0, loadT: fixedLoadT }])}>＋ 添加关键点</button>
+                  <p className="mass-tip">按「里程 → 载重」关键点线性插值到每个路段（0 km 为起点）；中途卸货/装货可加多个点。</p>
+                </div>
+              )}
+            </div>
             <button className="btn-primary" onClick={runHydro}>开始氢耗预测</button>
           </>
         )}
@@ -792,7 +853,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               <div className="hydro-metric"><b>{hydroResult.per100km_kg?.toFixed(2)}</b><span>百公里 kg/100km</span></div>
               <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
             </div>
-            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；预测基于实车工况模板，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
+            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；本结果已按你输入的载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）参与预测，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
             <div className="hydro-src-note">
               <b>本次预测数据来源（兜底透明）：</b>
               温度/湿度/风速：{weatherOk ? '真实抓到 ' + weatherSampled + ' 段' : '⚠️ 未全量匹配（' + weatherSampled + '/' + segments.length + '），已用默认值 20℃/60%/10km/h 兜底'}

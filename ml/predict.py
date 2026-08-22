@@ -48,10 +48,11 @@ def predict_segment(seg, rng, hour_default=12):
     hum  = float(_get(seg, "humidityPct", "hum_mean", 60.0))
     hour = int(_get(seg, "hour", None, hour_default))
     lv   = lv_ordinal(_get(seg, "roadLevel", "lv", "other"))
+    mass_kg = float(_get(seg, "massKg", "totalMassKg", 30000.0))
     n_points = max(2, int(round(L / (max(v_mean, 5.0) / 60.0))))
     vs, aa, gs = synth_segment(rng, v_mean, grade, n_points, lib, bucket_of(lv, v_mean))
     deep = deep_feats(vs, aa, gs, L)
-    feats = {"len_km": L, "v_mean": v_mean, "grade_mean": grade, "elev_mean": elev,
+    feats = {"len_km": L, "v_mean": v_mean, "grade_mean": grade, "elev_mean": elev, "mass_kg": mass_kg,
              "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
@@ -76,6 +77,7 @@ def predict_segment(seg, rng, hour_default=12):
       "windSpeedKmh": round(wind, 1),
       "humidityPct": round(hum, 0),
       "roadLevel": seg.get("roadLevel") or "other",
+      "massKg": round(mass_kg, 0),
       # 合成深度工况字段
       "v_std": round(deep["v_std"], 2),
       "v_p85": round(deep["v_p85"], 1),

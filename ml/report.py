@@ -22,7 +22,13 @@ def haversine(lat1,lon1,lat2,lon2):
     a=np.sin(dp/2)**2+np.cos(p1)*np.cos(p2)*np.sin(dl/2)**2
     return 2*R*np.arcsin(np.sqrt(a))
 
-def aggregate(d):
+MASS = json.load(open(os.path.join(HERE, "mass_est.json"), encoding="utf-8")) if os.path.exists(os.path.join(HERE, "mass_est.json")) else {}
+
+def mass_for(key, tr):
+    m = MASS.get(key, {})
+    return float(m.get("trips", {}).get(str(tr), m.get("default_mass_kg", 30000.0)))
+
+def aggregate(d, mass_key):
     lat=d["lat_纬度"].values/1e6; lon=d["lon_经度"].values/1e6
     t=pd.to_datetime(d.iloc[:,0],errors="coerce").values
     v=d["canData_speed_车速"].astype(float).values/10.0
@@ -51,12 +57,13 @@ def aggregate(d):
                 "elev_mean":float(np.mean(e[s])),"temp_mean":float(np.mean(tc[s])),
                 "wind_mean":float(np.mean(w[s])),"hum_mean":float(np.mean(hu[s])),
                 "lv":lv_ordinal(Counter(lv[s]).most_common(1)[0][0]),
+                "mass_kg": mass_for(mass_key, int(tr)),
                 "hour":int(pd.Timestamp(t[s[0]]).hour),
                 "h2_per_km":float(np.sum(h2used[s])/L)})
     return pd.DataFrame(rows)
 
 print("聚合 5km 段...")
-s1=aggregate(pd.read_csv(V1)); s2=aggregate(pd.read_csv(V2))
+s1=aggregate(pd.read_csv(V1), "V1"); s2=aggregate(pd.read_csv(V2), "V2")
 s1["car"]=0; s2["car"]=1
 s=pd.concat([s1,s2],ignore_index=True)
 s=s[(s["h2_per_km"]>0.02)&(s["h2_per_km"]<0.5)&(s["len_km"]>=1)]
