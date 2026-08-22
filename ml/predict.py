@@ -55,11 +55,14 @@ def predict_segment(seg, rng, hour_default=12):
              "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
-    # 均速校准：模型对低速段（城市/拥堵）系统性高估（训练 CV 实测：0-40km/h +1.6、40-60 +0.9、
-    # 60-80 +0.3、80+ +0.5 kg/100km；整体平均误差 +1.2%）。
-    # 用分段线性偏差修正，低速多减、高速少减：
-    #   bias(v) = clip(1.8 - 0.02·v, 0, 1.8)  kg/100km
-    bias_100 = max(0.0, 1.8 - 0.02 * v_mean)
+    # 均速校准：HistGB 输出是条件期望（均值），而氢耗目标右偏（长尾），低速段高估最明显。
+    # 2026-08-22 重训后按行程分组 CV 实测偏差（无校准）：0-40 +0.76、40-60 +0.96、
+    # 60-80 +0.09、80+ +0.50 kg/100km；整体 +1.0%。用分段常数把均值估计拉回中位水平：
+    #   bias(v) = 0.76 (v<40) / 0.96 (40<=v<60) / 0.09 (60<=v<80) / 0.50 (v>=80)
+    if v_mean < 40:   bias_100 = 0.76
+    elif v_mean < 60: bias_100 = 0.96
+    elif v_mean < 80: bias_100 = 0.09
+    else:             bias_100 = 0.50
     h2_per_km_kg = max(h2_per_km_kg - bias_100 / 100.0, 0.0)
     h2_kg = max(h2_per_km_kg, 0.0) * L
     return {

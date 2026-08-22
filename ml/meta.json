@@ -24,10 +24,10 @@
     "h2": "kg/km",
     "target": "h2_remain_diff"
   },
-  "trained_at": "2026-08-21",
-  "n_segments": 1064,
+  "trained_at": "2026-08-22",
+  "n_segments": 1066,
   "cv": {
-    "r2_mean": 0.3421213379718115,
-    "rmse_mean": 0.050677755044570824
+    "r2_mean": 0.3777783442423911,
+    "rmse_mean": 0.04832964334239544
   }
 }

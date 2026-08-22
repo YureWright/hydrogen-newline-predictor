@@ -6,7 +6,7 @@
 import os
 os.environ.setdefault('LOKY_MAX_CPU_COUNT', '1')
 os.environ.setdefault('OMP_NUM_THREADS', '1')
-import pandas as pd, numpy as np, json, sys, os, warnings
+import pandas as pd, numpy as np, json, sys, os, warnings, datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 warnings.filterwarnings("ignore")
@@ -111,6 +111,6 @@ print("\n按行程分组 CV: R2=%.4f±%.4f RMSE=%.4f kg/km"%(np.mean(r2s),np.std
 import joblib
 joblib.dump(model, OUT_MODEL)
 json.dump({k:[a.tolist() for a in v] for k,v in lib.items()}, open(OUT_TEMPLATES,"w",encoding="utf-8"))
-json.dump({"features":FEATURES,"units":{"speed":"km/h","h2":"kg/km","target":"h2_remain_diff"},"trained_at":"2026-08-21","n_segments":int(len(s)),
+json.dump({"features":FEATURES,"units":{"speed":"km/h","h2":"kg/km","target":"h2_remain_diff"},"trained_at": datetime.date.today().isoformat(),"n_segments":int(len(s)),
            "cv":{"r2_mean":float(np.mean(r2s)),"rmse_mean":float(np.mean(rms))}}, open(OUT_META,"w",encoding="utf-8"), ensure_ascii=False, indent=2)
 print("已导出:",OUT_MODEL,OUT_TEMPLATES,OUT_META)
