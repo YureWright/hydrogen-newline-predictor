@@ -407,6 +407,14 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <span class="mi" data-k="1">\lambda</span> 等效氢耗 + SOC 终值平衡——把电池电量折算成等效氢气，<b>防止"偷电池电"造成假省氢</b>；再生回收存入电池（§4.4）。</div>
 
 <h3>5.3 电池削峰 + SOC 平衡（简化 ECMS，不用逐秒优化）</h3>
+<div class="box story"><div class="bt">👵 通俗版 · 功率怎么分给"发电机"和"充电宝"</div>
+<p class="story-zh">每时每刻先算"整车要多少电"（驱动 + 空调附件），然后看需求大小分三种情况：
+<br>· <b>需求小</b>（怠速/慢挪）→ <b>充电宝顶</b>（发电机小功率干活很费氢）；
+<br>· <b>需求中</b>（正常巡航）→ <b>发电机直接供</b>（正好高效），多余还能给充电宝充电；
+<br>· <b>需求大</b>（猛加速/爬坡）→ <b>发电机满负荷 + 充电宝补尖峰</b>。
+<br>再加一条"聪明"调整：<b>充电宝电量(SOC)低了</b> → 发电机多干点顺便充电；<b>SOC 高了</b> → 多让充电宝出力。
+<br>一句话：<b>"发电机只干它擅长的活（高效区巡航），太小的、太大的、瞬间的活全交给充电宝"</b>。</p>
+</div>
 <p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
 <div class="eq" data-k="1">P_{fc}(t) \;=\; \mathrm{clamp}\!\Bigl(P_{drive}(t),\ \ P_{fc}^{min},\ \ P_{fc}^{max}\Bigr),\qquad P_{bat}(t)=P_{drive}(t)-P_{fc}(t)</div>
 <div class="eq" data-k="1">\dot m_{<span class="mi" data-k="1">H_2</span>}^{eq} \;=\; \dot m_{<span class="mi" data-k="1">H_2</span>}^{FC} \;+\; \lambda \cdot \frac{P_{bat}}{\eta_{bat}},\qquad \lambda=\lambda_0 + k_\lambda\,(SOC_{target}-SOC)</div>
