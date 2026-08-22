@@ -391,6 +391,21 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 </table></div>
 <p class="lead">结论：<b>附件氢耗必须算，本设计已显式计入</b>（不是"只算开车"），且与 ML 目标口径一致，可作为双引擎交叉验证的对账项之一。</p>
 
+<h3>5.2c 氢电混合架构：为什么有两个电源（先讲清概念再讲公式）</h3>
+<p class="lead">车上并联<b>两个电源</b>：燃料电池（烧氢发电）+ 动力电池（存电）。<b>氢气是唯一的外源能量</b>——电池的电要么来自燃料电池、要么来自下坡/减速的再生回收，它只是"蓄水池/能量缓冲"，不是能量源（类比：氢气=煤/油，电池=蓄电池；发电厂+抽水蓄能电站）。</p>
+<div class="tbl"><table>
+<tr><th></th><th>燃料电池</th><th>动力电池</th></tr>
+<tr><td>能量来源</td><td>氢气 → 电（续航 1000km 靠它）</td><td>只能存 75kWh（纯电约 80km）</td></tr>
+<tr><td>响应速度</td><td>慢（秒级，升降载有延迟）</td><td>快（毫秒级）</td></tr>
+<tr><td>低负荷效率</td><td><b>很低</b>（&lt;10% 额定时电堆低效）</td><td>高效</td></tr>
+<tr><td>大功率</td><td>满负荷效率降、伤电堆</td><td>瞬时大功率秒给</td></tr>
+<tr><td>再生回收</td><td>不能反向（存不回氢气）</td><td>能存下坡/减速回收能量</td></tr>
+</table></div>
+<p><b>为什么要电池（解决电堆四个痛点）</b>：① 让电堆<b>只工作在高效区</b>（恒功率巡航，波动由电池吸收→省氢）；② <b>兜底瞬态</b>（起步/急加速，电堆秒级跟不上、电池毫秒级顶上）；③ <b>存再生能量</b>（下坡/减速，电堆做不到反向）；④ <b>低速/怠速</b>电池顶着、电堆可停机（省氢）。</p>
+<div class="box tip"><div class="bt">✅ 物理模型怎么体现</div>
+§5.3 电池削峰：<span class="mi" data-k="1">P_{fc}=clamp(P_{drive},P_{min},P_{max})</span>（电堆只在高效区）、<span class="mi" data-k="1">P_{bat}=P_{drive}-P_{fc}</span>（尖峰电池补）；
+<span class="mi" data-k="1">\lambda</span> 等效氢耗 + SOC 终值平衡——把电池电量折算成等效氢气，<b>防止"偷电池电"造成假省氢</b>；再生回收存入电池（§4.4）。</div>
+
 <h3>5.3 电池削峰 + SOC 平衡（简化 ECMS，不用逐秒优化）</h3>
 <p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
 <div class="eq" data-k="1">P_{fc}(t) \;=\; \mathrm{clamp}\!\Bigl(P_{drive}(t),\ \ P_{fc}^{min},\ \ P_{fc}^{max}\Bigr),\qquad P_{bat}(t)=P_{drive}(t)-P_{fc}(t)</div>
