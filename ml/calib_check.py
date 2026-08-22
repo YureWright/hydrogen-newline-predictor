@@ -26,7 +26,7 @@ def aggregate(d, mass_key):
     t=pd.to_datetime(d.iloc[:,0],errors="coerce").values
     v=d["canData_speed_车速"].astype(float).values/10.0
     g=d["grade_pct"].astype(float).values; e=d["elev_m"].values
-    tc=d["temp_c"].astype(float).values; w=d["wind_kmh"].astype(float).values; hu=d["hum_pct"].astype(float).values
+    tc=d["temp_c"].astype(float).values; wd=d["wind_kmh"].astype(float).values; hu=d["hum_pct"].astype(float).values
     lv=d["road_level"].values
     h2rem=d["celDataExt_h2_remain_氢气剩余量"].astype(float).values
     h2used=-np.diff(h2rem, prepend=h2rem[0]); h2used=np.where((h2used>0)&(h2used<1.0),h2used,0.0)
@@ -38,10 +38,11 @@ def aggregate(d, mass_key):
         idx=np.where(trip==tr)[0]; c=cum[idx]-cum[idx][0]
         for sid in np.unique((c/5.0).astype(int)):
             s=idx[(c/5.0).astype(int)==sid]; L=np.sum(dist[s])
+            w=dist[s]/L if L>0 else np.full(len(s),1.0/len(s))   # 里程权重（每点按它代表的里程加权，避免低速点灌水）
             if L<0.3: continue
             rows.append({"trip":int(tr),"len_km":L,"v_series":v[s].tolist(),
-                "v_mean":float(np.mean(v[s])),"grade_mean":float(np.mean(g[s])),"elev_mean":float(np.mean(e[s])),
-                "temp_mean":float(np.mean(tc[s])),"wind_mean":float(np.mean(w[s])),"hum_mean":float(np.mean(hu[s])),
+                "v_mean":float(np.sum(w*v[s])),"grade_mean":float(np.sum(w*g[s])),"elev_mean":float(np.sum(w*e[s])),
+                "temp_mean":float(np.sum(w*tc[s])),"wind_mean":float(np.sum(w*wd[s])),"hum_mean":float(np.sum(w*hu[s])),
                 "lv":lv_ordinal(Counter(lv[s]).most_common(1)[0][0]),
                 "mass_kg": mass_for(mass_key, int(tr)),"hour":int(pd.Timestamp(t[s[0]]).hour),
                 "h2_per_km":float(np.sum(h2used[s])/L)})
