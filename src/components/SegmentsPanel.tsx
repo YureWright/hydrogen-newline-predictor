@@ -396,8 +396,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         body: JSON.stringify({ segments: slim, departureTime }),
       })
       const j = await r.json() as typeof hydroResult & { ok?: boolean; msg?: string }
-      if (j.ok) { setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
-      else { setHydroError(j.msg || '预测失败'); setHydroStage('error') }
+      if (j.ok) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
+      else { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroError(j.msg || '预测失败'); setHydroStage('error') }
     } catch (e: any) {
       setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
       if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
@@ -414,7 +414,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     const segs = hydroResult?.segments ?? []
     const thr = Math.max(8, (segs.reduce((a, s) => a + s.h2_per_km_kg, 0) / Math.max(segs.length, 1)) * 100 * 1.5)
     let cum = 0
-    return segs.filter((s) => s.h2_per_km_kg * 100 > thr).map((s) => { cum += s.distanceKm; return { x: cum, label: (s.h2_per_km_kg * 100).toFixed(0) + 'kg', color: '#ff6072' } })
+    const markers: Array<{ x: number; label: string; color: string }> = []
+    for (const s of segs) {
+      cum += s.distanceKm
+      if (s.h2_per_km_kg * 100 > thr) markers.push({ x: Math.round(cum * 10) / 10, label: (s.h2_per_km_kg * 100).toFixed(0) + 'kg', color: '#ff6072' })
+    }
+    return markers
   }, [hydroResult])
 
   // 氢耗明细导出 CSV（普通字段 + 深度工况字段）

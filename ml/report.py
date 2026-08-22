@@ -18,8 +18,8 @@ V1 = os.path.join(HERE, "..", "_v1_feat.csv")
 V2 = os.path.join(HERE, "..", "_v2_feat.csv")
 
 def haversine(lat1,lon1,lat2,lon2):
-    R=6371.0; p1,p2=np.radians([lat1,lat2]); dp=np.radians(lat2-lat1); dl=np.radians(lon2-lon1)
-    a=np.sin(dp/2)**2+np.cos(p1[0])*np.cos(p1[1])*np.sin(dl/2)**2
+    R=6371.0; p1,p2=np.radians(lat1),np.radians(lat2); dp=np.radians(lat2-lat1); dl=np.radians(lon2-lon1)
+    a=np.sin(dp/2)**2+np.cos(p1)*np.cos(p2)*np.sin(dl/2)**2
     return 2*R*np.arcsin(np.sqrt(a))
 
 def aggregate(d):
