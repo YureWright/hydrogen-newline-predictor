@@ -878,18 +878,22 @@ body::before {
 .hw-note { font-size: 12.5px; color: var(--txt-3); margin-top: 10px; }
 .hw-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
 .hw-table table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.hw-table th, .hw-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.hw-table th, .hw-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .hw-table th { background: var(--glass-2); color: var(--txt-2); font-weight: 600; white-space: nowrap; }
 .hw-table td { color: var(--txt); }
+.hw-table td .katex { white-space: nowrap; }
+.hw-table td .tex-inline { vertical-align: -0.15em; }
 .hw-table tbody tr:last-child td { border-bottom: none; }
 .hw-table tbody tr:hover { background: var(--glass-2); }
 
 
 /* ============ 技术原理页 v2（LaTeX + SVG + 论文级） ============ */
-.tex-inline { display: inline-block; margin: 0 3px; vertical-align: middle; }
+.tex-inline { display: inline-block; margin: 0 3px; vertical-align: -0.12em; }
 .tex-block { display: block; text-align: center; margin: 10px 0; overflow-x: auto; }
-.tex-block .katex-display { margin: 0; }
+.tex-block .katex-display { margin: 0 auto; }
+.tex-block .katex { white-space: nowrap; }
 .hw-svg { width: 100%; height: auto; margin: 10px 0; background: var(--glass); border: 1px solid var(--line); border-radius: 10px; }
+.hw-svg text { font-family: "Inter","PingFang SC","Microsoft YaHei",-apple-system,sans-serif; font-variant-numeric: tabular-nums; }
 .hw-num { display: inline-block; min-width: 22px; height: 22px; line-height: 22px; text-align: center; margin-right: 8px; border-radius: 6px; background: rgba(58,227,255,0.12); color: var(--cyan); font-size: 13px; }
 .hw-sub { margin: 10px 0 6px 0; }
 .hw-sub h5 { font-size: 13.5px; color: var(--txt); margin-bottom: 6px; }
