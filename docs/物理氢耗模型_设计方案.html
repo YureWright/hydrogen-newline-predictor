@@ -230,6 +230,17 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <br>所以我们的模型不满足于"这段路爬升 300 米、均速 70"，而是把路段切细、把每段的速度和坡度<b>一起算账</b>。这就是"能量矩积分"。</p>
 </div>
 
+<h4>能量 vs 功率：一个账本，两个视角（先讲关系，避免"脱节"感）</h4>
+<p class="lead"><b>功率是能量的时间变化率</b>：<span class="mi" data-k="1">P = dE/dt</span>，反过来 <span class="mi" data-k="1">E = \int P\,dt</span>。它们是同一个物理量（轮边机械能）的两种表示，<b>不是两笔独立的账</b>。</p>
+<div class="tbl"><table>
+<tr><th></th><th>能量视角（§3 能量矩积分）</th><th>功率视角（§4-7 功率链）</th></tr>
+<tr><td>算什么</td><td>整段路的轮边机械能 <span class="mi" data-k="1">E_{wheel}</span>（四项解析求和）</td><td>逐时刻 <span class="mi" data-k="1">P_{wheel}(t)\to P_{fc}(t)\to</span> 氢耗 <span class="mi" data-k="1">m_{H_2}</span></td></tr>
+<tr><td>输入</td><td>段级统计：里程 s、均速 v̄、速度波动 σ、高程差 Δh、起终速度差 Δv²</td><td>逐秒工况 v(t)、坡度 θ(t)</td></tr>
+<tr><td>优点</td><td>解析、快、不需要逐秒工况</td><td>完整：能算电池/电堆/附件/效率链 → 氢耗</td></tr>
+<tr><td>关系</td><td colspan="2"><span class="mi" data-k="1">E_{wheel}(\S3) \equiv \int P_{wheel}\,dt(\S4)</span>（因 P·dt = F·v·dt = F·ds）——<b>严格等价，可交叉验证</b></td></tr>
+</table></div>
+<p class="lead">所以不是"两个没关系的量"：§3 用能量语言<b>快速算总账</b>（锚点校准、独立校验），§4-7 用功率语言<b>逐秒往下走</b>（功率分配 → 电池 SOC → 氢耗）。两者殊途同归，<b>能量守恒是它们共同的账本</b>。</p>
+
 <h3>3.2 能量矩积分：一段路的"能量账本"</h3>
 <p>把第 k 段路再切成 J 个坡段（每段坡度基本不变、只上坡或只下坡，由切分算法产出），轮边机械能是四笔账的和：</p>
 <div class="eq" data-k="1">E_{wheel,k} \;=\; \underbrace{C_{rr}\, m\, g\, <span class="mi" data-k="1">s_k</span>}_{\text{①滚动}} \;+\; \underbrace{\tfrac12 \rho <span class="mi" data-k="1">C_d</span> A\, E[v^2]\, <span class="mi" data-k="1">s_k</span>}_{\text{②空气}} \;+\; \underbrace{m g\, \Delta <span class="mi" data-k="1">h_k</span>}_{\text{③坡度}} \;+\; \underbrace{\tfrac12 \delta m\, \Delta(v^2)}_{\text{④动能}}</div>
