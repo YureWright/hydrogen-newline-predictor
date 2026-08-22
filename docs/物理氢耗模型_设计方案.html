@@ -700,6 +700,86 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 坡度误差已被"坡段切分"显著降低；"合成工况 vs 实际驾驶"是准静态模型的天花板，通过分段巡航 + 行为区概率近似控制，并在界面如实披露。</div>
 </section>
 
+<section id="sA">
+<h2><span class="num">A</span>计算过程透明化（不做黑箱）<span class="ln"></span></h2>
+<p class="lead"><b>原则</b>：物理模型每一步的中间结果都可在前端展开查看，不是黑箱。选中一条路线后，每个路段的预测结果下方带一个「🔍 查看计算过程」按钮，展开后从上到下展示：<b>输入 → 每层中间结果（带公式 + 代入数值）→ 汇总氢耗</b>。</p>
+
+<h3>A.1 每段的展示结构（从输入到氢耗）</h3>
+<div class="tbl"><table>
+<tr><th>层级</th><th>展示内容（公式 + 代入 + 结果）</th></tr>
+<tr><td>① 输入</td><td>里程 s、均速 v̄、坡度 θ、海拔 H、温度 T、载重（→总质量 m）、爬升密度</td></tr>
+<tr><td>② L1 能量矩</td><td>滚动 Crr·m·g·s · 空气 ½ρCdA·E[v²]·s · 坡度 m·g·Δh · 动能 ½δm·Δ(v²) → E_wheel</td></tr>
+<tr><td>③ L2 阻力功率</td><td>F = F_roll+F_aero+F_grade+F_acc → P_wheel = F·v</td></tr>
+<tr><td>④ L3 动力总成</td><td>P_drive = P_wheel/η_mt + P_aux(T) → P_fc = clamp(...) → P_bat = P_drive−P_fc（电池削峰/SOC 平衡）</td></tr>
+<tr><td>⑤ L4 效率</td><td>η_fc(P)（极化曲线查表 + 温度/海拔修正）</td></tr>
+<tr><td>⑥ L5 氢耗</td><td>m_H2 = P_fc·Δt / (η_fc·LHV) → 段氢耗 → 线路汇总</td></tr>
+</table></div>
+<p class="lead">每个数字可点击/悬停，弹出<b>对应公式与单位</b>；整条线路在底部给出「三模型对比」（物理 / ML / 官方锚点 7.1）与「数据来源状态条」（哪些是实测、哪些是默认兜底）。</p>
+
+<h3>A.2 计算流程伪代码（整条链路）</h3>
+<div class="flow"><b>输入</b>：segments[]（每段含 s, v̄, θ, H, T, 载重）
+│
+<b>for</b> 每段:
+│  ① m = 整备(9700) + 载重×1000                     // 总质量 kg
+│  ② ρ = 1.225×(1−2.25577e-5×H)^4.25588           // 海拔空气密度
+│  ③ F_roll = Crr·m·g                               // 滚动
+│  ④ F_aero = ½·ρ·Cd·A·(v̄/3.6)²                    // 空气（含 E[v²] 修正）
+│  ⑤ F_grade = m·g·sin(atan(θ/100))                 // 坡度（上下坡符号不同）
+│  ⑥ F_acc = δ·m·a（匀速段=0）                      // 加速
+│  ⑦ F = F_roll+F_aero+F_grade+F_acc；P_wheel=F·v̄/3.6
+│  ⑧ P_drive = P_wheel/η_mt + P_aux(T)              // 附件温度耦合
+│  ⑨ P_fc = clamp(P_drive, 30, 180)                 // 电堆高效区削峰
+│  ⑩ P_bat = P_drive − P_fc                          // 电池补差（SOC 平衡 λ 调节）
+│  ⑪ η_fc = η_stack(P_fc)×η_BOP（极化曲线+温度修正）
+│  ⑫ m_H2 = P_fc×(s/v̄) / (η_fc×LHV)                // 段氢耗 kg
+│<b>汇总</b>：总氢耗 = Σm_H2；百公里 = Σm_H2/Σs×100
+│<b>校准</b>：总氢耗 × k_cal（官方锚点 7.1/7.8/8.0 反推，可开关）
+│<b>输出</b>：每段氢耗 + 各层中间结果（供前端透明展示）</div>
+</section>
+
+<section id="sB">
+<h2><span class="num">B</span>端到端手算示例（3 段模拟行程）<span class="ln"></span></h2>
+<p class="lead">用一个 3 段模拟行程，从头到尾手算一遍：<b>先给输入表 → 每算一个量表格加一列 → 再给段 2（上坡，最复杂）的完整手算 → 汇总</b>。参数：Crr=0.009、Cd=0.35、A=7.5 m²、ρ=1.225（海拔修正省略，取平原）、η_mt=0.9、P_aux=3 kW、P_fc∈[30,180] kW、η_fc=0.5、LHV=33.3 kWh/kg、总质量 m=30 t。</p>
+
+<h3>B.1 模拟行程输入</h3>
+<div class="tbl"><table>
+<tr><th>段</th><th>路况</th><th>里程 s</th><th>均速 v̄</th><th>坡度 θ</th><th>说明</th></tr>
+<tr><td>1</td><td>高速平路</td><td>10 km</td><td>80 km/h</td><td>0%</td><td>匀速巡航</td></tr>
+<tr><td>2</td><td>高速上坡</td><td>8 km</td><td>70 km/h</td><td>+3%</td><td>爬坡，电池削峰</td></tr>
+<tr><td>3</td><td>高速下坡</td><td>6 km</td><td>75 km/h</td><td>−2%</td><td>重力供能，再生回收</td></tr>
+</table></div>
+
+<h3>B.2 逐步计算表（每算一个量加一列）</h3>
+<div class="tbl"><table>
+<tr><th>段</th><th>F_roll (N)</th><th>F_aero (N)</th><th>F_grade (N)</th><th>F 总 (N)</th><th>P_wheel (kW)</th><th>P_drive (kW)</th><th>P_fc (kW)</th><th>P_bat (kW)</th><th>时间 (h)</th><th>氢耗 (kg)</th></tr>
+<tr><td>1 平路</td><td>2646</td><td>793</td><td>0</td><td>3439</td><td>76.3</td><td>87.8</td><td>87.8</td><td>0</td><td>0.125</td><td>0.659</td></tr>
+<tr><td>2 上坡</td><td>2646</td><td>605</td><td>8820</td><td>12071</td><td>234.2</td><td>263.2</td><td>180（上限）</td><td>+83.2（放电）</td><td>0.114</td><td>1.236</td></tr>
+<tr><td>3 下坡</td><td>2646</td><td>696</td><td>−5880</td><td>−2538（需制动）</td><td>−52.8（回收）</td><td>−55.7</td><td>30（最低）</td><td>−85.7（充电）</td><td>0.080</td><td>0.144</td></tr>
+<tr><td><b>合计</b></td><td colspan="8">总里程 24 km</td><td colspan="2"><b>2.039 kg → 8.50 kg/100km</b></td></tr>
+</table></div>
+
+<h3>B.3 手算例子：段 2（高速上坡，最复杂）</h3>
+<div class="flow"><b>段 2 输入</b>：s=8 km, v̄=70 km/h, θ=+3%, m=30000 kg
+│ ① 车速转 m/s：v = 70/3.6 = 19.4 m/s
+│ ② 滚动：F_roll = 0.009×30000×9.8 = 2646 N
+│ ③ 空气：F_aero = ½×1.225×2.625×19.4² = 605 N     （CdA=0.35×7.5=2.625）
+│ ④ 坡度：F_grade = 30000×9.8×sin(atan0.03) ≈ 30000×9.8×0.03 = 8820 N
+│ ⑤ 总力：F = 2646+605+8820 = 12071 N
+│ ⑥ 轮边功率：P_wheel = 12071×19.4 = 234.2 kW
+│ ⑦ 驱动电功率：P_drive = 234.2/0.9 + 3 = 263.2 kW
+│ ⑧ 电堆削峰：P_fc = clamp(263.2, 30, 180) = 180 kW（达上限）
+│ ⑨ 电池补差：P_bat = 263.2−180 = +83.2 kW（放电削峰）
+│ ⑩ 时间：t = 8/70 = 0.1143 h
+│ ⑪ 氢耗：m_H2 = 180×0.1143 / (0.5×33.3) = 20.57/16.65 = 1.236 kg
+│ ⑫ 百公里：1.236/8×100 = 15.4 kg/100km（爬坡，合理）</div>
+
+<h3>B.4 汇总与合理性检查</h3>
+<div class="box tip"><div class="bt">✅ 结果合理性</div>
+<p>30 t 载重（满载 49 t 的约 6 成）混合工况 <b>8.50 kg/100km</b>：平路段 6.6、上坡段 15.4（爬坡费氢 + 电池削峰电堆 180kW）、下坡段 2.4（重力供能 + 再生回收）——方向与量级均符合物理直觉与官方锚点（满载 49t 高速 7.1~8）。</p>
+</div>
+<p class="lead">整条链路的每步都对应附录 A 的伪代码，前端可逐步展开核对——这就是"透明化"的落地形态。</p>
+</section>
+
 <section id="s11">
 <h2><span class="num">11</span>参考文献<span class="ln"></span></h2>
 <div class="refs"><ol>
