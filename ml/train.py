@@ -11,7 +11,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 warnings.filterwarnings("ignore")
 from collections import defaultdict, Counter
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, GradientBoostingRegressor, StackingRegressor
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import GroupKFold
 from sklearn.metrics import r2_score, mean_squared_error
 from feat import (deep_feats, synth_segment, bucket_of, lv_ordinal,
@@ -114,8 +115,11 @@ X=s[FEATURES].fillna(0); y=s["h2_per_km"]
 groups=s["trip"]+s["car"]*100000
 
 # 训练（全量） + 按行程分组 CV 报告
-model=HistGradientBoostingRegressor(max_iter=350,learning_rate=0.05,max_depth=5,l2_regularization=1.0,random_state=42)
-model.fit(X,y)
+# 模型对比结论（ml/compare_models.py，与 train 同管道 5 折 CV）：
+#   HistGB R²=0.382（最优）> RF 0.370 > GBR 0.336 > 线性 0.25-0.26 > SVR/MLP
+#   Stacking(hist+gbr+ridge) R²=0.380 无提升（VIF 实测平均 226，树模型免疫共线性优势成立）
+model = HistGradientBoostingRegressor(max_iter=350, learning_rate=0.05, max_depth=5, l2_regularization=1.0, random_state=42)
+model.fit(X, y)
 gkf=GroupKFold(5); r2s=[]; rms=[]
 for tr,te in gkf.split(X,y,groups):
     m=HistGradientBoostingRegressor(max_iter=350,learning_rate=0.05,max_depth=5,l2_regularization=1.0,random_state=42)

@@ -24,7 +24,7 @@ lib = None
 def ensure():
     global model, lib
     if model is None:
-        model = joblib.load(MODEL)
+        model = joblib.load(MODEL)   # 可能是 StackingRegressor（含 hist+gbr+ridge）
         lib = load_lib()
 
 def _get(seg, key1, key2, default):

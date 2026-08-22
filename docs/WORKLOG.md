@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-08-22 · 多模型对比 + Stacking 评估
+
+| 工作 | 说明 |
+| --- | --- |
+| 触发 | 用户提出：特征换成天气/道路工况数据后 VIF 可能低，HistGB 是否仍最优？要不要 stack |
+| VIF 实测 | 20 特征平均 VIF=226、最大 2106（v_mean/v_p85 强相关）——共线性仍高，与"会变低"的预期相反 |
+| 模型对比 | `ml/compare_models.py`（与 train 同管道、按行程分组 5 折 CV）：HistGB 0.382 最优 > RF 0.370 > GBR 0.336 > 线性 0.25-0.26 > SVR/MLP；Stacking(hist+gbr+ridge) 0.380 无提升 |
+| 结论 | HistGB 确为最优单模型（VIF 高时树模型免疫共线性）；Stacking 无提升且复杂，不采用；train.py 保持 HistGB |
+| 踩坑 | 首次 compare 脚本多了 `len(s)<2` 过滤导致段数/管道差异，误报"Stacking 提升到 0.45"——修正管道一致后证伪 |
+
 ## 2026-08-22 · 训练数据质量审计（h2_remain 毛刺）
 
 | 工作 | 说明 |
