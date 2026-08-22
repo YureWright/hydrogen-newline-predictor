@@ -143,6 +143,21 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 </div>
 </section>
 
+<h4>技术选型：为什么不直接用现成工具（NREL FASTSim）</h4>
+<div class="box warn"><div class="bt">❓ FASTSim 是什么？为什么不用它直接算？</div>
+<p><b>NREL FASTSim</b> 是美国国家可再生能源实验室的开源整车能效仿真器（准静态、Python/Excel、SAE 2015-01-0973），支持燃油/纯电/混合动力/燃料电池车，精度"通常在实测 ±10% 内、常 ±5% 内"。</p>
+<p><b>不直接调用的原因（核心是输入不匹配）</b>：</p>
+<div class="tbl"><table>
+<tr><th>障碍</th><th>说明</th></tr>
+<tr><td><b>① 输入不匹配（致命）</b></td><td>FASTSim 要<b>逐秒速度-时间工况 v(t)</b>，而新线路只有<b>路段级信息</b>（均速/坡度/距离）——喂它前必须先"合成工况"，这正是我们自己的工况合成（§3.3），绕不开</td></tr>
+<tr><td>② 重卡适配弱</td><td>FASTSim 以乘用车/轻型车为主，Class 8 半挂（49t）支持较弱</td></tr>
+<tr><td>③ 坡度/氢电细节</td><td>坡度支持有限；氢电混合的能量管理是简化黑箱，无法定制"电池削峰 + SOC 平衡 + λ 等效氢耗"</td></tr>
+<tr><td>④ 创新展示</td><td>本设计需展示自研创新（能量矩积分/切分/SOC 平衡），直接调用 = 黑箱，创新点无从体现</td></tr>
+<tr><td>⑤ 部署重</td><td>依赖多、体积大，本项目目标是轻量部署（Vite 中间件调 python）</td></tr>
+</table></div>
+<p><b>FASTSim 的正确位置：对标验证，不是替代</b>——§10 验证路径：用同参数 + CHTC-TT 工况跑 FASTSim，与我们模型输出对照量级，一致即证明没算错。它是"考试卷"，不是"答题人"。</p>
+</div>
+
 <section id="s2">
 <h2><span class="num">2</span>模型全景：五层能量流水线<span class="ln"></span></h2>
 <p>氢气不是直接变成"车轮往前滚"的。它先被燃料电池变成电，电经过电机变成机械能，机械能经过传动到车轮，最后才去克服滚动阻力、空气阻力、坡度阻力和加速阻力。能量每过一道手都会"漏掉"一点（效率 &lt; 100%）。物理模型就是把这条流水线<b>一层一层算清楚</b>：</p>
