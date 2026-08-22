@@ -280,15 +280,39 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <text x="170" y="238" fill="#3ddc97" font-size="11">−1%</text>
 <text x="40" y="20" fill="#6a7691" font-size="11">坡度变化率超阈值 → 切开；每坡段只保留一种符号（只上坡 / 只下坡），段内坡度近似常数</text>
 </svg>
-<div class="cap">图 2 · 路段 → 坡段。蓝色折线是真实纵剖面，虚线把坡度符号变化 / 变化率过大的位置切开，每段标注坡度值。</div>
+<div class="cap">图 2 · 路段 → 坡段。蓝色折线是 DEM 采样纵剖面；灰色虚线 = 切分点（由「长度上限 ≥10km / 坡度带偏离 &gt;1.5% / 坡度变号」三条规则触发）；每段标注坡度值，段内近似匀质。</div>
 </div>
 <p>切分规则（已有算法的科学版表述）：</p>
-<div class="flow">对第 k 段路（已含 GPS 高程序列）：
-<b>step 1</b> 计算逐点坡度 <span class="mi" data-k="1">g_i</span> = Δh_i / Δs_i；
-<b>step 2</b> 在坡度<b>变号</b>处强制切开（上坡/下坡不混在同一坡段）；
-<b>step 3</b> 在坡度变化率 |g_{i+1} − <span class="mi" data-k="1">g_i</span>| / Δs_i 超过阈值处切开（≤ 1~2% 每百米，可配置）；
-<b>step 4</b> 对过短的坡段（&lt; 50 m）并入相邻坡段（避免数值噪声），但<b>保持总高程差不变</b>；
-<b>step 5</b> 输出坡段序列 {<span class="mi" data-k="1">(\Delta <span class="mi" data-k="1">s_j</span>,\theta_j,\bar <span class="mi" data-k="1">v_j</span>)</span>} → 喂给能量矩积分。</div>
+<h4>识别公式与切分规则（对应前端 demFetch.ts splitGradeProfile）</h4>
+<p class="lead"><b>切分信号不是"没有"</b>：信号就是 <b>DEM 高程剖面（200m 采样）</b>。高程先过 <b>5m 死区</b>去噪（滤掉 DEM 采样噪声，避免平原被算成大量爬升），再做三规则切分。若一段路已经足够匀质（长度、坡度都在阈值内）<b>就不切</b>——与"已有算法足够精细就不用再切"一致。</p>
+<div class="eq" data-k="1">g_i = \frac{h_i - h_{i-1}}{d_i}\times 100\ (\%) \quad\text{逐采样点坡度}</div>
+<div class="eq" data-k="1">\bar g_k = \mathrm{mean}(g_k,\dots,g_{k+w}),\quad w=\frac{500\,\mathrm{m}}{d_i} \quad\text{滑动窗口平均坡度（平滑 DEM 噪声）}</div>
+<div class="tbl"><table>
+<tr><th>规则</th><th>识别公式 / 条件</th><th>说明</th></tr>
+<tr><td><b>A 长度上限（必切）</b></td><td>当前段长 ≥ <span class="mi" data-k="1">10\,\mathrm{km}</span></td><td>在最近窗口内找 |坡度| 最大处切，保证新段 ≥0.5km</td></tr>
+<tr><td><b>B 坡度带偏离</b></td><td><span class="mi" data-k="1">|\bar g_i - \bar g_{mean}| &gt; 1.5\%</span></td><td>前方进入新坡度带 → 切开</td></tr>
+<tr><td><b>C 坡度变号（峰/谷）</b></td><td><span class="mi" data-k="1">\bar g_i</span> 与 <span class="mi" data-k="1">\bar g_{mean}</span> 符号相反，且 |两者| &gt; 0.3%</td><td>真峰/谷必切（0.3% 阈值滤噪声）</td></tr>
+</table></div>
+<div class="box tip"><div class="bt">⏱ 什么时候切 / 什么时候不切</div>
+<div class="tbl"><table>
+<tr><th>✅ 切</th><th>❌ 不切</th></tr>
+<tr><td>段长 ≥10km（必切，防止长段吞掉坡度变化）</td><td>段长 &lt;0.5km（巡航段最小，不再细分）</td></tr>
+<tr><td>前方坡度带偏离当前段 &gt;1.5%</td><td>段长 &lt;1km（行为区/城市短段，不参与地形切分）</td></tr>
+<tr><td>坡度变号且 |坡度|&gt;0.3%（真峰谷）</td><td>|坡度| 都很小（&lt;0.3%，DEM 噪声）</td></tr>
+<tr><td>—</td><td>尾部过短（&lt;0.25km）且坡度接近 → 并入前段</td></tr>
+</table></div>
+</div>
+<h4>参数表（可配置）</h4>
+<div class="tbl"><table>
+<tr><th>参数</th><th>默认</th><th>含义</th></tr>
+<tr><td>MAX_SEGMENT_KM</td><td>10 km</td><td>段长上限，超过必切</td></tr>
+<tr><td>MIN_SEGMENT_KM</td><td>0.5 km</td><td>巡航段最小长度，小于不再细分</td></tr>
+<tr><td>MIN_SPLIT_KM</td><td>1.0 km</td><td>参与地形切分的最小段长（行为区短段不切）</td></tr>
+<tr><td>GRADE_BAND_PCT</td><td>1.5 %</td><td>坡度带阈值（偏离即切）</td></tr>
+<tr><td>GRADE_WINDOW_M</td><td>500 m</td><td>滑动窗口（平滑 DEM 噪声）</td></tr>
+<tr><td>MERGE_TINY_KM</td><td>0.2 km</td><td>纯延续碎段合并阈值</td></tr>
+</table></div>
+<p class="lead"><b>效果</b>：每个坡段"内部匀质"——只上坡或只下坡、段内坡度幅度 ≈1.5%、长度 0.5~10km，然后喂给 §3.2 能量矩积分（每坡段坡度近似常数，能量账才准）。</p>
 <div class="box tip"><div class="bt">✅ 这样做保证了什么</div>
 每段内坡度近似常数 → ③坡度项按 mg·Δh 精确结算；②空气阻力用该坡段的 E[v²]；④动能项只在坡段边界结算。
 总账在坡段之间"闭合"：把 J 个坡段的 ③加起来必然等于 m·g·(终点海拔−起点海拔)，不会丢能量。</div>
