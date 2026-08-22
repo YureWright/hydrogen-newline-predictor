@@ -125,7 +125,7 @@ export default function HydrogenHowItWorks({ onClose }: { onClose: () => void })
           <button className="btn-close" onClick={onClose} title="关闭">✕</button>
         </div>
         <div className="howitworks-body">
-          <p className="hw-lead"><b>摘要：</b>用两辆 H49 燃料电池重卡 2026-08 实车数据（60s×5504 条），经数据清洗、外部特征回填、5km 段聚合，构造 18 维特征；新线路分段后先按「道路等级×均速」从实车片段库<b>合成行驶工况</b>，再由梯度提升树（HistGB）预测每段氢耗。按行程分组 5 折交叉验证 R²≈0.34、RMSE≈0.053 kg/km。</p>
+          <p className="hw-lead"><b>摘要：</b>用两辆 H49 燃料电池重卡 2026-08 实车数据（60s×5504 条），经数据清洗、外部特征回填、5km 段聚合，构造 18 维特征；新线路分段后先按「道路等级×均速」从实车片段库<b>合成行驶工况</b>，再由梯度提升树（HistGB）预测每段氢耗。另一条「物理模型引擎」（能量守恒公式，见 §7）以同一接口可插拔接入，与 ML 互为交叉验证。按行程分组 5 折交叉验证 R²≈0.34、RMSE≈0.053 kg/km。</p>
 
           <Sec num="1" title="问题定义">
             <p>目标：给定一条<b>新线路</b>（起点/终点），预测氢能重卡（49t 半挂）整线氢耗（kg）与百公里氢耗（kg/100km）。</p>
@@ -328,7 +328,65 @@ ho C_dA v_i^3\Delta t_i" />
             </Sub>
           </Sec>
 
-          <Sec num="7" title="局限与展望">
+                    <Sec num="7" title="物理模型引擎（能量守恒 · 可插拔，2026-08-23 接入）">
+            <p className="hw-lead"><b>定位：</b>与机器学习<b>同一数据接口</b>（SegmentData），但<b>不依赖训练数据</b>——从车辆动力学 + 燃料电池原理出发，按公式逐步算出每段的 15 个中间变量与氢耗。可解释、可审计（每步都有中文名中间量），与 ML 互为交叉验证；企业模型数据到位后可整体替换（可插拔）。</p>
+
+            <Sub title="7.1 输入（与 ML 完全同源）">
+              <Table head={["输入","符号","说明"]} rows={[
+                ["里程 s","distanceKm","高德路线分段里程（km）"],
+                ["均速 v̄","avgSpeedKmh","段平均速度（km/h）"],
+                ["坡度 θ","gradePercent","%，上坡正 / 下坡负"],
+                ["海拔 H","elevationM","段中点海拔（m），修正空气密度"],
+                ["温度 T","temperatureC","沿线天气温度（℃），修正附件功耗"],
+                ["总质量 m","massKg","整备 9700kg + 用户输入载重×1000"],
+              ]} />
+            </Sub>
+
+            <Sub title="7.2 计算链路（L2 四阻力 → L3 动力总成 → L4/L5 效率与氢耗）">
+              <p><b>① 四阻力（L2）</b>：滚动 / 空气 / 坡度 / 加速（匀速巡航 a=0，加速度项为 0）：</p>
+              <Tex block math="F_{roll}=C_{rr}\,m\,g,\quad F_{aero}=\tfrac12\rho(H)\,C_d A\,v^2,\quad F_{grade}=m\,g\sin\theta,\quad F_{acc}=\delta m\,a" />
+              <Tex block math="\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}" />
+              <p><b>② 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
+              <Tex block math="P_{wheel}=F_{total}\,v,\qquad P_{aux}=\mathrm{clip}\!\left(3+0.15\,|T-20|,\;2,\;8\right)\ \mathrm{kW}" />
+              <Tex block math="P_{drive}=\frac{P_{wheel}}{\eta_{mt}}+P_{aux},\qquad P_{fc}=\mathrm{clip}\!\left(P_{drive},\,30,\,180\right)\ \mathrm{kW},\qquad P_{bat}=P_{drive}-P_{fc}" />
+              <p><b>③ 效率与氢耗（L4/L5）</b>：行驶时长 → 电堆电能 → 除以（电堆效率 × 氢热值）：</p>
+              <Tex block math="t=\frac{s}{v},\qquad E_{fc}=P_{fc}\,t,\qquad m_{H_2}=\frac{E_{fc}}{\eta_{fc}\,LHV},\qquad \eta_{fc}=0.5,\; LHV=33.3\ \mathrm{kWh/kg}" />
+            </Sub>
+
+            <Sub title="7.3 H49 车辆 / 物理参数">
+              <Table head={["参数","取值","来源"]} rows={[
+                ["滚动阻力系数 C_rr","0.009","重载卡车典型值"],
+                ["风阻系数 C_d","0.35","H49 官方"],
+                ["迎风面积 A","7.5 m²","Class 8 平头牵引车"],
+                ["电机 + 传动效率 η_mt","0.90","永磁同步 + AMT 典型"],
+                ["电堆功率区间 P_fc","30 ~ 180 kW","300kW 的 [10%, 60%] 高效区"],
+                ["电堆系统效率 η_fc","0.50（固定）","H49 官方 &gt;55%，取 0.5 保守"],
+                ["氢低热值 LHV","33.3 kWh/kg","120 MJ/kg ÷ 3.6"],
+              ]} />
+            </Sub>
+
+            <Sub title="7.4 手算验证（3 段模拟行程，代码逐段复现附录 B 工作簿）">
+              <Table head={["段","路况","里程","氢耗（手算 / 代码）","百公里 kg/100km","电堆 / 电池"]} rows={[
+                ["1","高速平路（0%）","10 km","0.660 kg","6.6","P_fc=87.9 / 电池 0"],
+                ["2","高速上坡（+3%）","8 km","1.235 kg","15.4","P_fc=180(上限) / 电池放 85.2"],
+                ["3","高速下坡（−2%）","6 km","0.144 kg","2.4","P_fc=30(最低) / 电池充 85.3"],
+                ["合计","混合工况","24 km","2.039 kg","8.50","30t 满载附近，落在官方锚点 7.1~8 附近"],
+              ]} />
+              <p className="hw-note">方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km；下坡段 P_fc 压到最低 30kW，回收功率给电池充电（P_bat &lt; 0）。</p>
+            </Sub>
+
+            <Sub title="7.5 与机器学习对比 & v1 简化（诚实披露）">
+              <Table head={["维度","机器学习 HistGB","物理模型 v1"]} rows={[
+                ["原理","实车数据统计学习","车辆动力学 + 燃料电池公式"],
+                ["可解释性","黑箱（依赖特征重要度）","每步透明，15 个中文名中间变量"],
+                ["数据依赖","需要实车数据","无需训练数据（仅需车辆参数）"],
+                ["主要简化","—","η_fc 固定 0.5；P_fc 直接截断；暂忽略速度波动 σ 与动态 SOC"],
+              ]} />
+              <p>两者结果可互相印证：一致 → 结论可信；差异大 → 优先怀疑输入（坡度 / 载重 / 温度）或数据质量。物理模型 v1 刻意从简，后续可接入企业模型数据后替换或升级。</p>
+            </Sub>
+          </Sec>
+
+<Sec num="8" title="局限与展望">
             <ul>
               <li><b>60s 颗粒度</b>：加速度只能由 60s 平均速度差分近似，秒级加速/起步细节丢失——当前 R²≈0.38 的主要瓶颈；拿到秒级数据可显著提升</li>
               <li><b>载重未知</b>：氢耗对载重最敏感，当前学习「平均载重」水平；有载重列可大幅改善</li>
@@ -345,7 +403,7 @@ ho C_dA v_i^3\Delta t_i" />
           </div>
         </div>
         <div className="howitworks-foot">
-          <span>模型：HistGB · 按行程分组 CV · R²≈0.38（每折平均） · 数据/相关性/报告均为实测</span>
+          <span>模型：HistGB · 按行程分组 CV · R²≈0.38（每折平均） · 数据/相关性/报告均为实测 · 物理引擎：能量守恒四阻力 → 电堆效率 → 氢耗（中间变量全透明）</span>
           <button className="btn-primary" onClick={onClose}>知道了</button>
         </div>
       </div>

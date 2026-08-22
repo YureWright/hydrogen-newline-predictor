@@ -7,6 +7,13 @@
 import sys, os, json
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+# stdin/stdout 统一 UTF-8（Node 侧按 utf8 编码写入/解码；避免 Windows GBK 下中文损坏或报错）
+if hasattr(sys.stdin, "reconfigure"):
+    sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import numpy as np
 import joblib
 from feat import (deep_feats, synth_segment, bucket_of, lv_ordinal,

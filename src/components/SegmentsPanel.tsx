@@ -123,6 +123,31 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   // 氢耗明细表排序（点击表头；与路段表同一套交互）
   const [hydroSortKey, setHydroSortKey] = useState<HydroSortKey>('index')
   const [hydroSortDesc, setHydroSortDesc] = useState(false)
+  // 模型选择：机器学习 / 物理模型 / 双引擎对比
+  const [hydroModel, setHydroModel] = useState<'ml' | 'physics' | 'both'>('ml')
+  // 物理模型中间变量表排序
+  const [phSortKey, setPhSortKey] = useState<string>('index')
+  const [phSortDesc, setPhSortDesc] = useState(false)
+  const phSort = (k: string) => { if (phSortKey === k) setPhSortDesc(!phSortDesc); else { setPhSortKey(k); setPhSortDesc(false) } }
+  const phArrow = (k: string) => (phSortKey === k ? (phSortDesc ? ' ↓' : ' ↑') : '')
+  // 物理模型中间变量列（中文名 + 悬停说明）
+  const phCols = [
+    { key: 'v_mps', cn: '车速', tip: 'm/s = v̄/3.6' },
+    { key: 'rho', cn: '空气密度', tip: 'kg/m³（随海拔 H 修正）' },
+    { key: 'F_roll', cn: '滚动阻力', tip: 'N = Crr·m·g' },
+    { key: 'F_aero', cn: '空气阻力', tip: 'N = ½ρCdA·v²' },
+    { key: 'F_grade', cn: '坡度阻力', tip: 'N = m·g·sinθ（上坡正/下坡负）' },
+    { key: 'F_total', cn: '总驱动力', tip: 'N = 四力之和' },
+    { key: 'P_wheel', cn: '轮边功率', tip: 'kW = F·v' },
+    { key: 'P_aux', cn: '附件功率', tip: 'kW（随温度 T）' },
+    { key: 'P_drive', cn: '驱动电功率', tip: 'kW = P_wheel/η_mt+P_aux' },
+    { key: 'P_fc', cn: '电堆功率', tip: 'kW（高效区削峰）' },
+    { key: 'P_bat', cn: '电池功率', tip: 'kW（正=放电，负=充电）' },
+    { key: 't_h', cn: '行驶时长', tip: 'h = s/v̄' },
+    { key: 'eta_fc', cn: '电堆效率', tip: 'η_fc' },
+    { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t' },
+    { key: 'm_H2', cn: '氢耗', tip: 'kg = E_fc/(η_fc·LHV)' },
+  ]
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   // 载重输入：固定载重（t）或按里程的重量曲线（线性插值到每段）
   const [massMode, setMassMode] = useState<'fixed' | 'curve'>('fixed')
@@ -141,14 +166,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     return load
   }, [massMode, fixedLoadT, weightPoints])
   const [hydroResult, setHydroResult] = useState<{
-    total_h2_kg?: number; per100km_kg?: number;
+    total_h2_kg?: number; per100km_kg?: number; model?: string;
+    ml?: any; physics?: any;
+    var_cn?: Record<string, string>; var_order?: string[];
     segments?: Array<{
       index: number; roadName?: string; distanceKm: number; avgSpeedKmh: number; gradePercent: number;
       elevationM: number; temperatureC: number; roadLevel?: string;
       v_std: number; v_p85: number; absa_mean: number; a_p90: number;
       cruise_ratio: number; stop_ratio: number; e_acc: number; e_aero: number; e_grade_up: number;
       h2_per_km_kg: number; h2_kg: number;
-    }>;
+    } & Record<string, any>>;
   } | null>(null)
   /** 预测进度步骤 0~3（单次 POST 无法真进度，用步骤动画做视觉反馈） */
   const [hydroStep, setHydroStep] = useState(0)
@@ -419,7 +446,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       const r = await fetch('/api/predict-hydrogen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segments: slim, departureTime }),
+        body: JSON.stringify({ segments: slim, departureTime, model: hydroModel }),
       })
       const j = await r.json() as typeof hydroResult & { ok?: boolean; msg?: string }
       if (j.ok) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
@@ -428,16 +455,56 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
       if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
     }
-  }, [data, departureTime])
+  }, [data, departureTime, hydroModel])
 
+  // 活跃结果（both 模式用物理模型 segments 画折线）
+  const activeHydro = useMemo<typeof hydroResult>(() => {
+    if (!hydroResult) return null
+    if (hydroResult.model === 'both') return hydroResult.physics ?? null
+    return hydroResult
+  }, [hydroResult])
+  // 物理模型 segments（both 或 physics）
+  const phSegs = useMemo(() => {
+    if (hydroResult?.model === 'both') return hydroResult.physics?.segments ?? []
+    if (hydroResult?.model === 'physics') return hydroResult.segments ?? []
+    return []
+  }, [hydroResult])
+  // 物理表排序（null 沉底）
+  const phSorted = useMemo(() => {
+    const arr = [...phSegs]
+    arr.sort((a: any, b: any) => {
+      const av = a[phSortKey], bv = b[phSortKey]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      return (av < bv ? -1 : av > bv ? 1 : 0) * (phSortDesc ? -1 : 1)
+    })
+    return arr
+  }, [phSegs, phSortKey, phSortDesc])
+  // ML segments (both mode)
+  const mlSegs = useMemo(() => {
+    if (hydroResult?.model === 'both') return hydroResult.ml?.segments ?? []
+    return []
+  }, [hydroResult])
+  const mlSorted = useMemo(() => {
+    const arr = [...mlSegs]
+    arr.sort((a: any, b: any) => {
+      const av = a[hydroSortKey], bv = b[hydroSortKey]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      return (av < bv ? -1 : av > bv ? 1 : 0) * (hydroSortDesc ? -1 : 1)
+    })
+    return arr
+  }, [mlSegs, hydroSortKey, hydroSortDesc])
   // 氢耗折线：x=累计里程，y=每公里氢耗（kg/100km）；高耗段打标记
   const hydroPts = useMemo(() => {
-    const segs = hydroResult?.segments ?? []
+    const segs = activeHydro?.segments ?? []
     let cum = 0
     return segs.map((s) => { cum += s.distanceKm; return { x: Math.round(cum * 10) / 10, y: Math.round(s.h2_per_km_kg * 100 * 100) / 100 } })
   }, [hydroResult])
   const hydroMarkers = useMemo(() => {
-    const segs = hydroResult?.segments ?? []
+    const segs = activeHydro?.segments ?? []
     const thr = Math.max(8, (segs.reduce((a, s) => a + s.h2_per_km_kg, 0) / Math.max(segs.length, 1)) * 100 * 1.5)
     let cum = 0
     const markers: Array<{ x: number; label: string; color: string }> = []
@@ -447,6 +514,18 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     }
     return markers
   }, [hydroResult])
+
+  // 物理模型中间变量 CSV 导出
+  const exportPhysicsCsv = () => {
+    if (!phSorted.length) return
+    const head = ['#', '道路', ...phCols.map((c) => c.cn)]
+    const rows = phSorted.map((s: any) => [s.index, s.roadName || '', ...phCols.map((c) => s[c.key])])
+    const csv = '\uFEFF' + [head, ...rows].map((r) => r.join(',')).join('\n')
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    a.download = '物理模型_氢耗中间变量.csv'
+    a.click(); URL.revokeObjectURL(a.href)
+  }
 
   // 氢耗明细导出 CSV（普通字段 + 深度工况字段）
   const exportHydroCsv = useCallback(() => {
@@ -789,13 +868,23 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
       <div className="h2-card">
         <div className="ai-head">
-          <h4>⚡ 氢能消耗预测（机器学习）</h4>
+          <h4>⚡ 氢能消耗预测（{hydroModel === 'physics' ? '物理模型（能量守恒）' : hydroModel === 'both' ? '双引擎对比（机器学习 vs 物理）' : '机器学习（实车数据）'}）</h4>
           <button className="btn-ai" onClick={() => setShowHowItWorks(true)}>📖 技术原理</button>
         </div>
         {hydroStage === 'idle' && (
           <>
             <p className="panel-sub">用两辆 H49 重卡实车数据训练的段级模型：系统分段 → 工况合成（模板拼接）→ 预测每段氢耗，无需实跑即可出结果。</p>
             {weatherWarn && <div className="hydro-warn">{weatherWarn}</div>}
+            <div className="mass-input">
+              <div className="mass-head">
+                <span className="mass-label">🧠 预测模型</span>
+                <select value={hydroModel} onChange={(e) => setHydroModel(e.target.value as 'ml' | 'physics' | 'both')}>
+                  <option value="ml">机器学习（实车数据）</option>
+                  <option value="physics">物理模型（能量守恒公式）</option>
+                  <option value="both">双引擎对比</option>
+                </select>
+              </div>
+            </div>
             <div className="mass-input">
               <div className="mass-head">
                 <span className="mass-label">⚖️ 载重输入</span>
@@ -840,86 +929,166 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               <span className={hydroStep >= 3 ? 'on' : ''}>③ 模型预测</span>
             </div>
             <div className="progress-track"><div className="progress-fill indeterminate" /></div>
-            <div className="hydro-progress-tip">正在按道路等级×均速从实车片段库拼接 60s 工况…</div>
+            <div className="hydro-progress-tip">{hydroModel === 'physics' ? '正在调用物理模型计算四阻力→轮边功率→电堆/电池削峰→氢耗…' : '正在按道路等级×均速从实车片段库拼接 60s 工况…'}</div>
           </div>
         )}
         {hydroError && <div className="error">{hydroError}</div>}
         {hydroStage === 'done' && hydroResult && (
           <div className="hydro-result">
-            <div className="hydro-metrics">
-              <div className="hydro-metric"><b>{hydroResult.total_h2_kg?.toFixed(2)}</b><span>总氢耗 kg</span></div>
-              <div className="hydro-metric"><b>{hydroResult.per100km_kg?.toFixed(2)}</b><span>百公里 kg/100km</span></div>
-              <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
-            </div>
-            <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；本结果已按你输入的载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）参与预测，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
-            <div className="hydro-src-note">
-              <b>本次预测数据来源（兜底透明）：</b>
-              温度/湿度/风速：{weatherOk ? '真实抓到 ' + weatherSampled + ' 段' : '⚠️ 未全量匹配（' + weatherSampled + '/' + segments.length + '），已用默认值 20℃/60%/10km/h 兜底'}
-              · 道路等级：OSM {osmCount} 段 + 规则推断 {segments.length - osmCount} 段
-              · 坡度/海拔：DEM {demCount}/{segments.length} 段
-              {hasFallback && ' · 有兜底项，结果精度受影响，仅供参考'}
-            </div>
-            <div className="hydro-chart">
-              <LineAreaChartMemo points={hydroPts} color="#3ae3ff" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
-            </div>
-            <div className="hydro-table-wrap">
-              <div className="hydro-table-head">
-                <span>路段氢耗明细（{hydroResult.segments?.length ?? 0} 段）<span className="table-tip">点击表头排序（# = 起点→终点顺序）</span></span>
-                <button className="btn-export" onClick={exportHydroCsv} disabled={!hydroResult.segments?.length}>⬇ 导出 CSV</button>
-              </div>
-              <div className="hydro-table-scroll">
-                <table className="hydro-table">
-                  <thead>
-                    <tr>
-                      <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('roadName')}>道路{sortArrowHydro('roadName')}</th>
-                      <th>等级</th>
-                      <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
-                      <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
-                      <th className="sortable" title="巡航速度：85% 时间不超过的速度(km/h)，决定高速风阻" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
-                      <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc{sortArrowHydro('e_acc')}</th>
-                      <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero{sortArrowHydro('e_aero')}</th>
-                      <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up{sortArrowHydro('e_grade_up')}</th>
-                      <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa{sortArrowHydro('absa_mean')}</th>
-                      <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise{sortArrowHydro('cruise_ratio')}</th>
-                      <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop{sortArrowHydro('stop_ratio')}</th>
-                      <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分匀速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std{sortArrowHydro('v_std')}</th>
-                      <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90{sortArrowHydro('a_p90')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hydroSorted.map((s) => (
-                      <tr key={s.index}>
-                        <td className="mono">{s.index}</td>
-                        <td className="road-name">{s.roadName || "—"}</td>
-                        <td>{s.roadLevel ? (ROAD_LEVEL_LABEL as Record<string, string>)[s.roadLevel] : "—"}</td>
-                        <td className="mono">{s.distanceKm}</td>
-                        <td className="mono">{s.avgSpeedKmh}</td>
-                        <td className="mono">{s.gradePercent}</td>
-                        <td className="mono">{s.elevationM}</td>
-                        <td className="mono">{s.temperatureC}</td>
-                        <td className="mono hydro-strong">{(s.h2_per_km_kg * 100).toFixed(2)}</td>
-                        <td className="mono">{s.h2_kg}</td>
-                        <td className="mono">{s.v_p85}</td>
-                        <td className="mono">{s.e_acc}</td>
-                        <td className="mono">{s.e_aero}</td>
-                        <td className="mono">{s.e_grade_up}</td>
-                        <td className="mono">{s.absa_mean}</td>
-                        <td className="mono">{s.cruise_ratio}</td>
-                        <td className="mono">{s.stop_ratio}</td>
-                        <td className="mono">{s.v_std}</td>
-                        <td className="mono">{s.a_p90}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <div className="hydro-model-tag">预测模型：{hydroResult.model === 'both' ? '双引擎对比（机器学习 vs 物理模型）' : hydroResult.model === 'physics' ? '物理模型（能量守恒公式）' : '机器学习（实车数据）'}</div>
+            {(hydroResult.model === 'physics' || hydroResult.model === 'both') ? (
+              <>
+                <div className="hydro-metrics">
+                  {hydroResult.model === 'both' && (<>
+                    <div className="hydro-metric"><b>{hydroResult.ml?.total_h2_kg?.toFixed(2)}</b><span>ML 总氢耗 kg</span></div>
+                    <div className="hydro-metric"><b>{hydroResult.ml?.per100km_kg?.toFixed(2)}</b><span>ML 百公里 kg/100km</span></div>
+                  </>)}
+                  <div className="hydro-metric"><b>{activeHydro?.total_h2_kg?.toFixed(2)}</b><span>物理 总氢耗 kg</span></div>
+                  <div className="hydro-metric"><b>{activeHydro?.per100km_kg?.toFixed(2)}</b><span>物理 百公里 kg/100km</span></div>
+                  <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
+                </div>
+                <div className="hydro-note">💡 物理模型按能量守恒：总氢耗 = 电堆电能/(电堆效率×氢热值)，含滚动/空气/坡度阻力与附件功耗；已按载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）、海拔、温度参与计算。{hydroResult.model === 'both' ? '与机器学习对比：一致则互相印证，差异大请检查输入。' : '红线标记为高耗路段（超过 8 kg/100km 或均值 1.5 倍）。'}</div>
+                <div className="hydro-src-note"><b>物理模型参数：</b>Crr=0.009 · Cd=0.35 · A=7.5m² · η_mt=0.9 · P_fc∈[30,180]kW · η_fc=0.5 · LHV=33.3 kWh/kg（详见技术原理 / 设计文档）</div>
+                <div className="hydro-chart">
+                  <LineAreaChartMemo points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
+                </div>
+                {hydroResult.model === 'both' && hydroResult.ml?.segments?.length ? (
+                  <div className="hydro-table-wrap">
+                    <div className="hydro-table-head"><span>🤖 机器学习明细（{hydroResult.ml.segments.length} 段）</span></div>
+                    <div className="hydro-table-scroll">
+                      <table className="hydro-table">
+                        <thead><tr>
+                          <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
+                          <th>道路</th><th>等级</th>
+                          <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/100km{sortArrowHydro('h2_per_km_kg')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
+                        </tr></thead>
+                        <tbody>
+                          {mlSorted.map((m: any) => (
+                            <tr key={m.index}>
+                              <td className="mono">{m.index}</td>
+                              <td className="road-name">{m.roadName || '—'}</td>
+                              <td>{m.roadLevel ? (ROAD_LEVEL_LABEL as Record<string, string>)[m.roadLevel] : '—'}</td>
+                              <td className="mono">{m.distanceKm}</td>
+                              <td className="mono">{m.avgSpeedKmh}</td>
+                              <td className="mono hydro-strong">{(m.h2_per_km_kg * 100).toFixed(2)}</td>
+                              <td className="mono">{m.h2_kg}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="hydro-table-wrap">
+                  <div className="hydro-table-head">
+                    <span>🔧 物理模型 · 路段中间变量明细（{phSegs.length} 段）<span className="table-tip">点击表头排序（# = 起点→终点顺序）</span></span>
+                    <button className="btn-export" onClick={exportPhysicsCsv} disabled={!phSegs.length}>⬇ 导出 CSV</button>
+                  </div>
+                  <div className="hydro-table-scroll">
+                    <table className="hydro-table">
+                      <thead><tr>
+                        <th className="sortable" onClick={() => phSort('index')}>#（顺序）{phArrow('index')}</th>
+                        <th>道路</th>
+                        {phCols.map((c) => <th key={c.key} className="sortable" title={c.tip} onClick={() => phSort(c.key)}>{c.cn}{phArrow(c.key)}</th>)}
+                        <th className="sortable" onClick={() => phSort('h2_per_km_kg')}>氢耗kg/100km{phArrow('h2_per_km_kg')}</th>
+                        <th className="sortable" onClick={() => phSort('h2_kg')}>氢耗kg{phArrow('h2_kg')}</th>
+                      </tr></thead>
+                      <tbody>
+                        {phSorted.map((p: any) => (
+                          <tr key={p.index}>
+                            <td className="mono">{p.index}</td>
+                            <td className="road-name">{p.roadName || '—'}</td>
+                            {phCols.map((c) => <td key={c.key} className="mono">{p[c.key]}</td>)}
+                            <td className="mono hydro-strong">{p.h2_per_km_kg != null ? (p.h2_per_km_kg * 100).toFixed(2) : '—'}</td>
+                            <td className="mono">{p.h2_kg}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hydro-metrics">
+                  <div className="hydro-metric"><b>{hydroResult.total_h2_kg?.toFixed(2)}</b><span>总氢耗 kg</span></div>
+                  <div className="hydro-metric"><b>{hydroResult.per100km_kg?.toFixed(2)}</b><span>百公里 kg/100km</span></div>
+                  <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
+                </div>
+                <div className="hydro-note">💡 参考：49 吨氢能重卡满载百公里约 5~9 kg；本结果已按你输入的载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）参与预测，载重/驾驶习惯会影响实际值。红线标记为高耗路段（超过 8 kg/100km 或超过均值 1.5 倍）。</div>
+                <div className="hydro-src-note">
+                  <b>本次预测数据来源（兜底透明）：</b>
+                  温度/湿度/风速：{weatherOk ? '真实抓到 ' + weatherSampled + ' 段' : '⚠️ 未全量匹配（' + weatherSampled + '/' + segments.length + '），已用默认值 20℃/60%/10km/h 兜底'}
+                  · 道路等级：OSM {osmCount} 段 + 规则推断 {segments.length - osmCount} 段
+                  · 坡度/海拔：DEM {demCount}/{segments.length} 段
+                  {hasFallback && ' · 有兜底项，结果精度受影响，仅供参考'}
+                </div>
+                <div className="hydro-chart">
+                  <LineAreaChartMemo points={hydroPts} color="#3ae3ff" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
+                </div>
+                <div className="hydro-table-wrap">
+                  <div className="hydro-table-head">
+                    <span>路段氢耗明细（{hydroResult.segments?.length ?? 0} 段）<span className="table-tip">点击表头排序（# = 起点→终点顺序）</span></span>
+                    <button className="btn-export" onClick={exportHydroCsv} disabled={!hydroResult.segments?.length}>⬇ 导出 CSV</button>
+                  </div>
+                  <div className="hydro-table-scroll">
+                    <table className="hydro-table">
+                      <thead>
+                        <tr>
+                          <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
+                          <th>道路</th>
+                          <th>等级</th>
+                          <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
+                          <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
+                          <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc{sortArrowHydro('e_acc')}</th>
+                          <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero{sortArrowHydro('e_aero')}</th>
+                          <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up{sortArrowHydro('e_grade_up')}</th>
+                          <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa{sortArrowHydro('absa_mean')}</th>
+                          <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise{sortArrowHydro('cruise_ratio')}</th>
+                          <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop{sortArrowHydro('stop_ratio')}</th>
+                          <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分匀速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std{sortArrowHydro('v_std')}</th>
+                          <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90{sortArrowHydro('a_p90')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hydroSorted.map((s) => (
+                          <tr key={s.index}>
+                            <td className="mono">{s.index}</td>
+                            <td className="road-name">{s.roadName || '—'}</td>
+                            <td>{s.roadLevel ? (ROAD_LEVEL_LABEL as Record<string, string>)[s.roadLevel] : '—'}</td>
+                            <td className="mono">{s.distanceKm}</td>
+                            <td className="mono">{s.avgSpeedKmh}</td>
+                            <td className="mono">{s.gradePercent}</td>
+                            <td className="mono">{s.elevationM}</td>
+                            <td className="mono">{s.temperatureC}</td>
+                            <td className="mono hydro-strong">{(s.h2_per_km_kg * 100).toFixed(2)}</td>
+                            <td className="mono">{s.h2_kg}</td>
+                            <td className="mono">{s.v_p85}</td>
+                            <td className="mono">{s.e_acc}</td>
+                            <td className="mono">{s.e_aero}</td>
+                            <td className="mono">{s.e_grade_up}</td>
+                            <td className="mono">{s.absa_mean}</td>
+                            <td className="mono">{s.cruise_ratio}</td>
+                            <td className="mono">{s.stop_ratio}</td>
+                            <td className="mono">{s.v_std}</td>
+                            <td className="mono">{s.a_p90}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

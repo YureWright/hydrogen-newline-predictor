@@ -274,14 +274,28 @@ export default defineConfig({
                 return { ...s, hour }
               })
               const input = JSON.stringify({ departure_hour: dep.getHours(), segments: enriched })
-              const r = await runPythonScript('predict.py', input, join(__dirname, 'ml'))
+              // 模型选择：ml（机器学习，默认）/ physics（物理模型）/ both（双引擎对比）
+              const model = payload.model || 'ml'
+              const run = (script: string) => runPythonScript(script, input, join(__dirname, 'ml'))
+              if (model === 'both') {
+                const [mlR, phR] = await Promise.all([run('predict.py'), run('physics.py')])
+                if (mlR.code !== 0 || phR.code !== 0) {
+                  return send(res, 200, { ok: false, msg: '双引擎预测失败：' + (mlR.stderr || phR.stderr || '').slice(0, 200) })
+                }
+                try {
+                  return send(res, 200, { ok: true, model: 'both',
+                    ml: JSON.parse(mlR.stdout), physics: JSON.parse(phR.stdout) })
+                } catch { return send(res, 200, { ok: false, msg: '双引擎返回无法解析' }) }
+              }
+              const script = model === 'physics' ? 'physics.py' : 'predict.py'
+              const r = await run(script)
               if (r.code !== 0) {
                 console.error('[predict] python 失败:', r.stderr.slice(0, 500))
                 return send(res, 200, { ok: false, msg: '氢耗模型预测失败：' + (r.stderr.slice(0, 200) || 'python exit ' + r.code) })
               }
               try {
                 const j = JSON.parse(r.stdout)
-                return send(res, 200, { ok: true, ...j })
+                return send(res, 200, { ok: true, model, ...j })
               } catch {
                 return send(res, 200, { ok: false, msg: '氢耗模型返回无法解析' })
               }
