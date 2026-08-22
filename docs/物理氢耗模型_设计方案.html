@@ -416,6 +416,14 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <br>一句话：<b>"发电机只干它擅长的活（高效区巡航），太小的、太大的、瞬间的活全交给充电宝"</b>。</p>
 </div>
 <p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
+<h4>功率平衡，不是"按比例分配"（常见误解，先讲清）</h4>
+<div class="box story"><div class="bt">👵 通俗版 · 电是怎么"分"的</div>
+<p class="story-zh">燃料电池、电池、电机、附件都挂在<b>同一根母线（一条大电线）</b>上，谁也不是"先拿几成"——而是<b>功率平衡</b>：进来的电 = 出去的电。
+<br>流程三步：① <b>电机+附件先"要"</b>（需求侧，由油门/空调定，不可控）；② <b>控制策略给燃料电池"设定一个输出"</b>（电堆高效区工作点，可控）；③ <b>电池自动补差</b>：需求 &gt; 电堆 → 电池放电；需求 &lt; 电堆 → 电池充电。
+<br>例：巡航需求 60kW、电堆设 60kW → 电池 0；加速需求 150kW、电堆 90kW → 电池放电 60kW；下坡回收 −35kW、电堆最低 20kW → 电池充电 55kW。</p>
+</div>
+<p><b>母线功率平衡</b>（能量守恒）：</p>
+<div class="eq" data-k="1">P_{fc}(t) + P_{bat}(t) \;=\; P_{motor}(t) + P_{aux}(t)</div>
 <div class="eq" data-k="1">P_{fc}(t) \;=\; \mathrm{clamp}\!\Bigl(P_{drive}(t),\ \ P_{fc}^{min},\ \ P_{fc}^{max}\Bigr),\qquad P_{bat}(t)=P_{drive}(t)-P_{fc}(t)</div>
 <div class="eq" data-k="1">\dot m_{<span class="mi" data-k="1">H_2</span>}^{eq} \;=\; \dot m_{<span class="mi" data-k="1">H_2</span>}^{FC} \;+\; \lambda \cdot \frac{P_{bat}}{\eta_{bat}},\qquad \lambda=\lambda_0 + k_\lambda\,(SOC_{target}-SOC)</div>
 <div class="tbl"><table>
