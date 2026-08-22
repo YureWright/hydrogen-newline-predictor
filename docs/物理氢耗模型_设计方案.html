@@ -240,6 +240,9 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <tr><td>关系</td><td colspan="2"><span class="mi" data-k="1">E_{wheel}(\S3) \equiv \int P_{wheel}\,dt(\S4)</span>（因 P·dt = F·v·dt = F·ds）——<b>严格等价，可交叉验证</b></td></tr>
 </table></div>
 <p class="lead">所以不是"两个没关系的量"：§3 用能量语言<b>快速算总账</b>（锚点校准、独立校验），§4-7 用功率语言<b>逐秒往下走</b>（功率分配 → 电池 SOC → 氢耗）。两者殊途同归，<b>能量守恒是它们共同的账本</b>。</p>
+<div class="box warn"><div class="bt">⚠️ 理论上同一个数，实现上互为"对账"</div>
+<p>能量法用<b>段级统计</b>（v̄、σ，假设 E[v²]=v̄²+σ²），功率法用<b>合成工况 v(t)</b> 逐秒积分——两边速度表示不同，实际算出的轮边能量会有<b>微小偏差</b>。<b>偏差小（如 &lt;3%）→ 模型自洽；偏差大 → 工况合成或段级统计口径有误（诊断信号）</b>。这正好是物理模型自我校验的抓手。</p>
+</div>
 
 <h3>3.2 能量矩积分：一段路的"能量账本"</h3>
 <p>把第 k 段路再切成 J 个坡段（每段坡度基本不变、只上坡或只下坡，由切分算法产出），轮边机械能是四笔账的和：</p>
