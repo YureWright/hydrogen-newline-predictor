@@ -175,19 +175,21 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <rect x="230" y="170" width="170" height="62" rx="10" fill="rgba(61,220,151,.08)" stroke="rgba(61,220,151,.5)"/>
 <text x="315" y="196" text-anchor="middle" fill="#3ddc97" font-size="13" font-weight="700">动力电池 75kWh</text>
 <text x="315" y="215" text-anchor="middle" fill="#9aa6c0" font-size="11">削峰填谷 · 再生回收</text>
-<line x1="315" y1="110" x2="315" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
-<line x1="460" y1="168" x2="460" y2="112" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<line x1="290" y1="110" x2="290" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<text x="262" y="142" text-anchor="end" fill="#3ddc97" font-size="10.5">充电（低负荷时）</text>
+<path d="M 345 168 L 345 132 L 535 132 L 535 112" fill="none" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<text x="440" y="126" text-anchor="middle" fill="#3ddc97" font-size="10.5">削峰供电（加速/爬坡时）</text>
 <!-- accessories -->
 <rect x="460" y="170" width="150" height="62" rx="10" fill="rgba(61,220,151,.06)" stroke="rgba(61,220,151,.35)"/>
 <text x="535" y="196" text-anchor="middle" fill="#3ddc97" font-size="13" font-weight="700">附件功耗</text>
 <text x="535" y="215" text-anchor="middle" fill="#9aa6c0" font-size="11">空调/气泵/转向 2~8kW</text>
-<line x1="535" y1="110" x2="535" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
+<line x1="565" y1="110" x2="565" y2="168" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#arM)"/>
 <!-- regeneration loop -->
 <path d="M 775 112 L 775 245 Q 775 260 760 260 L 320 260 Q 305 260 305 245 L 305 234" fill="none" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="6,4" marker-end="url(#arM)"/>
 <text x="540" y="252" text-anchor="middle" fill="#3ddc97" font-size="11">减速/下坡 → 再生制动回收（受 SOC 门限限制）</text>
 <text x="120" y="150" text-anchor="middle" fill="#6a7691" font-size="11.5">五层能量流水线：H<tspan dy="3" font-size="0.72em">2</tspan> → 电 → 机械 → 轮边，每层都有损耗</text>
 </svg>
-<div class="cap">图 1 · 能量流水线。氢气化学能 → 燃料电池发电 →（动力电池削峰/再生回流）→ 电机传动 → 车轮克服四阻力。</div>
+<div class="cap">图 1 · 能量流水线。氢气化学能 → 燃料电池发电：<b>主路径给电机</b>（驱动）、<b>低负荷时给电池充电</b>；<b>电池在加速/爬坡时削峰供电给电机</b>、下坡/减速时回收再生；附件功耗由燃料电池供电（不经电机）。</div>
 </div>
 
 <p>对应到计算流程，模型分 <b>5 层</b>，每一层的输入输出都是上一层的输入：</p>
