@@ -413,6 +413,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
           windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
           massKg: Math.round(CURB_KG + loadT * 1000),
+          gainM: s.elevationGainM ?? 0,
         }
       })
       const r = await fetch('/api/predict-hydrogen', {

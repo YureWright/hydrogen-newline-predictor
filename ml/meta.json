@@ -3,6 +3,7 @@
     "len_km",
     "v_mean",
     "grade_mean",
+    "gain_m_per_km",
     "elev_mean",
     "temp_mean",
     "wind_mean",
@@ -28,7 +29,7 @@
   "trained_at": "2026-08-22",
   "n_segments": 1066,
   "cv": {
-    "r2_mean": 0.3641217968327591,
-    "rmse_mean": 0.04785309543546466
+    "r2_mean": 0.38188905004713314,
+    "rmse_mean": 0.0473485850329936
   }
 }

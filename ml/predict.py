@@ -49,10 +49,13 @@ def predict_segment(seg, rng, hour_default=12):
     hour = int(_get(seg, "hour", None, hour_default))
     lv   = lv_ordinal(_get(seg, "roadLevel", "lv", "other"))
     mass_kg = float(_get(seg, "massKg", "totalMassKg", 30000.0))
+    # 爬升密度：前端传总爬升 gainM(m)，除以段长得 m/km（与训练聚合口径一致）
+    gain_m = float(_get(seg, "gainM", "elevationGainM", 0.0))
+    gain_m_per_km = gain_m / L if L > 0 else 0.0
     n_points = max(2, int(round(L / (max(v_mean, 5.0) / 60.0))))
     vs, aa, gs = synth_segment(rng, v_mean, grade, n_points, lib, bucket_of(lv, v_mean))
     deep = deep_feats(vs, aa, gs, L)
-    feats = {"len_km": L, "v_mean": v_mean, "grade_mean": grade, "elev_mean": elev, "mass_kg": mass_kg,
+    feats = {"len_km": L, "v_mean": v_mean, "grade_mean": grade, "gain_m_per_km": gain_m_per_km, "elev_mean": elev, "mass_kg": mass_kg,
              "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])

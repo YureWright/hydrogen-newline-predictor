@@ -77,13 +77,13 @@ def synth_segment(rng, v_mean_kmh, grade_mean, n_points, lib, bucket):
     return vs.tolist(), aa.tolist(), gs.tolist()
 
 # ---------- 训练/预测共用的段特征装配 ----------
-ACQUIRABLE = ["len_km","v_mean","grade_mean","elev_mean","temp_mean","wind_mean","hum_mean","hour","lv","mass_kg"]
+ACQUIRABLE = ["len_km","v_mean","grade_mean","gain_m_per_km","elev_mean","temp_mean","wind_mean","hum_mean","hour","lv","mass_kg"]
 DEEP = ["v_std","v_p85","absa_mean","a_p90","cruise_ratio","stop_ratio","e_acc","e_aero","e_grade_up"]
 FEATURES = ACQUIRABLE + DEEP
 
 def row_to_feature_vec(seg, deep_dict):
     """把一段(可获取特征 + 深度特征dict)拼成模型输入向量（顺序固定）"""
-    base = [seg.get("len_km",5.0), seg.get("v_mean",60.0), seg.get("grade_mean",0.0),
+    base = [seg.get("len_km",5.0), seg.get("v_mean",60.0), seg.get("grade_mean",0.0), seg.get("gain_m_per_km",0.0),
             seg.get("elev_mean",100.0), seg.get("temp_mean",20.0), seg.get("wind_mean",10.0),
             seg.get("hum_mean",60.0), seg.get("hour",12.0), lv_ordinal(seg.get("lv","other")), seg.get("mass_kg",30000.0)]
     deep_v = [deep_dict[k] for k in DEEP]

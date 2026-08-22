@@ -302,7 +302,7 @@ hydrogen-newline-predictor/
 | --- | --- | --- |
 | `len_km` 段里程 | 实车 GPS 相邻点 haversine 累计 | 高德路线段里程 |
 | `v_mean` 均速 | 实车 CAN 车速（原始 ×0.1 → km/h） | 高德路段均速 |
-| `grade_mean` / `elev_mean` | DEM（terrarium 瓦片） | 同左（DEM 高程） |
+| `grade_mean` / `elev_mean` / `gain_m_per_km` | DEM（terrarium 瓦片；爬升密度=段内总爬升÷里程） | 同左（DEM 高程 / 前端 elevationGainM） |
 | `temp_mean` / `wind_mean` / `hum_mean` | **ERA5 历史再分析**（open-meteo） | **QWeather 逐小时预报**（按出发时间+位置） |
 | `hour` 时段 | 段起点时刻 | 出发时间 + 累计时长推算 |
 | `lv` 道路等级 | 高德 regeo 道路名 + 规则推断 | **OSM 真实路网**匹配 |

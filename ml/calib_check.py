@@ -39,8 +39,16 @@ def aggregate(d, mass_key):
         for sid in np.unique((c/5.0).astype(int)):
             s=idx[(c/5.0).astype(int)==sid]; L=np.sum(dist[s])
             w=dist[s]/L if L>0 else np.full(len(s),1.0/len(s))   # 里程权重（每点按它代表的里程加权，避免低速点灌水）
+            # 段内爬升密度（m/km）：逐点正海拔差求和（跳过 NaN），/段长 —— 补"平均坡度丢失的起伏"
+            es = e[s]
+            _gain = 0.0
+            for _j in range(1, len(s)):
+                if np.isfinite(es[_j]) and np.isfinite(es[_j-1]):
+                    _dh = es[_j] - es[_j-1]
+                    if _dh > 0: _gain += _dh
+            gain_m_per_km = _gain / L if L > 0 else 0.0
             if L<0.3: continue
-            rows.append({"trip":int(tr),"len_km":L,"v_series":v[s].tolist(),
+            rows.append({"trip":int(tr),"len_km":L,"gain_m_per_km":round(gain_m_per_km,2),"v_series":v[s].tolist(),
                 "v_mean":float(np.sum(w*v[s])),"grade_mean":float(np.sum(w*g[s])),"elev_mean":float(np.sum(w*e[s])),
                 "temp_mean":float(np.sum(w*tc[s])),"wind_mean":float(np.sum(w*wd[s])),"hum_mean":float(np.sum(w*hu[s])),
                 "lv":lv_ordinal(Counter(lv[s]).most_common(1)[0][0]),
