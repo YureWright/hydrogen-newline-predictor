@@ -416,6 +416,26 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <br>一句话：<b>"发电机只干它擅长的活（高效区巡航），太小的、太大的、瞬间的活全交给充电宝"</b>。</p>
 </div>
 <p>氢电混合动力的分工本质：<b>燃料电池负责"平均功率"，电池负责"尖峰与回血"</b>。我们不做逐秒 MPC（那超出准静态范畴），用一条削峰规则 + 一个等效氢耗平衡项：</p>
+<h4>分配比怎么算？——求电堆工作点 P_fc（等效氢耗最小化，ECMS）</h4>
+<p class="lead"><b>分配比不是固定比例，而是"动态权衡"</b>：只要算出电堆发多少（P_fc），电池自动是余量 <span class="mi" data-k="1">P_{bat}=P_{drive}-P_{fc}</span>。P_fc 由"使等效氢耗最小"决定：</p>
+<div class="eq" data-k="1">\dot m_{H_2}^{eq}(P_{fc}) = \frac{P_{fc}}{\eta_{fc}(P_{fc})\cdot LHV_{H_2}} + \lambda\cdot\frac{P_{drive}-P_{fc}}{\eta_{bat}}</div>
+<p class="lead">第一项 = 电堆烧的氢；第二项 = 电池功率按等效因子 λ 折算成"本来要烧多少氢"。<b>λ 大 → 电池的电"贵" → 电堆多发电（顺便充电）；λ 小 → 电池电"便宜" → 多用电池</b>。</p>
+<div class="tbl"><table>
+<tr><th>步骤</th><th>公式</th><th>说明</th></tr>
+<tr><td>① 算需求</td><td><span class="mi" data-k="1">P_{drive}=P_{wheel}/\eta_{mt}+P_{aux}</span></td><td>驱动 + 空调附件</td></tr>
+<tr><td>② SOC 误差</td><td><span class="mi" data-k="1">\Delta SOC = SOC_{target}-SOC</span></td><td>目标约 0.6</td></tr>
+<tr><td>③ 等效因子</td><td><span class="mi" data-k="1">\lambda=\lambda_0+k_\lambda\,\Delta SOC</span></td><td>SOC 低 → λ 大</td></tr>
+<tr><td>④ 求最优 P_fc</td><td>在 <span class="mi" data-k="1">[P_{fc}^{min}, P_{fc}^{max}]</span> 内使 <span class="mi" data-k="1">\dot m_{H_2}^{eq}</span> 最小</td><td>一维搜索 / 格点扫描</td></tr>
+<tr><td>⑤ 电池功率</td><td><span class="mi" data-k="1">P_{bat}=P_{drive}-P_{fc}</span></td><td>正=放电，负=充电</td></tr>
+<tr><td>⑥ 再生优先</td><td><span class="mi" data-k="1">P_{drive}&lt;0</span> 时电堆降到最低、回收先充电池</td><td>下坡/减速</td></tr>
+</table></div>
+<div class="box tip"><div class="bt">💡 数字例子：需求 150kW（猛加速）</div>
+<p>SOC 正常（λ=λ0）→ 电堆 90kW（高效区）+ 电池放电 60kW；<br>
+SOC 偏低（λ 大）→ 电堆 120kW + 电池只放 30kW（少放、顺便充电）；<br>
+SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<br>
+<b>同一需求，分配随 SOC 动态变</b>——这就是"分配比"的计算本质。</p>
+</div>
+
 <h4>功率平衡，不是"按比例分配"（常见误解，先讲清）</h4>
 <div class="box story"><div class="bt">👵 通俗版 · 电是怎么"分"的</div>
 <p class="story-zh">燃料电池、电池、电机、附件都挂在<b>同一根母线（一条大电线）</b>上，谁也不是"先拿几成"——而是<b>功率平衡</b>：进来的电 = 出去的电。
