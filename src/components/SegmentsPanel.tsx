@@ -129,19 +129,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [fixedLoadT, setFixedLoadT] = useState(30)
   const [weightPoints, setWeightPoints] = useState<Array<{ km: number; loadT: number }>>([{ km: 0, loadT: 30 }])
   const loadTAtKm = useCallback((km: number) => {
+    // 阶梯语义：载重在整个区间内是定值，只有在「装卸货关键点」处突变。
+    // 段中点里程落在 [该点km, 下一点km) 区间 → 用该点的载重。
     if (massMode === 'fixed' || !weightPoints.length) return fixedLoadT
     const pts = [...weightPoints].sort((a, b) => a.km - b.km)
-    if (km <= pts[0].km) return pts[0].loadT
-    const last = pts[pts.length - 1]
-    if (km >= last.km) return last.loadT
-    for (let i = 0; i < pts.length - 1; i++) {
-      if (km >= pts[i].km && km <= pts[i + 1].km) {
-        const span = Math.max(pts[i + 1].km - pts[i].km, 0.001)
-        const t = (km - pts[i].km) / span
-        return pts[i].loadT + (pts[i + 1].loadT - pts[i].loadT) * t
-      }
+    let load = pts[0].loadT
+    for (const p of pts) {
+      if (km >= p.km) load = p.loadT
+      else break
     }
-    return last.loadT
+    return load
   }, [massMode, fixedLoadT, weightPoints])
   const [hydroResult, setHydroResult] = useState<{
     total_h2_kg?: number; per100km_kg?: number;
@@ -827,7 +824,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     </div>
                   ))}
                   <button className="mass-add" onClick={() => setWeightPoints([...weightPoints, { km: 0, loadT: fixedLoadT }])}>＋ 添加关键点</button>
-                  <p className="mass-tip">按「里程 → 载重」关键点线性插值到每个路段（0 km 为起点）；中途卸货/装货可加多个点。</p>
+                  <p className="mass-tip">「里程 → 载重」表示该里程处的装卸货跳变：路段落在哪个区间就用哪个载重（中间恒定、装卸点突变，如 0km=20t → 200km=10t 表示 200km 处卸货一半）。</p>
                 </div>
               )}
             </div>
