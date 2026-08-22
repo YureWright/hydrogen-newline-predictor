@@ -738,47 +738,98 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 </section>
 
 <section id="sB">
-<h2><span class="num">B</span>端到端手算示例（3 段模拟行程）<span class="ln"></span></h2>
-<p class="lead">用一个 3 段模拟行程，从头到尾手算一遍：<b>先给输入表 → 每算一个量表格加一列 → 再给段 2（上坡，最复杂）的完整手算 → 汇总</b>。参数：Crr=0.009、Cd=0.35、A=7.5 m²、ρ=1.225（海拔修正省略，取平原）、η_mt=0.9、P_aux=3 kW、P_fc∈[30,180] kW、η_fc=0.5、LHV=33.3 kWh/kg、总质量 m=30 t。</p>
+<h2><span class="num">B</span>端到端手算工作簿（3 段模拟行程，一步一步算）<span class="ln"></span></h2>
+<p class="lead">这次不跳步：<b>参数先全部列清楚 → 每段 13 步完整手算（公式→含义→代入→中间过程→结果）→ 汇总</b>。所有数字都能拿计算器复算。</p>
 
-<h3>B.1 模拟行程输入</h3>
+<h3>B.0 参数与常量表（每一步都用到这里的值）</h3>
 <div class="tbl"><table>
-<tr><th>段</th><th>路况</th><th>里程 s</th><th>均速 v̄</th><th>坡度 θ</th><th>说明</th></tr>
-<tr><td>1</td><td>高速平路</td><td>10 km</td><td>80 km/h</td><td>0%</td><td>匀速巡航</td></tr>
-<tr><td>2</td><td>高速上坡</td><td>8 km</td><td>70 km/h</td><td>+3%</td><td>爬坡，电池削峰</td></tr>
-<tr><td>3</td><td>高速下坡</td><td>6 km</td><td>75 km/h</td><td>−2%</td><td>重力供能，再生回收</td></tr>
+<tr><th>符号</th><th>含义</th><th>取值</th><th>来源</th></tr>
+<tr><td>m</td><td>整车总质量</td><td>30000 kg（=30 t，整备 9700+载重 20300，示例取整）</td><td>H49 整备 &lt;10t + 载重输入</td></tr>
+<tr><td>Crr</td><td>滚动阻力系数</td><td>0.009</td><td>重载卡车典型值</td></tr>
+<tr><td>Cd</td><td>风阻系数</td><td>0.35</td><td>H49 官方</td></tr>
+<tr><td>A</td><td>迎风面积</td><td>7.5 m²</td><td>Class 8 平头牵引车典型</td></tr>
+<tr><td>ρ</td><td>空气密度（示例取平原海平面）</td><td>1.225 kg/m³</td><td>国际标准大气</td></tr>
+<tr><td>g</td><td>重力加速度</td><td>9.8 m/s²</td><td>常数</td></tr>
+<tr><td>η_mt</td><td>电机+传动效率链</td><td>0.9</td><td>H49 官方传动 94% × 电机 0.95 附近</td></tr>
+<tr><td>P_aux</td><td>附件功耗（20℃ 基础）</td><td>3 kW</td><td>NRC 干线卡车附件 3~5 kW</td></tr>
+<tr><td>P_fc^min</td><td>电堆最低稳定功率（10% 额定）</td><td>30 kW</td><td>300 kW 电堆 × 10%</td></tr>
+<tr><td>P_fc^max</td><td>电堆高效区上限（60% 额定）</td><td>180 kW</td><td>电堆高效区</td></tr>
+<tr><td>η_fc</td><td>电堆系统效率（示例取峰值简化）</td><td>0.5</td><td>H49 官方 &gt;55%，取 0.5 保守</td></tr>
+<tr><td>LHV</td><td>氢低热值</td><td>33.3 kWh/kg</td><td>120 MJ/kg ÷ 3.6</td></tr>
+</table></div>
+<p class="lead">三段输入：<b>段1</b> 高速平路 s=10km、v̄=80km/h、θ=0%；<b>段2</b> 高速上坡 s=8km、v̄=70km/h、θ=+3%；<b>段3</b> 高速下坡 s=6km、v̄=75km/h、θ=−2%。</p>
+
+<h3>B.1 段 1 · 高速平路（10 km，80 km/h，θ=0%）—— 13 步手算</h3>
+<div class="tbl"><table>
+<tr><th>步</th><th>算什么</th><th>公式</th><th>代入过程</th><th>结果</th></tr>
+<tr><td>①</td><td>车速转 m/s</td><td>v = v̄/3.6</td><td>80 ÷ 3.6</td><td>22.22 m/s</td></tr>
+<tr><td>②</td><td>滚动阻力</td><td>F_roll = Crr·m·g</td><td>0.009 × 30000 × 9.8 = 0.009×294000</td><td>2646 N</td></tr>
+<tr><td>③</td><td>风阻系数×面积</td><td>Cd·A</td><td>0.35 × 7.5</td><td>2.625 m²</td></tr>
+<tr><td>④</td><td>空气阻力</td><td>F_aero = ½ρ·CdA·v²</td><td>0.5×1.225×2.625×22.22² ；22.22²=493.8；0.5×1.225=0.6125；0.6125×2.625=1.608；1.608×493.8</td><td>794 N</td></tr>
+<tr><td>⑤</td><td>坡度阻力</td><td>F_grade = m·g·sinθ</td><td>平路 θ=0 → sin0=0</td><td>0 N</td></tr>
+<tr><td>⑥</td><td>总驱动力</td><td>F = F_roll+F_aero+F_grade</td><td>2646 + 794 + 0（匀速 a=0，无加速项）</td><td>3440 N</td></tr>
+<tr><td>⑦</td><td>轮边功率</td><td>P_wheel = F·v</td><td>3440 × 22.22 = 76437 W</td><td>76.4 kW</td></tr>
+<tr><td>⑧</td><td>驱动电功率</td><td>P_drive = P_wheel/η_mt + P_aux</td><td>76.4/0.9 = 84.9；84.9 + 3</td><td>87.9 kW</td></tr>
+<tr><td>⑨</td><td>电堆功率（削峰）</td><td>P_fc = clamp(P_drive, 30, 180)</td><td>87.9 在 [30,180] 内 → 不截断</td><td>87.9 kW</td></tr>
+<tr><td>⑩</td><td>电池功率</td><td>P_bat = P_drive − P_fc</td><td>87.9 − 87.9</td><td>0 kW（电池不参与）</td></tr>
+<tr><td>⑪</td><td>行驶时间</td><td>t = s/v</td><td>10 ÷ 80</td><td>0.125 h（7.5 min）</td></tr>
+<tr><td>⑫</td><td>电堆输出电能</td><td>E_fc = P_fc·t</td><td>87.9 × 0.125</td><td>10.99 kWh</td></tr>
+<tr><td>⑬</td><td>氢耗</td><td>m_H2 = E_fc/(η_fc·LHV)</td><td>10.99 ÷ (0.5×33.3) = 10.99÷16.65</td><td><b>0.660 kg（6.60 kg/100km）</b></td></tr>
 </table></div>
 
-<h3>B.2 逐步计算表（每算一个量加一列）</h3>
+<h3>B.2 段 2 · 高速上坡（8 km，70 km/h，θ=+3%）—— 13 步手算</h3>
 <div class="tbl"><table>
-<tr><th>段</th><th>F_roll (N)</th><th>F_aero (N)</th><th>F_grade (N)</th><th>F 总 (N)</th><th>P_wheel (kW)</th><th>P_drive (kW)</th><th>P_fc (kW)</th><th>P_bat (kW)</th><th>时间 (h)</th><th>氢耗 (kg)</th></tr>
-<tr><td>1 平路</td><td>2646</td><td>793</td><td>0</td><td>3439</td><td>76.3</td><td>87.8</td><td>87.8</td><td>0</td><td>0.125</td><td>0.659</td></tr>
-<tr><td>2 上坡</td><td>2646</td><td>605</td><td>8820</td><td>12071</td><td>234.2</td><td>263.2</td><td>180（上限）</td><td>+83.2（放电）</td><td>0.114</td><td>1.236</td></tr>
-<tr><td>3 下坡</td><td>2646</td><td>696</td><td>−5880</td><td>−2538（需制动）</td><td>−52.8（回收）</td><td>−55.7</td><td>30（最低）</td><td>−85.7（充电）</td><td>0.080</td><td>0.144</td></tr>
-<tr><td><b>合计</b></td><td colspan="8">总里程 24 km</td><td colspan="2"><b>2.039 kg → 8.50 kg/100km</b></td></tr>
+<tr><th>步</th><th>算什么</th><th>公式</th><th>代入过程</th><th>结果</th></tr>
+<tr><td>①</td><td>车速转 m/s</td><td>v = v̄/3.6</td><td>70 ÷ 3.6</td><td>19.44 m/s</td></tr>
+<tr><td>②</td><td>滚动阻力</td><td>F_roll = Crr·m·g</td><td>0.009 × 30000 × 9.8（同段1）</td><td>2646 N</td></tr>
+<tr><td>③</td><td>Cd·A</td><td>同段1</td><td>—</td><td>2.625 m²</td></tr>
+<tr><td>④</td><td>空气阻力</td><td>F_aero = ½ρ·CdA·v²</td><td>19.44²=377.9；0.5×1.225×2.625×377.9 = 1.608×377.9</td><td>608 N</td></tr>
+<tr><td>⑤</td><td>坡度阻力</td><td>F_grade = m·g·sin(atan0.03)</td><td>θ=atan(0.03)=1.718°；sin≈0.02999≈0.03；30000×9.8×0.03</td><td>8820 N</td></tr>
+<tr><td>⑥</td><td>总驱动力</td><td>F = F_roll+F_aero+F_grade</td><td>2646 + 608 + 8820</td><td>12074 N</td></tr>
+<tr><td>⑦</td><td>轮边功率</td><td>P_wheel = F·v</td><td>12074 × 19.44 = 234719 W</td><td>234.7 kW</td></tr>
+<tr><td>⑧</td><td>驱动电功率</td><td>P_drive = P_wheel/η_mt + P_aux</td><td>234.7/0.9 = 260.8；260.8 + 3</td><td>263.8 kW</td></tr>
+<tr><td>⑨</td><td>电堆功率（削峰）</td><td>P_fc = clamp(263.8, 30, 180)</td><td>263.8 &gt; 180 → <b>截断到上限</b></td><td>180 kW</td></tr>
+<tr><td>⑩</td><td>电池功率</td><td>P_bat = P_drive − P_fc</td><td>263.8 − 180</td><td>+83.8 kW（电池放电削峰）</td></tr>
+<tr><td>⑪</td><td>行驶时间</td><td>t = s/v</td><td>8 ÷ 70</td><td>0.1143 h</td></tr>
+<tr><td>⑫</td><td>电堆输出电能</td><td>E_fc = P_fc·t</td><td>180 × 0.1143</td><td>20.57 kWh</td></tr>
+<tr><td>⑬</td><td>氢耗</td><td>m_H2 = E_fc/(η_fc·LHV)</td><td>20.57 ÷ 16.65</td><td><b>1.235 kg（15.4 kg/100km，爬坡）</b></td></tr>
 </table></div>
 
-<h3>B.3 手算例子：段 2（高速上坡，最复杂）</h3>
-<div class="flow"><b>段 2 输入</b>：s=8 km, v̄=70 km/h, θ=+3%, m=30000 kg
-│ ① 车速转 m/s：v = 70/3.6 = 19.4 m/s
-│ ② 滚动：F_roll = 0.009×30000×9.8 = 2646 N
-│ ③ 空气：F_aero = ½×1.225×2.625×19.4² = 605 N     （CdA=0.35×7.5=2.625）
-│ ④ 坡度：F_grade = 30000×9.8×sin(atan0.03) ≈ 30000×9.8×0.03 = 8820 N
-│ ⑤ 总力：F = 2646+605+8820 = 12071 N
-│ ⑥ 轮边功率：P_wheel = 12071×19.4 = 234.2 kW
-│ ⑦ 驱动电功率：P_drive = 234.2/0.9 + 3 = 263.2 kW
-│ ⑧ 电堆削峰：P_fc = clamp(263.2, 30, 180) = 180 kW（达上限）
-│ ⑨ 电池补差：P_bat = 263.2−180 = +83.2 kW（放电削峰）
-│ ⑩ 时间：t = 8/70 = 0.1143 h
-│ ⑪ 氢耗：m_H2 = 180×0.1143 / (0.5×33.3) = 20.57/16.65 = 1.236 kg
-│ ⑫ 百公里：1.236/8×100 = 15.4 kg/100km（爬坡，合理）</div>
+<h3>B.3 段 3 · 高速下坡（6 km，75 km/h，θ=−2%）—— 13 步手算</h3>
+<div class="tbl"><table>
+<tr><th>步</th><th>算什么</th><th>公式</th><th>代入过程</th><th>结果</th></tr>
+<tr><td>①</td><td>车速转 m/s</td><td>v = v̄/3.6</td><td>75 ÷ 3.6</td><td>20.83 m/s</td></tr>
+<tr><td>②</td><td>滚动阻力</td><td>F_roll = Crr·m·g</td><td>同前</td><td>2646 N</td></tr>
+<tr><td>③</td><td>Cd·A</td><td>同前</td><td>—</td><td>2.625 m²</td></tr>
+<tr><td>④</td><td>空气阻力</td><td>F_aero = ½ρ·CdA·v²</td><td>20.83²=434.0；1.608×434.0</td><td>698 N</td></tr>
+<tr><td>⑤</td><td>坡度阻力（负=下坡助力）</td><td>F_grade = m·g·sinθ</td><td>θ=−2% → sin≈−0.02；30000×9.8×(−0.02)</td><td>−5880 N</td></tr>
+<tr><td>⑥</td><td>总力</td><td>F = F_roll+F_aero+F_grade</td><td>2646 + 698 − 5880</td><td>−2536 N（负=需制动/回收）</td></tr>
+<tr><td>⑦</td><td>轮边功率</td><td>P_wheel = F·v</td><td>−2536 × 20.83 = −52825 W</td><td>−52.8 kW（电机发电回收）</td></tr>
+<tr><td>⑧</td><td>驱动电功率（净负）</td><td>P_drive = P_wheel/η_mt + P_aux</td><td>−52.8/0.9 = −58.7；−58.7 + 3</td><td>−55.7 kW</td></tr>
+<tr><td>⑨</td><td>电堆功率（最低）</td><td>P_fc = clamp(−55.7, 30, 180)</td><td>−55.7 &lt; 30 → 取最低稳定功率</td><td>30 kW</td></tr>
+<tr><td>⑩</td><td>电池功率（充电）</td><td>P_bat = P_drive − P_fc</td><td>−55.7 − 30</td><td>−85.7 kW（电池吸收 85.7 kW）</td></tr>
+<tr><td>⑪</td><td>行驶时间</td><td>t = s/v</td><td>6 ÷ 75</td><td>0.080 h</td></tr>
+<tr><td>⑫</td><td>电堆输出电能</td><td>E_fc = P_fc·t</td><td>30 × 0.08</td><td>2.40 kWh</td></tr>
+<tr><td>⑬</td><td>氢耗</td><td>m_H2 = E_fc/(η_fc·LHV)</td><td>2.40 ÷ 16.65</td><td><b>0.144 kg（2.4 kg/100km，下坡）</b></td></tr>
+</table></div>
 
 <h3>B.4 汇总与合理性检查</h3>
-<div class="box tip"><div class="bt">✅ 结果合理性</div>
-<p>30 t 载重（满载 49 t 的约 6 成）混合工况 <b>8.50 kg/100km</b>：平路段 6.6、上坡段 15.4（爬坡费氢 + 电池削峰电堆 180kW）、下坡段 2.4（重力供能 + 再生回收）——方向与量级均符合物理直觉与官方锚点（满载 49t 高速 7.1~8）。</p>
+<div class="tbl"><table>
+<tr><th>段</th><th>里程</th><th>氢耗</th><th>百公里</th><th>电堆/电池</th></tr>
+<tr><td>1 平路</td><td>10 km</td><td>0.660 kg</td><td>6.60</td><td>电堆 87.9 / 电池 0</td></tr>
+<tr><td>2 上坡</td><td>8 km</td><td>1.235 kg</td><td>15.4</td><td>电堆 180(上限) / 电池放 83.8</td></tr>
+<tr><td>3 下坡</td><td>6 km</td><td>0.144 kg</td><td>2.4</td><td>电堆 30(最低) / 电池充 85.7</td></tr>
+<tr><td><b>合计</b></td><td><b>24 km</b></td><td><b>2.039 kg</b></td><td><b>8.50 kg/100km</b></td><td>—</td></tr>
+</table></div>
+<div class="box tip"><div class="bt">✅ 合理性检查</div>
+<p>① 30 t 载重（满载 49 t 的 ~6 成）混合工况 8.50 kg/100km，落在官方锚点区间（满载 7.1~8）附近，合理；<br>
+② 方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4（重力供能+再生）；<br>
+③ 电堆始终在 [30,180] 高效区，尖峰由电池削峰（段2 放 83.8kW）、下坡回充（段3 充 85.7kW）。<br>
+<b>诚实说明</b>：本示例为固定 λ 的简化（电池净放电 9.58−6.86≈2.7kWh 未完全闭合）；完整版会调 λ 让 SOC 起终相等，把电池净放电折算回氢耗——但那对总氢耗影响 &lt;3%（见 §5.3 策略敏感性说明）。</p>
 </div>
-<p class="lead">整条链路的每步都对应附录 A 的伪代码，前端可逐步展开核对——这就是"透明化"的落地形态。</p>
+<p class="lead">每一行的数字都对应附录 A.2 的伪代码步骤，前端「🔍 查看计算过程」面板就是这张工作簿的交互版。</p>
 </section>
+
 
 <section id="s11">
 <h2><span class="num">11</span>参考文献<span class="ln"></span></h2>
