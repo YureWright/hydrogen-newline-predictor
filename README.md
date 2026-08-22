@@ -272,6 +272,48 @@ hydrogen-newline-predictor/
 
 每日工作内容与里程碑见 [docs/WORKLOG.md](docs/WORKLOG.md)（与 git 提交历史一一对应）；实时进度以 `git log` 为准。
 
+## 训练与预测的数据来源与口径差异
+
+氢耗模型的 18 个特征在**训练**与**预测**两条链路上分别来自不同数据源，量纲一致但口径存在差异，特此透明说明（详见 `ml/README.md` 与 `docs/氢耗ML建模调研_20260821.md`）。
+
+### 训练链路（`ml/backfill.py`）
+
+```
+原始 60s 实车 CSV（车辆1/车辆2：time / lat / lon / 车速 / 氢气剩余量）
+  ├─ ml/backfill.py 按每个 GPS 点（经纬度 + 采集时刻）回填：
+  │    ├─ DEM 海拔/坡度  → terrarium 高程瓦片（elevation-tiles-prod.s3.amazonaws.com）
+  │    ├─ ERA5 历史天气  → open-meteo archive-api（温度/风速/湿度/降水，匹配最近整点）
+  │    └─ 道路等级       → 高德 regeo 逆地理编码 → 道路名 → 关键词规则推断
+  ├─ _v1_feat.csv / _v2_feat.csv（每行一个 60s 点，含回填特征；本地 gitignore）
+  └─ ml/train.py：按 5km 切段聚合 → 9 个可获取特征 + 工况合成 → 9 个深度特征
+```
+
+### 预测链路（前端 + `ml/predict.py`）
+
+```
+起点/终点 → 高德路线规划（段里程/均速）→ DEM 高程（terrarium）→ OSM 道路等级 → QWeather 天气（按出发时间）
+  → predict.py 用同一套 feat.py 口径合成工况 → 18 特征 → 模型 → 每段氢耗
+```
+
+### 18 个特征来源对照
+
+| 特征 | 训练来源 | 预测来源 |
+| --- | --- | --- |
+| `len_km` 段里程 | 实车 GPS 相邻点 haversine 累计 | 高德路线段里程 |
+| `v_mean` 均速 | 实车 CAN 车速（原始 ×0.1 → km/h） | 高德路段均速 |
+| `grade_mean` / `elev_mean` | DEM（terrarium 瓦片） | 同左（DEM 高程） |
+| `temp_mean` / `wind_mean` / `hum_mean` | **ERA5 历史再分析**（open-meteo） | **QWeather 逐小时预报**（按出发时间+位置） |
+| `hour` 时段 | 段起点时刻 | 出发时间 + 累计时长推算 |
+| `lv` 道路等级 | 高德 regeo 道路名 + 规则推断 | **OSM 真实路网**匹配 |
+| 9 个深度特征（v_std…e_grade_up） | 实车 v/a 片段库合成 | 同左（同一套 `feat.py`） |
+
+### 已知口径差异（如实披露）
+
+1. **天气源不同**：训练用 ERA5 历史再分析（再分析是模型回算值，与实测有偏差），预测用 QWeather 实时预报——同一地点同一时刻两者可能差数度 / 数 m/s；
+2. **道路等级来源不同**：训练用高德 regeo 道路名关键词推断，预测用 OSM 地图匹配——个别路段等级可能不一致（如 `S12` 机场高速）；
+3. **里程口径不同**：训练用 GPS 相邻点 haversine（向量化 bug 已于 2026-08-22 修复），预测用高德路线里程（含道路曲率，通常略大于直线累计）——整体影响约 1% 量级；
+4. **载重未知（最大偏差源）**：训练数据无载重列，模型学到的是两车运营的"平均载重"水平；预测时无法体现空载/满载差异。
+
 ## 数据来源与合规
 
 - 路线/路况：高德开放平台 Web 服务 API（需 Key）

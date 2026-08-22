@@ -20,6 +20,18 @@ python ml/train.py        # 需要本地 _v1_feat.csv / _v2_feat.csv（由回填
 - 目标：氢气剩余量差分（= h2_consum_per_sec 同源，每 60s 消耗 kg；中位 ≈5.12 kg/100km）
 - 单位：km/h / kg/km；预测输出 kg 与 kg/100km
 
+## 训练数据来源（ml/backfill.py）
+
+训练特征不是凭空来的：`ml/backfill.py` 读取原始 60s 实车 CSV（根目录 车辆1/车辆2，gitignore），按每个 GPS 点（经纬度 + 采集时刻）回填三块**真实**数据：
+
+- **DEM 海拔/坡度**：terrarium 高程瓦片（elevation-tiles-prod.s3.amazonaws.com）
+- **ERA5 历史天气**：open-meteo archive-api（温度/风速/湿度/降水，按点时刻匹配最近整点）
+- **道路等级**：高德 regeo 逆地理编码 → 道路名 → 关键词规则推断
+
+输出 `_v1_feat.csv` / `_v2_feat.csv`（本地，含 GPS，勿提交）→ `train.py` 聚合训练。
+
+预测链路使用前端实时抓取（高德路线 + DEM + OSM + QWeather），与训练来源存在口径差异，详见根 README「训练与预测的数据来源与口径差异」。
+
 ## 数据隐私
 实车数据（含 GPS 轨迹）一律不提交仓库，.gitignore 已覆盖；模型与工况片段库（无坐标）随仓库提交。
 
