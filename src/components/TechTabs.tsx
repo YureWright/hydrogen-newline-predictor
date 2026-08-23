@@ -366,7 +366,7 @@ export function PhysicsTab() {
               <Tex block math="\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}" />
               <p><b>② 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
               <Tex block math="P_{wheel}=F_{total}\,v,\qquad P_{aux}=\mathrm{clip}\!\left(3+0.15\,|T-20|,\;2,\;8\right)\ \mathrm{kW}" />
-              <Tex block math="P_{drive}=\frac{P_{wheel}}{\eta_{mt}}+P_{aux},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 30 & P_{drive}\le 0\text{(再生)}\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />
+              <Tex block math="P_{drive}=\begin{cases}P_{wheel}/\eta_{mt}+P_{aux} & P_{wheel}\ge 0\text{（驱动）}\\ P_{wheel}\,\eta_{mt}+P_{aux} & P_{wheel}&lt;0\text{（再生，链路损耗回收变少）}\end{cases},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 30 & P_{drive}\le 0\text{(再生)}\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />
               <p><b>③ 效率与氢耗（L4/L5）</b>：行驶时长 → 电堆电能 → 除以（电堆效率 × 氢热值）：</p>
               <Tex block math="t=\frac{s}{v},\qquad E_{fc}=P_{fc}\,t,\qquad m_{H_2}=\frac{E_{fc}}{\eta_{fc}\,LHV},\qquad \eta_{fc}=0.5,\; LHV=33.3\ \mathrm{kWh/kg}" />
             </Sub>
@@ -395,8 +395,8 @@ export function PhysicsTab() {
               <Table head={["段","路况","里程","氢耗（手算 / 代码）","百公里 kg/100km","电堆 / 电池"]} rows={[
                 ["1","高速平路（0%）","10 km","0.660 kg","6.6","P_fc=87.9 / 电池 0"],
                 ["2","高速上坡（+3%）","8 km","1.235 kg","15.4","P_fc=180(上限) / 电池放 85.2"],
-                ["3","高速下坡（−2%）","6 km","0.144 kg","2.4","P_fc=30(最低) / 电池充 85.3"],
-                ["合计","混合工况","24 km","2.039 kg","8.50","30t 满载附近，落在官方锚点 7.1~8 附近"],
+                ["3","高速下坡（−2%）","6 km","0.144 kg","2.4","P_fc=30(最低) / 电池充 74.1"],
+                ["合计","混合工况","24 km","2.040 kg","8.50","30t 满载附近，落在官方锚点 7.1~8 附近"],
               ]} />
               <p className="hw-note">方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km（电堆最低 30kW）；下坡段附件电由电堆出、回收功率给电池充电（P_bat &lt; 0）。</p>
             </Sub>
@@ -452,12 +452,12 @@ export function PhysicsTab() {
               ["总力 F","3437 N","13023 N","−2551 N"],
               ["轮边功率 P_wheel","76.4 kW","234.6 kW","−53.1 kW（回收）"],
               ["附件 P_aux","3 kW","4.5 kW","3.75 kW"],
-              ["驱动电功率 P_drive","87.9 kW","265.2 kW","−55.3 kW"],
+              ["驱动电功率 P_drive","87.9 kW","265.2 kW","−44.1 kW（再生）"],
               ["电堆 P_fc","87.9 kW","180 kW（上限）","30 kW（最低稳定）"],
-              ["电池 P_bat","0","+85.2（放电削峰）","−85.3（充电）"],
+              ["电池 P_bat","0","+85.2（放电削峰）","−74.1（充电）"],
               ["氢耗 m_H₂","0.660 kg","1.235 kg","0.144 kg"],
             ]} />
-            <p className="hw-note"><b>合计：2.039 kg / 24 km = 8.50 kg/100km</b>，与 ml/physics.py 逐段完全一致（代码复现同一套公式）；方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km。</p>
+            <p className="hw-note"><b>合计：2.040 kg / 24 km = 8.50 kg/100km</b>，与 ml/physics.py 逐段完全一致（代码复现同一套公式，含 PR#10 再生回收方向修正）；方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km。</p>
           </Sec>
           <Sec num="11" title="🔜 下一步：物理 + 数据驱动融合模型（待开发）">
             <p className="hw-note">把上面的物理公式换成「可学习的映射」——隐藏层节点就是<b>电堆功率 / 电机功率 / 电池功率 / 附件功率</b>等物理量：输入（天气/路况/载重）先预测这些内部量，再由能量守恒出氢耗。物理保证可解释、数据保证精度（理论锚点：Lei et al. 2025, Theory-Constrained NN, IEEE TVT）。已完成文献调研与初步设计，<b>待开发</b>，详见文档库「物理+数据驱动融合模型 · 初步设计」。</p>
