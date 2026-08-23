@@ -11,72 +11,50 @@ export default function LandingPage({ onStart }: Props) {
 
   return (
     <div className="landing">
-      {/* 顶部氛围光 */}
-      <div className="landing-glow" aria-hidden="true" />
+      {/* 全屏背景（官网原图，无文字版） */}
+      <div className="landing-bg" />
 
-      {/* 流动光带 */}
-      <div className="light-strip strip-1" aria-hidden="true" />
-      <div className="light-strip strip-2" aria-hidden="true" />
-      <div className="light-strip strip-3" aria-hidden="true" />
-
-      {/* 头图区 */}
-      <div className="landing-hero">
-        <div className="landing-hero-img" />
-        <div className="landing-scanline" aria-hidden="true" />
-        <div className="landing-hero-fade" aria-hidden="true" />
+      {/* 银河闪烁星点 */}
+      <div className="stars-layer" aria-hidden="true">
+        {Array.from({ length: 45 }, (_, i) => (
+          <i key={i} className={`star st${i}`} />
+        ))}
       </div>
 
-      {/* 主内容 */}
-      <div className="landing-body">
-        <div className="landing-rule" />
-        <h1 className="landing-title">新线路氢耗预测工具</h1>
-        <p className="landing-sub">
-          面向 H49 燃料电池半挂牵引车 · 真实路网道路等级 / DEM 坡度剖面 / 沿线逐段天气
-        </p>
 
-        <div className="landing-chips">
-          <span><b>OSM</b> 真实路网</span>
-          <span><b>DEM</b> 高程剖面</span>
-          <span><b>QWeather</b> 沿线天气</span>
-          <span><b>DeepSeek</b> AI 评估</span>
+      {/* logo（左上，和官网同位置） */}
+      <img className="landing-logo" src="/logo-hybot.png" alt="hybot 海珀特" />
+
+      {/* 标语（左侧，和官网同位置） */}
+      <div className="landing-slogan">
+        <h2>以<em>氢能</em>创造无限可能</h2>
+        <p>Hydrogen Powering Infinity</p>
+      </div>
+
+      {/* 底部：队名 + 按钮，放一起确保对齐 */}
+      <div className="landing-bottom-group">
+        <div className="team-name">
+          <span className="team-label">队伍名称</span>
+          <span className="team-text">氢氢敲醒沉睡的新能源车</span>
         </div>
-
-        {/* 两个大按钮 */}
-        <div className="landing-actions">
-          <button className="landing-btn landing-btn-primary" onClick={onStart}>
-            <span className="landing-btn-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </span>
-            <span className="landing-btn-text">
-              <strong>开始预测氢耗</strong>
-              <small>输入起终点，获取全路线氢耗预测</small>
-            </span>
-            <span className="landing-btn-arrow">→</span>
+        <div className="landing-btns">
+          <button className="landing-btn-sm landing-btn-primary" onClick={onStart}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            开始预测氢耗
           </button>
-
-          <button className="landing-btn landing-btn-docs" onClick={openDocs}>
-            <span className="landing-btn-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8 7h8M8 11h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </span>
-            <span className="landing-btn-text">
-              <strong>技术文档</strong>
-              <small>README / 技术原理 / 设计文档 / 知识库</small>
-            </span>
-            <span className="landing-btn-arrow">→</span>
+          <button className="landing-btn-sm landing-btn-docs" onClick={openDocs}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            技术文档
           </button>
         </div>
       </div>
 
       <span className="landing-tag">T05 · 氢能黑客松</span>
-      <div className="landing-footer">
-        基于物理驱动 + 数据驱动融合模型 · Hydrogen Powering Infinity
-      </div>
     </div>
   )
 }
