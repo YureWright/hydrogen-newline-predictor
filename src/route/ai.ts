@@ -122,7 +122,7 @@ export interface RouteReportSummary {
   physics: { totalH2Kg: number; per100kmKg: number }
   cost: {
     fuelYuan: number; tollYuan: number; driverYuan: number; otherYuan: number
-    totalYuan: number; dieselYuan: number; deltaYuan: number
+    totalYuan: number; dieselYuan: number; dieselTotalYuan: number; deltaYuan: number
   }
 }
 
@@ -146,7 +146,7 @@ function buildRecommendPrompt(input: RouteRecommendInput): string {
     lines.push(`【路线 ${r.index + 1}】`)
     lines.push(`里程 ${r.distanceKm}km，预计 ${r.durationH}h，均速 ${r.avgSpeedKmh}km/h，高速占比 ${(r.highwayRatio * 100).toFixed(0)}%，过路费 ${r.tollsYuan} 元`)
     lines.push(`机器学习氢耗 ${r.ml.totalH2Kg.toFixed(2)}kg（${r.ml.per100kmKg.toFixed(2)}kg/100km）；物理模型氢耗 ${r.physics.totalH2Kg.toFixed(2)}kg（${r.physics.per100kmKg.toFixed(2)}kg/100km）`)
-    lines.push(`费用构成：燃料 ${r.cost.fuelYuan.toFixed(0)} 元 + 过路费 ${r.cost.tollYuan.toFixed(0)} + 司机 ${r.cost.driverYuan.toFixed(0)} + 其他 ${r.cost.otherYuan.toFixed(0)} = 合计 ${r.cost.totalYuan.toFixed(0)} 元；柴油对比 ${r.cost.dieselYuan.toFixed(0)} 元，${r.cost.deltaYuan >= 0 ? '比柴油贵' : '比柴油省'} ${Math.abs(r.cost.deltaYuan).toFixed(0)} 元`)
+    lines.push(`费用构成：燃料 ${r.cost.fuelYuan.toFixed(0)} 元 + 过路费 ${r.cost.tollYuan.toFixed(0)} + 司机 ${r.cost.driverYuan.toFixed(0)} + 其他 ${r.cost.otherYuan.toFixed(0)} = 氢能总费用 ${r.cost.totalYuan.toFixed(0)} 元；柴油总费用（含同路过路费/司机/其他）${r.cost.dieselTotalYuan.toFixed(0)} 元，${r.cost.deltaYuan >= 0 ? '比柴油贵' : '比柴油省'} ${Math.abs(r.cost.deltaYuan).toFixed(0)} 元`)
     lines.push('')
   }
   lines.push('请给出推荐路线与原因（注意：两个模型结论不一致时要指出差异与取舍）。')

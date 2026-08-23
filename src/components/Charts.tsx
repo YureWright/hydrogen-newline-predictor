@@ -10,16 +10,19 @@ const AXIS = '#6a7691'
 
 /** 通用折线/面积图（x=km，y=数值） */
 /** 通用折线/面积图（x=km，y=数值）；支持多系列对比（series），图例在左上角 */
-function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
+function LineAreaChart({ points, color, yLabel, unit, markers, series, height }: {
   points: Array<{ x: number; y: number }>
   color: string
   yLabel: string
   unit: string
   markers?: Array<{ x: number; label: string; color?: string }>
   series?: Array<{ points: Array<{ x: number; y: number }>; color: string; label: string; dashed?: boolean }>
+  /** 图表高度（viewBox 单位，默认 220；报告导出传更大值放大图表） */
+  height?: number
 }) {
   // useId 必须在提前 return 之前调用，否则违反 Hook 规则；冒号在 url(#id) 里不安全，去掉
   const gradId = 'grad' + useId().replace(/:/g, '')
+  const h = height ?? H
   const allSeries = series ?? [{ points, color, label: '' }]
   const allPts = allSeries.flatMap((s) => s.points)
   if (allPts.length < 2) return <div className="chart-empty">数据不足</div>
@@ -31,19 +34,19 @@ function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
   const yMax = Math.max(...ys)
   const yPad = Math.max((yMax - yMin) * 0.12, 1)
   const X = (x: number) => PAD.l + ((x - xMin) / Math.max(xMax - xMin, 1e-9)) * (W - PAD.l - PAD.r)
-  const Y = (y: number) => H - PAD.b - ((y - (yMin - yPad)) / Math.max(yMax - yMin + 2 * yPad, 1e-9)) * (H - PAD.t - PAD.b)
+  const Y = (y: number) => h - PAD.b - ((y - (yMin - yPad)) / Math.max(yMax - yMin + 2 * yPad, 1e-9)) * (h - PAD.t - PAD.b)
   const pathOf = (pts: Array<{ x: number; y: number }>) =>
     pts.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join(' ')
   const main = allSeries[0]
   const mainLine = pathOf(main.points)
-  const area = mainLine + ' L' + X(xMax).toFixed(1) + ',' + (H - PAD.b) + ' L' + X(xMin).toFixed(1) + ',' + (H - PAD.b) + ' Z'
+  const area = mainLine + ' L' + X(xMax).toFixed(1) + ',' + (h - PAD.b) + ' L' + X(xMin).toFixed(1) + ',' + (h - PAD.b) + ' Z'
   const ticks = 4
   const xTicks: number[] = []
   for (let i = 0; i <= ticks; i++) xTicks.push((xMax * i) / ticks)
   const yTicks: number[] = []
   for (let i = 0; i <= 4; i++) yTicks.push(yMin - yPad + ((yMax - yMin + 2 * yPad) * i) / 4)
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="chart-svg" role="img">
+    <svg viewBox={`0 0 ${W} ${h}`} className="chart-svg" role="img">
       <defs>
         {/* 面积渐变：顶部带色、底部透明，深色底上比纯半透明填充更有纵深 */}
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -63,8 +66,8 @@ function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
       )}
       {xTicks.map((t) => (
         <g key={'x' + t}>
-          <line x1={X(t)} y1={PAD.t} x2={X(t)} y2={H - PAD.b} stroke={GRID} />
-          <text x={X(t)} y={H - PAD.b + 16} fontSize="11" fill={AXIS} textAnchor="middle">{t.toFixed(0)}</text>
+          <line x1={X(t)} y1={PAD.t} x2={X(t)} y2={h - PAD.b} stroke={GRID} />
+          <text x={X(t)} y={h - PAD.b + 16} fontSize="11" fill={AXIS} textAnchor="middle">{t.toFixed(0)}</text>
         </g>
       ))}
       {yTicks.map((t) => (
@@ -104,7 +107,7 @@ function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
           if (!tooClose) lastPx = px
           return (
             <g key={'m' + i}>
-              <line x1={px} y1={PAD.t} x2={px} y2={H - PAD.b} stroke={m.color ?? '#ff6072'} strokeDasharray="3 3" opacity="0.5" />
+              <line x1={px} y1={PAD.t} x2={px} y2={h - PAD.b} stroke={m.color ?? '#ff6072'} strokeDasharray="3 3" opacity="0.5" />
               {!tooClose && <text x={px} y={PAD.t + 10} fontSize="8" fill={m.color ?? '#ff6072'} textAnchor="middle">{m.label}</text>}
             </g>
           )
