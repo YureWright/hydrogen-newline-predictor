@@ -530,6 +530,19 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     }
     return markers
   }, [hydroResult])
+  // ML 每公里氢耗曲线（双引擎对比用）
+  const mlPts = useMemo(() => {
+    let cum = 0
+    return mlSegs.map((s: any) => { cum += s.distanceKm; return { x: Math.round(cum * 10) / 10, y: Math.round(s.h2_per_km_kg * 100 * 100) / 100 } })
+  }, [mlSegs])
+  // 双引擎对比：ML（青） + 物理（绿）两条曲线一张图
+  const hydroSeries = useMemo(() => {
+    if (hydroResult?.model !== 'both') return null
+    return [
+      { points: mlPts, color: '#3ae3ff', label: 'ML 实车数据' },
+      { points: hydroPts, color: '#3ddc97', label: '物理模型' },
+    ]
+  }, [hydroResult, mlPts, hydroPts])
 
   // 物理模型中间变量 CSV 导出
   const exportPhysicsCsv = () => {
@@ -952,6 +965,17 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         {hydroStage === 'done' && hydroResult && (
           <div className="hydro-result">
             <div className="hydro-model-tag">预测模型：{hydroResult.model === 'both' ? '双引擎对比（机器学习 vs 物理模型）' : hydroResult.model === 'physics' ? '物理模型（能量守恒公式）' : '机器学习（实车数据）'}</div>
+
+                <div className="hydro-model-switch">
+                  <span className="hydro-model-switch-label">切换模型重算：</span>
+                  <select value={hydroModel} onChange={(e) => setHydroModel(e.target.value as 'ml' | 'physics' | 'both')}>
+                    <option value="ml">机器学习（实车数据）</option>
+                    <option value="physics">物理模型（能量守恒公式）</option>
+                    <option value="both">双引擎对比</option>
+                  </select>
+                  <button className="btn-export" onClick={runHydro} disabled={hydroModel === hydroResult.model}>↻ 重新测算</button>
+                  <span className="hydro-model-switch-hint">{hydroModel === hydroResult.model ? '（当前结果即所选模型）' : '（已切换，点击重新测算）'}</span>
+                </div>
             {(hydroResult.model === 'physics' || hydroResult.model === 'both') ? (
               <>
                 <div className="hydro-metrics">
@@ -966,7 +990,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <div className="hydro-note">💡 物理模型按能量守恒：总氢耗 = 电堆电能/(电堆效率×氢热值)，含滚动/空气/坡度阻力与附件功耗；已按载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）、海拔、温度参与计算。{hydroResult.model === 'both' ? '与机器学习对比：一致则互相印证，差异大请检查输入。' : '红线标记为高耗路段（超过 8 kg/100km 或均值 1.5 倍）。'}</div>
                 <div className="hydro-src-note"><b>物理模型参数：</b>Crr=0.009 · Cd=0.35 · A=7.5m² · η_mt=0.9 · P_fc∈[30,180]kW · η_fc=0.5 · LHV=33.3 kWh/kg（详见技术原理 / 设计文档）</div>
                 <div className="hydro-chart">
-                  <LineAreaChartMemo points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
+                  <LineAreaChartMemo series={hydroSeries ?? undefined} points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
                 </div>
                 {hydroResult.model === 'both' && hydroResult.ml?.segments?.length ? (
                   <div className="hydro-table-wrap">

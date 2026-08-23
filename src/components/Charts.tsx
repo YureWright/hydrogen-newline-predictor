@@ -9,18 +9,22 @@ const GRID = 'rgba(255,255,255,0.06)'
 const AXIS = '#6a7691'
 
 /** 通用折线/面积图（x=km，y=数值） */
-function LineAreaChart({ points, color, yLabel, unit, markers }: {
+/** 通用折线/面积图（x=km，y=数值）；支持多系列对比（series），图例在左上角 */
+function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
   points: Array<{ x: number; y: number }>
   color: string
   yLabel: string
   unit: string
   markers?: Array<{ x: number; label: string; color?: string }>
+  series?: Array<{ points: Array<{ x: number; y: number }>; color: string; label: string; dashed?: boolean }>
 }) {
   // useId 必须在提前 return 之前调用，否则违反 Hook 规则；冒号在 url(#id) 里不安全，去掉
   const gradId = 'grad' + useId().replace(/:/g, '')
-  if (points.length < 2) return <div className="chart-empty">数据不足</div>
-  const xs = points.map((p) => p.x)
-  const ys = points.map((p) => p.y)
+  const allSeries = series ?? [{ points, color, label: '' }]
+  const allPts = allSeries.flatMap((s) => s.points)
+  if (allPts.length < 2) return <div className="chart-empty">数据不足</div>
+  const xs = allPts.map((p) => p.x)
+  const ys = allPts.map((p) => p.y)
   const xMin = 0
   const xMax = Math.max(...xs)
   const yMin = Math.min(...ys)
@@ -28,8 +32,11 @@ function LineAreaChart({ points, color, yLabel, unit, markers }: {
   const yPad = Math.max((yMax - yMin) * 0.12, 1)
   const X = (x: number) => PAD.l + ((x - xMin) / Math.max(xMax - xMin, 1e-9)) * (W - PAD.l - PAD.r)
   const Y = (y: number) => H - PAD.b - ((y - (yMin - yPad)) / Math.max(yMax - yMin + 2 * yPad, 1e-9)) * (H - PAD.t - PAD.b)
-  const line = points.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join(' ')
-  const area = line + ' L' + X(xMax).toFixed(1) + ',' + (H - PAD.b) + ' L' + X(xMin).toFixed(1) + ',' + (H - PAD.b) + ' Z'
+  const pathOf = (pts: Array<{ x: number; y: number }>) =>
+    pts.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join(' ')
+  const main = allSeries[0]
+  const mainLine = pathOf(main.points)
+  const area = mainLine + ' L' + X(xMax).toFixed(1) + ',' + (H - PAD.b) + ' L' + X(xMin).toFixed(1) + ',' + (H - PAD.b) + ' Z'
   const ticks = 4
   const xTicks: number[] = []
   for (let i = 0; i <= ticks; i++) xTicks.push((xMax * i) / ticks)
@@ -40,10 +47,20 @@ function LineAreaChart({ points, color, yLabel, unit, markers }: {
       <defs>
         {/* 面积渐变：顶部带色、底部透明，深色底上比纯半透明填充更有纵深 */}
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.34" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          <stop offset="0%" stopColor={main.color} stopOpacity="0.34" />
+          <stop offset="100%" stopColor={main.color} stopOpacity="0.02" />
         </linearGradient>
       </defs>
+      {allSeries.length > 1 && (
+        <g>
+          {allSeries.map((s, si) => (
+            <g key={si} transform={`translate(${PAD.l + si * 132}, 12)`}>
+              <rect x={0} y={-5} width={16} height={3} rx={1.5} fill={s.color} />
+              <text x={20} y={-1} fontSize="10" fill={AXIS}>{s.label}</text>
+            </g>
+          ))}
+        </g>
+      )}
       {xTicks.map((t) => (
         <g key={'x' + t}>
           <line x1={X(t)} y1={PAD.t} x2={X(t)} y2={H - PAD.b} stroke={GRID} />
@@ -57,17 +74,26 @@ function LineAreaChart({ points, color, yLabel, unit, markers }: {
         </g>
       ))}
       <path d={area} fill={`url(#${gradId})`} />
-      <path
-        d={line}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        style={{ filter: `drop-shadow(0 0 5px ${color}80)` }}
-      />
-      {[0, points.length - 1].map((i) => (
-        <circle key={i} cx={X(points[i].x)} cy={Y(points[i].y)} r="3.4" fill={color} stroke="#04060c" strokeWidth="1.5" />
+      {allSeries.map((s, si) => (
+        <path
+          key={si}
+          d={pathOf(s.points)}
+          fill="none"
+          stroke={s.color}
+          strokeWidth={si === 0 ? 2 : 1.8}
+          strokeDasharray={s.dashed ? '6 4' : undefined}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={si === 0 ? 1 : 0.92}
+          style={si === 0 ? { filter: `drop-shadow(0 0 5px ${s.color}80)` } : undefined}
+        />
+      ))}
+      {allSeries.map((s, si) => (
+        <g key={'pt' + si}>
+          {[0, s.points.length - 1].map((i) => (
+            <circle key={i} cx={X(s.points[i].x)} cy={Y(s.points[i].y)} r={si === 0 ? 3.4 : 2.8} fill={s.color} stroke="#04060c" strokeWidth="1.5" />
+          ))}
+        </g>
       ))}
       {markers?.filter((m) => m.x >= xMin && m.x <= xMax).map((m, i) => (
         <g key={'m' + i}>
@@ -79,7 +105,6 @@ function LineAreaChart({ points, color, yLabel, unit, markers }: {
     </svg>
   )
 }
-
 /** CSS 横向分布条（道路等级 / 路况） */
 function DistributionBars({ items, total, unit }: {
   items: Array<{ label: string; value: number; color: string }>
