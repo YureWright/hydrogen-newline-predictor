@@ -66,10 +66,10 @@ def predict_segment(seg, rng, hour_default=12):
              "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
-    # 注：曾用"中位偏差分段校准"（0.76/0.96/0.09/0.50 kg/100km），但训练数据 CV 实测
-    # 校准对 R²/RMSE 无提升（整体 OOF R² 0.4780→0.4765），模型均值意义已准
-    # （各均速段均值偏差仅 +0.03~0.37），减中位偏差反而偏离 MSE 最优 → 已移除校准。
-    h2_kg = max(h2_per_km_kg, 0.0) * L
+    # 防御性截断：下限 0，上限 0.5 kg/km（=50 kg/100km，与训练数据过滤上界一致，
+    # 满载重卡爬陡坡极限）；只挡异常外推，不误伤 20~50 kg/100km 的合理高耗段。
+    h2_per_km_kg = max(min(h2_per_km_kg, 0.5), 0.0)
+    h2_kg = h2_per_km_kg * L
     return {
       "index": seg.get("index", 0),
       "roadName": seg.get("roadName", ""),
