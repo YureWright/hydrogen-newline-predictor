@@ -1207,6 +1207,7 @@ body::before {
 .landing-bottom-group {
   position: absolute;
   left: 50%; bottom: 4%;
+  translate: -50% 0; /* 独立属性，不受 rise 动画 transform:none 覆盖 */
   transform: translateX(-50%);
   z-index: 5;
   display: flex;
@@ -1257,6 +1258,53 @@ body::before {
   background: rgba(164,115,255,0.12);
   border-color: rgba(164,115,255,0.4);
   box-shadow: 0 6px 24px rgba(164,115,255,0.25);
+}
+
+/* 中部主入口按钮组（三个大按钮，居中、半透明）：
+   静态居中放在外层 .landing-center（不受 rise 动画 transform:none 覆盖），
+   内层只做 flex 布局 + rise 动画。 */
+.landing-center {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+.landing-center-btns {
+  display: flex; gap: 20px; justify-content: center; align-items: center;
+  animation: rise 0.9s 0.3s cubic-bezier(0.22,1,0.36,1) both;
+}
+.landing-btn-lg {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 18px 34px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 20px; font-weight: 600; font-family: inherit;
+  letter-spacing: 1px; color: #fff;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  position: relative; overflow: hidden;
+}
+.landing-btn-lg::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  animation: shimmer 3.5s linear infinite;
+}
+.landing-btn-lg svg { width: 24px; height: 24px; flex: none; }
+.landing-btn-lg:hover { transform: translateY(-3px); background: rgba(255,255,255,0.18); }
+.landing-btn-lg.landing-btn-primary {
+  background: linear-gradient(120deg, rgba(58,227,255,0.50), rgba(77,141,255,0.45), rgba(164,115,255,0.40));
+  border-color: rgba(58,227,255,0.50);
+}
+.landing-btn-lg.landing-btn-primary:hover {
+  background: linear-gradient(120deg, rgba(58,227,255,0.65), rgba(77,141,255,0.60), rgba(164,115,255,0.55));
+  box-shadow: 0 10px 36px rgba(58,227,255,0.35);
+}
+.landing-btn-lg.landing-btn-ghost:hover {
+  border-color: rgba(164,115,255,0.5);
+  box-shadow: 0 10px 32px rgba(164,115,255,0.22);
 }
 
 /* 右上标签 */
@@ -1312,6 +1360,8 @@ body::before {
   .landing-tag { display: none; }
   .landing-btns { flex-direction: column; width: 80%; }
   .landing-btn-sm { justify-content: center; padding: 11px 16px; font-size: 13px; }
+  .landing-center-btns { flex-direction: column; width: 86%; gap: 14px; top: 46%; }
+  .landing-btn-lg { justify-content: center; padding: 15px 22px; font-size: 17px; width: 100%; }
   .headlight-glow, .headlight-glow-2 { display: none; }
   .current-lines { display: none; }
   .hero-compact .hero-media { aspect-ratio: 1024 / 240; max-height: 140px; }

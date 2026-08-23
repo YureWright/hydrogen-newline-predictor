@@ -9,6 +9,10 @@ export default function LandingPage({ onStart }: Props) {
     window.open('/?view=docs', '_blank')
   }, [])
 
+  const openSimLab = useCallback(() => {
+    window.open('/physics-lab.html', '_blank')
+  }, [])
+
   return (
     <div className="landing">
       {/* 全屏背景（官网原图，无文字版） */}
@@ -31,26 +35,37 @@ export default function LandingPage({ onStart }: Props) {
         <p>Hydrogen Powering Infinity</p>
       </div>
 
-      {/* 底部：队名 + 按钮，放一起确保对齐 */}
+      {/* 中部：三个主入口按钮（居中、半透明、大按钮） */}
+      <div className="landing-center">
+        <div className="landing-center-btns">
+          <button className="landing-btn-lg landing-btn-primary" onClick={onStart}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            氢耗预测
+          </button>
+          <button className="landing-btn-lg landing-btn-ghost" onClick={openDocs}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            文档库
+          </button>
+          <button className="landing-btn-lg landing-btn-ghost" onClick={openSimLab}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M14 7h7v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            SimLab
+          </button>
+        </div>
+      </div>
+
+      {/* 底部：队名 */}
       <div className="landing-bottom-group">
         <div className="team-name">
           <span className="team-label">队伍名称</span>
           <span className="team-text">氢氢敲醒沉睡的新能源车</span>
-        </div>
-        <div className="landing-btns">
-          <button className="landing-btn-sm landing-btn-primary" onClick={onStart}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            开始预测氢耗
-          </button>
-          <button className="landing-btn-sm landing-btn-docs" onClick={openDocs}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            技术文档
-          </button>
         </div>
       </div>
 

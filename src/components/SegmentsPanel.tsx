@@ -193,6 +193,13 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [data, setData] = useState<SegmentsResponse | null>(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState<{ phase: string; done: number; total: number; cached: number } | null>(null)
+  // OSM 查询耗时较长（公共镜像慢）：秒级计时器，让进度条不“看起来卡死”
+  const [runElapsed, setRunElapsed] = useState(0)
+  useEffect(() => {
+    if (stage !== 'running') { setRunElapsed(0); return }
+    const t = window.setInterval(() => setRunElapsed((s) => s + 1), 1000)
+    return () => window.clearInterval(t)
+  }, [stage])
   const [sortKey, setSortKey] = useState<SortKey>('index')
   const [sortDesc, setSortDesc] = useState(false)
   const [selectedSegs, setSelectedSegs] = useState<Set<number>>(new Set())
@@ -745,7 +752,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null
     const phaseText = progress?.phase === 'dem' && total > 0
       ? `下载高程瓦片 ${done}/${total}（已缓存 ${progress.cached}）`
-      : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
+      : progress?.phase === 'osm-query' && total > 0
+        ? `查询 OSM 真实路网… 分块 ${Math.min(done + 1, total)}/${total}`
+        : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
     // 整个测算是多阶段串行的：每换一个阶段进度条都会从 0 重来。没有"第几步"提示时，
     // 用户会把"归零重填"误读成卡死。这里把当前阶段映射到固定步骤序列，明确告诉他还在推进。
     const stepIndex = PHASE_TO_STEP[progress?.phase || ''] ?? 0
@@ -784,7 +793,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             {phaseText}
           </div>
           <div className="progress-sub">
-            {total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在准备数据…'}
+            {progress?.phase === 'osm-query'
+              ? `已用 ${runElapsed}s · OSM 公共镜像较慢属正常，同路线二次测算走缓存秒级`
+              : total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在准备数据…'}
           </div>
           <button className="btn-cancel" onClick={backToSelect}>取消</button>
         </div>

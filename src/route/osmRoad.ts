@@ -59,7 +59,7 @@ export interface OsmRoadOptions {
   delayMs?: number
   /** 全部 OSM 查询的墙钟预算 ms（默认 300000=5 分钟，超时停止查询并保留已完成走廊） */
   queryBudgetMs?: number
-  /** 单次 Overpass 客户端超时 ms（默认 60000；服务端 [timeout] 比它短 5 秒，避免算完了客户端已经放弃） */
+  /** 单次 Overpass 客户端超时 ms（默认 20000；服务端 [timeout] 比它短 5 秒，避免算完了客户端已经放弃） */
   timeoutMs?: number
   /** 取消信号：返回 true 时立即停止并保留已完成结果 */
   shouldCancel?: () => boolean
@@ -576,7 +576,7 @@ export async function enrichSegmentsWithOsmRoads(
       console.log('[osm] 分块 ' + (ci + 1) + '/' + chunks.length + ' 缓存命中（' + cached.length + ' 条路）')
     } else {
       try {
-        ways = await queryOverpassChunk(chunks[ci], bufferM, opts.timeoutMs ?? 60000)
+        ways = await queryOverpassChunk(chunks[ci], bufferM, opts.timeoutMs ?? 20000)
         result.queries += 1
         // 只有非空结果才写缓存：空结果很可能是服务器异常，写缓存会把"无路"永久固化
         if (useCache && ways.length > 0) saveCache(cacheDir, key, ways)
