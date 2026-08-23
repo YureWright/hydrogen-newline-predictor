@@ -508,7 +508,7 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <tr><td>③ 等效因子</td><td><span class="mi" data-k="1">\lambda=\lambda_0+k_\lambda\,\Delta SOC</span></td><td>SOC 低 → λ 大</td></tr>
 <tr><td>④ 求最优 P_fc</td><td>在 <span class="mi" data-k="1">[P_{fc}^{min}, P_{fc}^{max}]</span> 内使 <span class="mi" data-k="1">\dot m_{H_2}^{eq}</span> 最小</td><td>一维搜索 / 格点扫描</td></tr>
 <tr><td>⑤ 电池功率</td><td><span class="mi" data-k="1">P_{bat}=\mathrm{clip}(P_{drive}-P_{fc},-P_{bat}^{max},+P_{bat}^{max})</span></td><td>正=放电，负=充电；<span class="mi" data-k="1">P_{bat}^{max}=150</span>kW（75kWh×2C），超限部分由机械制动耗散</td></tr>
-<tr><td>⑥ 再生优先</td><td><span class="mi" data-k="1">P_{drive}&lt;0</span> 时电堆关闭（P_fc=0）、回收先充电池</td><td>下坡/减速；低速段（0&lt;P_drive&lt;30）电堆最低 30kW 稳定运行、富余充电池</td></tr>
+<tr><td>⑥ 再生优先</td><td><span class="mi" data-k="1">P_{drive}&lt;0</span> 时电堆最低 30kW 稳定运行（P_fc=30）、回收先充电池</td><td>下坡/减速；电堆保持最低待机（避免关停-重启损耗），附件电由电堆烧氢出、回收电充电池</td></tr>
 </table></div>
 <div class="box tip"><div class="bt">💡 数字例子：需求 150kW（猛加速）</div>
 <p>SOC 正常（λ=λ0）→ 电堆 90kW（高效区）+ 电池放电 60kW；<br>
@@ -820,11 +820,11 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 <tr><td rowspan="2">L1 能量矩（对账）</td><td>⑧</td><td>能量矩 E_wheel</td><td>Crr·m·g·s + ½ρCdA·E[v²]·s + m·g·Δh + ½δm·Δ(v²)</td><td>2646×6000 + 683×6000 + 30000×9.8×(−120) + 0 = 15.88+4.10−35.28 MJ</td><td>−15.3 MJ（净回收）</td></tr>
 <tr><td>⑨</td><td>对账校验</td><td>P_wheel×t = E_wheel？</td><td>−53.1kW×0.08h×3600 = −15.3 MJ ✅</td><td>一致</td></tr>
 <tr><td rowspan="2">L3 动力总成</td><td>⑩</td><td>驱动电功率</td><td>P_drive=P_wheel/η_mt+P_aux(T)</td><td>−53.1/0.9=−59.0；+3.75（T=15℃）</td><td>−55.3 kW（净负=回收）</td></tr>
-<tr><td>⑪</td><td>电堆/电池</td><td>P_drive&lt;0（再生）→ 电堆关闭：P_fc=0；P_bat=P_drive（电池充电，限幅 −150）</td><td>P_drive=−55.3&lt;0 → 电堆关闭 0；P_bat=−55.3</td><td>P_fc=<b>0（关闭）</b>；P_bat=<b>−55.3（电池充电）</b></td></tr>
+<tr><td>⑪</td><td>电堆/电池</td><td>P_drive&lt;0（再生）→ 电堆最低稳定：P_fc=30；P_bat=P_drive−30（电池充电，限幅 −150）</td><td>P_drive=−55.3&lt;0 → 电堆最低 30；P_bat=−85.3</td><td>P_fc=<b>30（最低稳定）</b>；P_bat=<b>−85.3（电池充电）</b></td></tr>
 <tr><td>L4 效率</td><td>⑫</td><td>电堆系统效率</td><td>η_fc=0.5（15℃ 修正略）</td><td>—</td><td>0.5</td></tr>
 <tr><td rowspan="3">L5 氢耗</td><td>⑬</td><td>行驶时间</td><td>t=s/v</td><td>6÷75</td><td>0.080 h</td></tr>
-<tr><td>⑭</td><td>电堆电能</td><td>E_fc=P_fc·t</td><td>0×0.08</td><td>0 kWh</td></tr>
-<tr><td>⑮</td><td>氢耗</td><td>m_H2=E_fc/(η_fc·LHV)</td><td>0÷16.65</td><td><b>0.000 kg（0 kg/100km，电堆关闭）</b></td></tr>
+<tr><td>⑭</td><td>电堆电能</td><td>E_fc=P_fc·t</td><td>30×0.08</td><td>2.40 kWh</td></tr>
+<tr><td>⑮</td><td>氢耗</td><td>m_H2=E_fc/(η_fc·LHV)</td><td>2.40÷16.65</td><td><b>0.144 kg（2.4 kg/100km，电堆最低稳定）</b></td></tr>
 </table></div>
 
 <h3>B.4 汇总与合理性检查</h3>
@@ -832,12 +832,12 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 <tr><th>段</th><th>里程</th><th>氢耗</th><th>百公里</th><th>能量矩 E_wheel</th><th>电堆/电池</th></tr>
 <tr><td>1 平路</td><td>10 km</td><td>0.660 kg</td><td>6.60</td><td>+34.37 MJ</td><td>电堆 87.9 / 电池 0</td></tr>
 <tr><td>2 上坡</td><td>8 km</td><td>1.235 kg</td><td>15.4</td><td>+96.5 MJ（坡度占 70.6）</td><td>电堆 180(上限) / 电池放 85.2</td></tr>
-<tr><td>3 下坡</td><td>6 km</td><td>0.000 kg</td><td>0</td><td>−15.3 MJ（净回收）</td><td>电堆 0(关闭) / 电池充 55.3</td></tr>
-<tr><td><b>合计</b></td><td><b>24 km</b></td><td><b>1.896 kg</b></td><td><b>7.90 kg/100km</b></td><td>+115.6 MJ（净耗）</td><td>—</td></tr>
+<tr><td>3 下坡</td><td>6 km</td><td>0.144 kg</td><td>2.4</td><td>−15.3 MJ（净回收）</td><td>电堆 30(最低) / 电池充 85.3</td></tr>
+<tr><td><b>合计</b></td><td><b>24 km</b></td><td><b>2.039 kg</b></td><td><b>8.50 kg/100km</b></td><td>+115.6 MJ（净耗）</td><td>—</td></tr>
 </table></div>
 <div class="box tip"><div class="bt">✅ 合理性检查</div>
-<p>① 30 t 载重混合工况 7.90 kg/100km，落在官方锚点（满载 7.1~8）附近；<br>
-② 方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 0（电堆关闭，不耗氢）；<br>
+<p>① 30 t 载重混合工况 8.50 kg/100km，落在官方锚点（满载 7.1~8）附近；<br>
+② 方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4（电堆最低 30kW）；<br>
 ③ <b>能量矩每段都与功率积分对账一致</b>（平路 34.37MJ / 上坡 96.5MJ / 下坡 −15.3MJ）——L1 与 L2 严格闭合，这是"能量 vs 功率"双视角的落地验证；<br>
 ④ 海拔/温度/速度波动都进了账（ρ(H)、P_aux(T)、E[v²]），不是摆设。<br>
 <b>诚实说明</b>：SOC 为简化固定 λ（电池净放电 9.58−6.86≈2.7kWh 未闭合）；完整版调 λ 使 SOC 起终相等并把净放电折算回氢耗，影响 &lt;3%（§5.3 策略敏感性）。</p>

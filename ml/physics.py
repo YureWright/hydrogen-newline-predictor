@@ -104,7 +104,7 @@ def predict_segment(seg):
     elif P_drive > 0:
         P_fc = P_FC_MIN                               # 低速/怠速（0<P_drive<P_fc_min）：电堆最低稳定运行（避免关停-重启损耗），富余充电池
     else:
-        P_fc = 0.0                                    # 下坡/减速再生：电堆关闭，不消耗氢气
+        P_fc = P_FC_MIN                               # 下坡/减速再生：电堆最低稳定运行（附件电由电堆烧氢出，回收电全部充电池）；避免关停-重启损耗，也不会“白拿”回收电
     P_bat = max(-P_BAT_MAX, min(P_BAT_MAX, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±150kW 限幅；超限部分由机械制动耗散
 
     # ---- L4/L5 效率与氢耗 ----

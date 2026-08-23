@@ -348,7 +348,7 @@ ho C_dA v_i^3\Delta t_i" />
               <Tex block math="\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}" />
               <p><b>② 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
               <Tex block math="P_{wheel}=F_{total}\,v,\qquad P_{aux}=\mathrm{clip}\!\left(3+0.15\,|T-20|,\;2,\;8\right)\ \mathrm{kW}" />
-              <Tex block math="P_{drive}=\frac{P_{wheel}}{\eta_{mt}}+P_{aux},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 0 & P_{drive}\le 0\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />
+              <Tex block math="P_{drive}=\frac{P_{wheel}}{\eta_{mt}}+P_{aux},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 30 & P_{drive}\le 0\text{(再生)}\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />
               <p><b>③ 效率与氢耗（L4/L5）</b>：行驶时长 → 电堆电能 → 除以（电堆效率 × 氢热值）：</p>
               <Tex block math="t=\frac{s}{v},\qquad E_{fc}=P_{fc}\,t,\qquad m_{H_2}=\frac{E_{fc}}{\eta_{fc}\,LHV},\qquad \eta_{fc}=0.5,\; LHV=33.3\ \mathrm{kWh/kg}" />
             </Sub>
@@ -369,10 +369,10 @@ ho C_dA v_i^3\Delta t_i" />
               <Table head={["段","路况","里程","氢耗（手算 / 代码）","百公里 kg/100km","电堆 / 电池"]} rows={[
                 ["1","高速平路（0%）","10 km","0.660 kg","6.6","P_fc=87.9 / 电池 0"],
                 ["2","高速上坡（+3%）","8 km","1.235 kg","15.4","P_fc=180(上限) / 电池放 85.2"],
-                ["3","高速下坡（−2%）","6 km","0.000 kg","0.0","P_fc=0(关闭) / 电池充 55.3"],
-                ["合计","混合工况","24 km","1.896 kg","7.90","30t 满载附近，落在官方锚点 7.1~8 附近"],
+                ["3","高速下坡（−2%）","6 km","0.144 kg","2.4","P_fc=30(最低) / 电池充 85.3"],
+                ["合计","混合工况","24 km","2.039 kg","8.50","30t 满载附近，落在官方锚点 7.1~8 附近"],
               ]} />
-              <p className="hw-note">方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 0.0 kg/100km（电堆关闭不耗氢）；下坡段再生功率给电池充电（P_bat &lt; 0）。</p>
+              <p className="hw-note">方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km（电堆最低 30kW）；下坡段附件电由电堆出、回收功率给电池充电（P_bat &lt; 0）。</p>
             </Sub>
 
             <Sub title="7.5 与机器学习对比 & v1 简化（诚实披露）">
@@ -380,7 +380,7 @@ ho C_dA v_i^3\Delta t_i" />
                 ["原理","实车数据统计学习","车辆动力学 + 燃料电池公式"],
                 ["可解释性","黑箱（依赖特征重要度）","每步透明，15 个中文名中间变量"],
                 ["数据依赖","需要实车数据","无需训练数据（仅需车辆参数）"],
-                ["主要简化","—","η_fc 固定 0.5；P_fc 三分支（低速最低稳定/再生关闭）；电池 ±150kW 限幅；暂忽略速度波动 σ 与动态 SOC"],
+                ["主要简化","—","η_fc 固定 0.5；P_fc 三分支（低速/再生均最低稳定 30kW）；电池 ±150kW 限幅；暂忽略速度波动 σ 与动态 SOC"],
               ]} />
               <p>两者结果可互相印证：一致 → 结论可信；差异大 → 优先怀疑输入（坡度 / 载重 / 温度）或数据质量。物理模型 v1 刻意从简，后续可接入企业模型数据后替换或升级。</p>
             </Sub>
