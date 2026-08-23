@@ -2,8 +2,8 @@
 import { memo, useId, type ReactNode } from 'react'
 
 const W = 760
-const H = 200
-const PAD = { l: 46, r: 14, t: 18, b: 28 }
+const H = 220
+const PAD = { l: 58, r: 18, t: 18, b: 40 }
 /** 深色主题的网格线与坐标轴文字：压到刚好能看见，不跟数据线抢注意力 */
 const GRID = 'rgba(255,255,255,0.06)'
 const AXIS = '#6a7691'
@@ -64,13 +64,13 @@ function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
       {xTicks.map((t) => (
         <g key={'x' + t}>
           <line x1={X(t)} y1={PAD.t} x2={X(t)} y2={H - PAD.b} stroke={GRID} />
-          <text x={X(t)} y={H - 8} fontSize="10" fill={AXIS} textAnchor="middle">{t.toFixed(0)}</text>
+          <text x={X(t)} y={H - PAD.b + 16} fontSize="11" fill={AXIS} textAnchor="middle">{t.toFixed(0)}</text>
         </g>
       ))}
       {yTicks.map((t) => (
         <g key={'y' + t}>
           <line x1={PAD.l} y1={Y(t)} x2={W - PAD.r} y2={Y(t)} stroke={GRID} />
-          <text x={PAD.l - 6} y={Y(t) + 3} fontSize="10" fill={AXIS} textAnchor="end">{t.toFixed(0)}</text>
+          <text x={PAD.l - 8} y={Y(t) + 4} fontSize="11" fill={AXIS} textAnchor="end">{t.toFixed(0)}</text>
         </g>
       ))}
       <path d={area} fill={`url(#${gradId})`} />
@@ -95,12 +95,21 @@ function LineAreaChart({ points, color, yLabel, unit, markers, series }: {
           ))}
         </g>
       ))}
-      {markers?.filter((m) => m.x >= xMin && m.x <= xMax).map((m, i) => (
-        <g key={'m' + i}>
-          <line x1={X(m.x)} y1={PAD.t} x2={X(m.x)} y2={H - PAD.b} stroke={m.color ?? '#ff6072'} strokeDasharray="3 3" opacity="0.6" />
-          <text x={X(m.x)} y={H - 14} fontSize="9" fill={m.color ?? '#ff6072'} textAnchor="middle">{m.label}</text>
-        </g>
-      ))}
+      {(() => {
+        const visible = markers?.filter((m) => m.x >= xMin && m.x <= xMax) ?? []
+        let lastPx = -999
+        return visible.map((m, i) => {
+          const px = X(m.x)
+          const tooClose = px - lastPx < 28
+          if (!tooClose) lastPx = px
+          return (
+            <g key={'m' + i}>
+              <line x1={px} y1={PAD.t} x2={px} y2={H - PAD.b} stroke={m.color ?? '#ff6072'} strokeDasharray="3 3" opacity="0.5" />
+              {!tooClose && <text x={px} y={PAD.t + 10} fontSize="8" fill={m.color ?? '#ff6072'} textAnchor="middle">{m.label}</text>}
+            </g>
+          )
+        })
+      })()}
       <text x={W - PAD.r} y={PAD.t - 4} fontSize="10" fill={AXIS} textAnchor="end">{yLabel}（{unit}）</text>
     </svg>
   )

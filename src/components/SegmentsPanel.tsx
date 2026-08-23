@@ -166,15 +166,25 @@ const PHASE_TO_STEP: Record<string, number> = {
   route: 0, dem: 1, 'osm-query': 2, 'osm-match': 2, weather: 3, compute: 4,
 }
 
-export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight }: {
+type ResultTab = 'overview' | 'table' | 'hydrogen' | 'ai'
+const TAB_LABELS: { key: ResultTab; label: string; icon: string }[] = [
+  { key: 'overview', label: '数据概览', icon: '📊' },
+  { key: 'table', label: '数据表格', icon: '📋' },
+  { key: 'hydrogen', label: '氢耗预测', icon: '⚡' },
+  { key: 'ai', label: 'AI 评估', icon: '🤖' },
+]
+
+export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight, onEnterAnalysis, isFullPage }: {
   origin: string
   destination: string
   routeIndex: number
   candidate: RouteCandidate
-  /** 勾选路段行 → 在左侧地图同时高亮多条路段（每条 WGS-84 折线；空数组=清除） */
   onHighlight?: (coordsList: Array<Array<[number, number]>>) => void
+  onEnterAnalysis?: () => void
+  isFullPage?: boolean
 }) {
   const [stage, setStage] = useState<Stage>('idle')
+  const [resultTab, setResultTab] = useState<ResultTab>('overview')
   // 出发时间（datetime-local 字符串，默认当前本地时间）；传给后端按"位置+时刻"匹配天气
   const [departureTime, setDepartureTime] = useState(() => {
     const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
@@ -325,7 +335,6 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         body: JSON.stringify({ origin, destination, index: routeIndex, departureTime }),
       })
       const j = await r.json()
-      // 请求在途期间用户已经取消/切走：把刚建好的后台任务停掉，别让它白跑几分钟
       if (runIdRef.current !== runId) { if (j.ok && j.jobId) cancelJob(j.jobId); return }
       if (!j.ok || !j.jobId) { setError(j.msg || '启动测算失败'); setStage('error'); return }
       jobIdRef.current = j.jobId
@@ -700,6 +709,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   /* ---------- 未测算：开始按钮 ---------- */
   if (stage === 'idle') {
+    // 单实例架构：点击「开始测算」同时启动测算并切换到分析页
+    // 因为是同一个组件实例，start() 设置的 running 状态会无缝延续到分析页
+    const handleStartClick = () => {
+      start()
+      onEnterAnalysis?.()
+    }
     return (
       <div className="segments-panel idle-panel">
         <div className="truck-watermark" aria-hidden="true" />
@@ -716,7 +731,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               <input type="datetime-local" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} />
             </label>
             <div className="depart-hint">按出发时间 + 行驶位置匹配各路段温度/风速/湿度/降水（QWeather·和风天气，未配置 key 时自动用高德兜底）</div>
-            <button className="btn-primary" onClick={start}>开始测算</button>
+            <button className="btn-primary" onClick={handleStartClick}>开始测算</button>
           </div>
         </div>
       </div>
@@ -813,9 +828,16 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       : (demCount < segments.length ? '⚠️ 部分路段缺少 DEM 高程，坡度/海拔使用默认值' : ''))
 
   return (
-    <div className="segments-panel">
+    <div className={'segments-panel' + (isFullPage ? ' segments-fullpage' : '')}>
+      <div className="result-tabs">
+        {TAB_LABELS.map((t) => (
+          <button key={t.key} className={'result-tab' + (resultTab === t.key ? ' active' : '')} onClick={() => setResultTab(t.key)}>
+            <span className="result-tab-icon">{t.icon}</span>{t.label}
+          </button>
+        ))}
+      </div>
       <div className="panel-title">
-        <button className="btn-back" onClick={backToSelect}>← 换一条路线</button>
+        {!isFullPage && <button className="btn-back" onClick={backToSelect}>← 换一条路线</button>}
         {selectedSegs.size > 0 && (
           <button className="btn-back btn-clear-hl" onClick={() => setSelectedSegs(new Set())}>✕ 清除高亮（{selectedSegs.size}）</button>
         )}
@@ -853,6 +875,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </span>
       </div>
 
+      {resultTab === 'overview' && <>
       <div className="stat-cards">
         <div className="stat-card"><b>{summary?.totalKm ?? candidate.distanceKm} km</b><span>总里程</span></div>
         <div className="stat-card"><b>{summary?.avgSpeedKmh ?? '-'}</b><span>全程均速 km/h</span></div>
@@ -902,7 +925,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           <LineAreaChartMemo points={speedPts} color="#4d8dff" yLabel="均速" unit="km/h" />
         </div>
       </div>
+      </>}
 
+      {resultTab === 'table' &&
       <div className="table-card">
         <div className="table-head">
           <h4>路段数据表</h4>
@@ -988,8 +1013,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
+      {resultTab === 'hydrogen' &&
       <div className="h2-card">
         <div className="ai-head">
           <h4>⚡ 氢能消耗预测（{hydroModel === 'physics' ? '物理模型（能量守恒）' : hydroModel === 'both' ? '双引擎对比（机器学习 vs 物理）' : '机器学习（实车数据）'}）</h4>
@@ -1356,7 +1382,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
             )}
           </div>
         )}
-      </div>
+      </div>}
+
+      {resultTab === 'ai' &&
       <div className="ai-card">
         <div className="ai-head">
           <h4>🤖 AI 智能评估</h4>
@@ -1367,8 +1395,18 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
         </div>
         {aiLoading && <div className="panel-loading">AI 正在分析路线数据…</div>}
         {aiError && <div className="error">{aiError}</div>}
-        {aiText && <MarkdownLight text={aiText} />}
-      </div>
+        {aiText && (
+          <>
+            <div className="ai-copy-bar">
+              <button className="btn-copy" onClick={() => { navigator.clipboard.writeText(aiText); }}>
+                📋 一键复制
+              </button>
+            </div>
+            <MarkdownLight text={aiText} />
+          </>
+        )}
+      </div>}
+
       {showHowItWorks && <HydrogenHowItWorks onClose={() => setShowHowItWorks(false)} />}
     </div>
   )
