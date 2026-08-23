@@ -138,6 +138,36 @@ async function fetchJson(url: string, timeoutMs: number): Promise<any> {
 }
 
 /** QWeather 逐小时 24h（GCJ-02，中国大陆）→ Map<hourKey, WeatherSample> */
+/** 风向文本 → 角度（气象约定：风的来向，北=0 顺时针，0~360）
+ * 覆盖 16 方位 × 带/不带“风”字；未知/特殊（无持续风向等）返回 null
+ * 用途：高德天气只给文本（winddirection/daywind）无角度，
+ * 统一转成数字角度后与 ERA5 wind_direction_10m / QWeather wind360 完全对齐，
+ * 供 ML 风向特征（纵/横风分量）与物理模型风阻使用。 */
+const WIND_DIR_TEXT_TO_DEG: Record<string, number> = {
+  '北': 0, '北风': 0,
+  '北东北': 22.5, '北东北风': 22.5,
+  '东北': 45, '东北风': 45,
+  '东东北': 67.5, '东东北风': 67.5,
+  '东': 90, '东风': 90,
+  '东东南': 112.5, '东东南风': 112.5,
+  '东南': 135, '东南风': 135,
+  '南东南': 157.5, '南东南风': 157.5,
+  '南': 180, '南风': 180,
+  '南西南': 202.5, '南西南风': 202.5,
+  '西南': 225, '西南风': 225,
+  '西西南': 247.5, '西西南风': 247.5,
+  '西': 270, '西风': 270,
+  '西西北': 292.5, '西西北风': 292.5,
+  '西北': 315, '西北风': 315,
+  '北西北': 337.5, '北西北风': 337.5,
+}
+function windDirTextToDeg(text: string): number | null {
+  if (!text) return null
+  const t = String(text).trim().replace(/\s/g, '')
+  const v = WIND_DIR_TEXT_TO_DEG[t]
+  return v != null ? v : null
+}
+
 async function fetchQweatherHourly(lng: number, lat: number, key: string, host: string): Promise<Map<number, WeatherSample>> {
   // 专属 API Host 优先；未配置回退旧共享域名
   const base = host ? 'https://' + host.replace(/^https?:\/\//, '') : 'https://devapi.qweather.com'
@@ -178,7 +208,7 @@ async function fetchAmapDaily(lng: number, lat: number, key: string): Promise<{ 
   const nowSample: WeatherSample | null = now ? {
     temperatureC: num(now.temperature),
     windSpeedKmh: beaufortToKmh(now.windpower),
-    windDirDeg: null,
+    windDirDeg: windDirTextToDeg(now.winddirection || ""),
     windDirText: now.winddirection || "",
     humidityPct: num(now.humidity),
     precipMm: null,
@@ -201,7 +231,7 @@ async function fetchAmapDaily(lng: number, lat: number, key: string): Promise<{ 
         // 之前这里写死 null，导致高德兜底时 windAffects 恒为 false——
         // "确实无风"和"根本没抓到风速"被压成同一个值，风阻永远不计。
         windSpeedKmh: beaufortToKmh(c.daypower),
-        windDirDeg: null,
+        windDirDeg: windDirTextToDeg(c.daywind || ""),
         windDirText: c.daywind || "",
         // 高德日预报 casts 没有湿度和降水字段（官方字段表：date/week/dayweather/nightweather/
         // daytemp/nighttemp/daywind/nightwind/daypower/nightpower），保持 null 表示未知

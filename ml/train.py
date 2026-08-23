@@ -6,7 +6,7 @@
 import os
 os.environ.setdefault('LOKY_MAX_CPU_COUNT', '1')
 os.environ.setdefault('OMP_NUM_THREADS', '1')
-import pandas as pd, numpy as np, json, sys, os, warnings, datetime
+import pandas as pd, numpy as np, math, json, sys, os, warnings, datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 warnings.filterwarnings("ignore")
@@ -46,7 +46,7 @@ def aggregate(d, mass_key):
     # 注意：H49Data_longitudinal_acc 列实际是经度（清洗错位），加速度由 60s 平均速度差分得到 (m/s²)
     a=np.diff(v, prepend=v[0])/3.6/60.0
     g=d["grade_pct"].astype(float).values; e=d["elev_m"].values
-    tc=d["temp_c"].astype(float).values; wd=d["wind_kmh"].astype(float).values; hu=d["hum_pct"].astype(float).values
+    tc=d["temp_c"].astype(float).values; wd=d["wind_kmh"].astype(float).values; wdir=d["wind_dir_deg"].astype(float).values; hu=d["hum_pct"].astype(float).values
     lv=d["road_level"].values
     # 真实目标：氢气剩余量差分（kg/60s）；加氢跳变/噪声剔除
     h2rem=d["celDataExt_h2_remain_氢气剩余量"].astype(float).values
@@ -74,12 +74,24 @@ def aggregate(d, mass_key):
                     if _dh > 0: _gain += _dh
             gain_m_per_km = _gain / L if L > 0 else 0.0
             if L<0.3: continue
+            # 段级航向（首尾点方位角，与预测端 segHeadingDeg 一致）重算风组件
+            if len(s) >= 2:
+                _th = math.degrees(math.atan2(
+                    math.sin(math.radians(lon[s[-1]]-lon[s[0]]))*math.cos(math.radians(lat[s[-1]])),
+                    math.cos(math.radians(lat[s[0]]))*math.sin(math.radians(lat[s[-1]])) -
+                    math.sin(math.radians(lat[s[0]]))*math.cos(math.radians(lat[s[-1]]))*math.cos(math.radians(lon[s[-1]]-lon[s[0]])))) % 360
+            else:
+                _th = 0.0
+            _wpar = wd[s] * np.cos(np.radians(wdir[s] - _th))
+            _wperp = wd[s] * np.sin(np.radians(wdir[s] - _th))
             rows.append({
                 "trip":int(tr),"len_km":L,"gain_m_per_km":round(gain_m_per_km,2),
                 "v_series":v[s].tolist(),"a_series":a[s].tolist(),
                 "v_mean":float(np.sum(w*v[s])),"grade_mean":float(np.sum(w*g[s])),
                 "elev_mean":float(np.sum(w*e[s])),"temp_mean":float(np.sum(w*tc[s])),
-                "wind_mean":float(np.sum(w*wd[s])),"hum_mean":float(np.sum(w*hu[s])),
+                "wind_mean":float(np.sum(w*wd[s])),
+                "wind_par":float(np.sum(w*_wpar)), "wind_perp":float(np.sum(w*_wperp)),
+                "hum_mean":float(np.sum(w*hu[s])),
                 "lv":lv_ordinal(Counter(lv[s]).most_common(1)[0][0]),
                 "mass_kg": mass_for(mass_key, int(tr)),
                 "hour":int(pd.Timestamp(t[s[0]]).hour),

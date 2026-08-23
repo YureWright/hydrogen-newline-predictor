@@ -4,7 +4,7 @@
           temperatureC, windSpeedKmh, humidityPct, roadLevel, hour} ]}
 输出: {"ok":true, "total_h2_kg":.., "per100km_kg":.., "segments":[{index,distanceKm,h2_per_km, h2_g}]}
 """
-import sys, os, json
+import sys, os, json, math
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 # stdin/stdout 统一 UTF-8（Node 侧按 utf8 编码写入/解码；避免 Windows GBK 下中文损坏或报错）
@@ -52,6 +52,11 @@ def predict_segment(seg, rng, hour_default=12):
     elev = float(_get(seg, "elevationM", "elev_mean", 100.0))
     temp = float(_get(seg, "temperatureC", "temp_mean", 20.0))
     wind = float(_get(seg, "windSpeedKmh", "wind_mean", 10.0))
+    # 风向组件：纵向（逆/顺风）+横向（侧风），相对车头；缺角度/航向时为 0（与训练端 wind_par_kmh/wind_perp_kmh 口径一致）
+    wpar = 0.0
+    _wd = seg.get("windDirDeg"); _hd = seg.get("headingDeg")
+    if wind > 0 and _wd is not None and _hd is not None:
+        wpar = wind * math.cos(math.radians(float(_wd) - float(_hd)))
     hum  = float(_get(seg, "humidityPct", "hum_mean", 60.0))
     hour = int(_get(seg, "hour", None, hour_default))
     lv   = lv_ordinal(_get(seg, "roadLevel", "lv", "other"))
@@ -63,7 +68,8 @@ def predict_segment(seg, rng, hour_default=12):
     vs, aa, gs = synth_segment(rng, v_mean, grade, n_points, lib, bucket_of(lv, v_mean))
     deep = deep_feats(vs, aa, gs, L)
     feats = {"len_km": L, "v_mean": v_mean, "grade_mean": grade, "gain_m_per_km": gain_m_per_km, "elev_mean": elev, "mass_kg": mass_kg,
-             "temp_mean": temp, "wind_mean": wind, "hum_mean": hum, "hour": hour, "lv": lv}
+             "temp_mean": temp, "wind_mean": wind, "wind_par": wpar,
+             "hum_mean": hum, "hour": hour, "lv": lv}
     X = np.array([feats[k] for k in ACQUIRABLE] + [deep[k] for k in DEEP]).reshape(1, -1)
     h2_per_km_kg = float(model.predict(X)[0])
     # 防御性截断：下限 0，上限 0.5 kg/km（=50 kg/100km，与训练数据过滤上界一致，

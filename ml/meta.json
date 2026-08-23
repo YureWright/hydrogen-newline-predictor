@@ -7,6 +7,7 @@
     "elev_mean",
     "temp_mean",
     "wind_mean",
+    "wind_par",
     "hum_mean",
     "hour",
     "lv",
@@ -26,10 +27,10 @@
     "h2": "kg/km",
     "target": "h2_remain_diff"
   },
-  "trained_at": "2026-08-22",
+  "trained_at": "2026-08-23",
   "n_segments": 1066,
   "cv": {
-    "r2_mean": 0.38188905004713314,
-    "rmse_mean": 0.0473485850329936
+    "r2_mean": 0.3851492892124896,
+    "rmse_mean": 0.04740249173360017
   }
 }

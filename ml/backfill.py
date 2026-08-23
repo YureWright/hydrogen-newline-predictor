@@ -88,11 +88,11 @@ def add_dem(df, tag):
 
 # ---------- ERA5 历史天气 ----------
 def fetch_wx_batch(lats, lons, start, end):
-    cache = f"{WX_CACHE}/era5_{start}_{end}_b{len(lats)}.json"
+    cache = f"{WX_CACHE}/era5_v2_{start}_{end}_b{len(lats)}.json"
     if os.path.exists(cache):
         return json.load(open(cache, encoding="utf-8"))
     url = ("https://archive-api.open-meteo.com/v1/era5?latitude=%s&longitude=%s"
-           "&start_date=%s&end_date=%s&hourly=temperature_2m,wind_speed_10m,relative_humidity_2m,precipitation"
+           "&start_date=%s&end_date=%s&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation"
            "&timezone=Asia%%2FShanghai") % (",".join("%.4f"%a for a in lats), ",".join("%.4f"%b for b in lons), start, end)
     for a in range(3):
         try:
@@ -124,21 +124,52 @@ def add_weather(df, tag, start, end):
                     result[k] = {"time": np.array(h["time"], dtype="datetime64[ns]"),
                                  "t": np.array(h["temperature_2m"], float),
                                  "w": np.array(h["wind_speed_10m"], float),
+                                 "wd": np.array(h["wind_direction_10m"], float),
                                  "h": np.array(h["relative_humidity_2m"], float),
                                  "p": np.array(h["precipitation"], float)}
         print("  批 %d/%d" % (i//100+1, (len(items)+99)//100))
         time.sleep(0.4)
     times = pd.to_datetime(df.iloc[:, 0], errors="coerce")
-    T, W, H, P = [], [], [], []
+    T, W, WD, H, P = [], [], [], [], []
     for la, lo, ts in zip(lats, lons, times):
         arr = result.get("%d_%d" % (round(la*4), round(lo*4)))
         if arr is None or pd.isna(ts):
-            T.append(np.nan); W.append(np.nan); H.append(np.nan); P.append(np.nan); continue
+            T.append(np.nan); W.append(np.nan); WD.append(np.nan); H.append(np.nan); P.append(np.nan); continue
         idx = int(np.abs(arr["time"] - np.datetime64(ts, "ns")).argmin())
-        T.append(arr["t"][idx]); W.append(arr["w"][idx]); H.append(arr["h"][idx]); P.append(arr["p"][idx])
+        T.append(arr["t"][idx]); W.append(arr["w"][idx]); WD.append(arr["wd"][idx]); H.append(arr["h"][idx]); P.append(arr["p"][idx])
     df["temp_c"] = np.round(T, 1); df["wind_kmh"] = np.round(W, 1)
+    df["wind_dir_deg"] = np.round(WD, 0)
     df["hum_pct"] = np.round(H, 0); df["precip_mm"] = np.round(P, 2)
     print("[%s] 温度 %.1f~%.1f ℃ 覆盖 %.0f%%" % (tag, np.nanmin(T), np.nanmax(T), np.isfinite(T).mean()*100))
+    return df
+
+# ---------- 风向组件：航向 + 纵/横风分量 ----------
+def bearing_deg(lat1, lon1, lat2, lon2):
+    """两点大圆初始方位角（0~360，北=0 顺时针），与前端 segHeadingDeg 口径一致"""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1)*math.sin(p2) - math.sin(p1)*math.cos(p2)*math.cos(dl)
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+def add_wind_components(df):
+    """每帧航向（当前点→下一点），把风速分解为相对车头的：
+    纵向 wind_par_kmh = w·cos(φ−θ)（逆风为正/顺风为负）、
+    横向 wind_perp_kmh = w·sin(φ−θ)（侧风，左/右无方向只计大小）。
+    约定与物理模型 windDirDeg/headingDeg 一致：φ=风来向、θ=车头航向、北=0 顺时针。"""
+    lat = df["lat_纬度"].values/1e6; lon = df["lon_经度"].values/1e6
+    w = df["wind_kmh"].values.astype(float); wd = df["wind_dir_deg"].values.astype(float)
+    n = len(df)
+    head = np.full(n, np.nan)
+    for i in range(n-1):
+        head[i] = bearing_deg(lat[i], lon[i], lat[i+1], lon[i+1])
+    if n > 1: head[-1] = head[-2]
+    phi = np.radians(np.where(np.isfinite(wd), wd, 0.0))
+    th = np.radians(np.where(np.isfinite(head), head, 0.0))
+    par = w * np.cos(phi - th)
+    perp = w * np.sin(phi - th)
+    df["wind_par_kmh"] = np.round(np.where(np.isfinite(par), par, 0.0), 1)
+    df["wind_perp_kmh"] = np.round(np.where(np.isfinite(perp), perp, 0.0), 1)
     return df
 
 # ---------- 高德 regeo：道路等级/行政区 ----------
@@ -201,6 +232,7 @@ if __name__ == "__main__":
         df = read_csv_any(src)
         df = add_dem(df, tag)
         df = add_weather(df, tag, ws, we)
+        df = add_wind_components(df)
         if AMAP_KEY: df = add_geo(df, tag)
         else: print("[%s] 未配置 AMAP_KEY，跳过道路等级回填" % tag)
         df.to_csv(out, index=False, encoding="utf-8-sig")
