@@ -1,5 +1,7 @@
-numpy
-pandas
-scikit-learn
-joblib
+# 版本与训练环境对齐：model.joblib 由 scikit-learn 1.7.2 训练（pickle 依赖 sklearn._loss），
+# 版本不匹配会导致加载失败（ModuleNotFoundError: No module named '_loss'），务必保持固定。
+numpy==2.5.0
+pandas==3.0.3
+scikit-learn==1.7.2
+joblib==1.4.2
 requests

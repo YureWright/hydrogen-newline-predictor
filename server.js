@@ -56,6 +56,9 @@ const vite = await createViteServer({
 })
 
 const server = createHttpServer((req, res) => {
+  // 客户端中途断开时吞掉 req/res 错误，避免 unhandled 'error' 崩溃（write EOF / ECONNRESET）
+  req.on('error', () => {})
+  res.on('error', () => {})
   const urlPath = (req.url || '/').split('?')[0]
   if (urlPath.startsWith('/api/')) {
     // API 交给 vite 中间件；没命中则 404
@@ -64,6 +67,13 @@ const server = createHttpServer((req, res) => {
   }
   serveStatic(req, res)
 })
+
+// 畸形请求 / 客户端断开兜底：吞掉 socket 错误，防止未处理 'error' 事件击穿进程
+server.on('clientError', (err, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
+  else socket.destroy()
+})
+server.on('connection', (socket) => { socket.on('error', () => {}) })
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('[prod] 新线路氢耗预测工具已启动: http://0.0.0.0:' + PORT)

@@ -146,7 +146,8 @@ function startDemJob(origin: string, destination: string, index: number, departu
 /** 调 python 预测脚本（stdin/stdout JSON；cwd=ml/） */
 function runPythonScript(script: string, input: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const py = process.env.PYTHON || 'python3'
+    // Windows 默认 python；Linux/macOS 默认 python3（PR#12 曾改为 python3，导致 Windows 上 python3 为商店占位符而预测失败）
+    const py = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
     const child = spawn(py, [script], { cwd })
     let out = '', err = ''
     child.stdout.on('data', (d: Buffer) => { out += d.toString('utf8') })
@@ -191,6 +192,9 @@ export default defineConfig({
       name: 'api-middleware',
       configureServer(server) {
         server.middlewares.use('/api', async (req: any, res: any) => {
+          // 客户端中途断开时吞掉 req/res 错误，避免 unhandled 'error' 崩溃（write EOF / ECONNRESET）
+          req.on('error', () => {})
+          res.on('error', () => {})
           const url = new URL(req.url || '', 'http://localhost')
           const path = url.pathname
           const key = process.env.AMAP_KEY || ''
