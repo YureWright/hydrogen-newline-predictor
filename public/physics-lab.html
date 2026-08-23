@@ -79,6 +79,8 @@
   .ml-note { font-size: 11px; color: var(--txt-3); margin-top: 8px; line-height: 1.7; }
   .ml-err { color: var(--amber); }
   .ml-load { color: var(--txt-3); }
+  .clamp-warn { font-size: 11.5px; color: var(--amber); border: 1px dashed rgba(255,181,71,.5); background: rgba(255,181,71,.06); border-radius: 8px; padding: 6px 10px; margin-top: 8px; line-height: 1.6; }
+  sub { font-size: 9px; }
 </style>
 </head>
 <body>
@@ -93,7 +95,7 @@
 <details class="note">
   <summary>📖 说明（老奶奶版 / 数据来源）</summary>
   这个实验室只模拟<b>一段路</b>：你告诉它"路多长、平均跑多快、坡多大、海拔多高、气温多少、风怎么吹、车多重"，它用与后端 <code>ml/physics.py</code> 完全相同的公式（四阻力 → 轮边功率 → 电堆/电池削峰 → 氢耗）当场算出这段路的氢耗，并把每个中间量都亮给你看。<br>
-  动画里那辆卡车会按你给的均速在坡上跑，坡度越大路越斜、载重越大车越"压"，改任何一个参数动画和数字一起变。<br>
+  动画里那辆卡车会按你给的均速在坡上跑：坡度越大路越斜、载重越大车越"压"，改任何一个参数动画和数字一起变。<br>
   <b>机器学习对比</b>：需要后端模型（在项目里通过 dev server 打开本页才有）；单独双击打开本文件时仅物理模型可用。
 </details>
 
@@ -115,7 +117,7 @@
           <option value="tail">顺风（背后）</option>
           <option value="side">侧风</option>
         </select>
-        <span class="val" id="Wdv">—</span>
+        <span class="val" id="Wdv">逆风</span>
       </div>
       <div class="row"><label>道路</label>
         <select id="lv">
@@ -125,6 +127,7 @@
           <option value="city">城市道路</option>
           <option value="other">其他</option>
         </select>
+        <span class="val" id="lvv">高速</span>
         <span class="unit">（影响速度波动 σ）</span>
       </div>
     </div>
@@ -144,14 +147,14 @@
       <details class="adv">
         <summary>▸ 高级物理参数（可调）</summary>
         <div class="grid2">
-          <div class="f"><span>滚动阻力系数 Crr</span><input type="number" id="crr" step="0.001" value="0.009" /></div>
-          <div class="f"><span>风阻系数 Cd</span><input type="number" id="cd" step="0.01" value="0.35" /></div>
+          <div class="f"><span>滚动阻力系数 C<sub>rr</sub></span><input type="number" id="crr" step="0.001" value="0.009" /></div>
+          <div class="f"><span>风阻系数 C<sub>d</sub></span><input type="number" id="cd" step="0.01" value="0.35" /></div>
           <div class="f"><span>迎风面积 A (m²)</span><input type="number" id="A" step="0.1" value="7.5" /></div>
-          <div class="f"><span>电机+传动效率 η_mt</span><input type="number" id="etaMt" step="0.01" value="0.9" /></div>
+          <div class="f"><span>电机+传动效率 η<sub>mt</sub></span><input type="number" id="etaMt" step="0.01" value="0.9" /></div>
           <div class="f"><span>电堆最低功率 (kW)</span><input type="number" id="pFcMin" step="1" value="30" /></div>
           <div class="f"><span>电堆最高功率 (kW)</span><input type="number" id="pFcMax" step="1" value="180" /></div>
           <div class="f"><span>电池限幅 (kW)</span><input type="number" id="pBatMax" step="1" value="150" /></div>
-          <div class="f"><span>电堆效率 η_fc</span><input type="number" id="etaFc" step="0.01" value="0.5" /></div>
+          <div class="f"><span>电堆效率 η<sub>fc</sub></span><input type="number" id="etaFc" step="0.01" value="0.5" /></div>
           <div class="f"><span>附件基础功率 (kW)</span><input type="number" id="pAux0" step="0.5" value="3" /></div>
           <div class="f"><span>附件温度系数 (kW/℃)</span><input type="number" id="kT" step="0.05" value="0.15" /></div>
           <div class="f"><span>整备质量 (t)</span><input type="number" id="curb" step="0.1" value="9.7" /></div>
@@ -168,43 +171,45 @@
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#0c1830"/><stop offset="100%" stop-color="#0a0f1c"/>
           </linearGradient>
-          <linearGradient id="roadG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#2a3550"/><stop offset="100%" stop-color="#1a2236"/>
+          <linearGradient id="groundG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1c2942"/><stop offset="100%" stop-color="#0b1020"/>
           </linearGradient>
         </defs>
         <rect width="960" height="340" fill="url(#sky)"/>
         <!-- 远处山影 -->
-        <path d="M0 210 Q120 150 260 205 T520 200 T760 208 T960 196 L960 340 L0 340 Z" fill="#0d1526" opacity=".7"/>
-        <path d="M0 225 Q160 185 340 222 T700 218 T960 210 L960 340 L0 340 Z" fill="#101a30" opacity=".8"/>
-        <!-- 路（随坡度倾斜，坡度夸张显示） -->
-        <g id="roadG">
-          <line id="roadTop" x1="60" y1="270" x2="900" y2="270" stroke="url(#roadG)" stroke-width="18" stroke-linecap="round"/>
-          <line id="roadLine" x1="60" y1="270" x2="900" y2="270" stroke="#f0f4ff" stroke-width="2.5" stroke-dasharray="14 10" opacity=".9"/>
-          <line id="roadBottom" x1="60" y1="274" x2="900" y2="274" stroke="#3a4665" stroke-width="6" opacity=".5"/>
-        </g>
+        <path d="M0 205 Q120 145 260 200 T520 195 T760 203 T960 191 L960 340 L0 340 Z" fill="#0d1526" opacity=".7"/>
+        <path d="M0 220 Q160 180 340 217 T700 213 T960 205 L960 340 L0 340 Z" fill="#101a30" opacity=".8"/>
+        <!-- 地形（随坡度整体倾斜，夸张显示坡度） -->
+        <path id="ground" d="M100 280 L860 280 L860 340 L100 340 Z" fill="url(#groundG)"/>
+        <path id="groundTop" d="M100 280 L860 280" stroke="#2c3a58" stroke-width="3" fill="none"/>
+        <!-- 路 -->
+        <line id="roadBody" x1="100" y1="284" x2="860" y2="284" stroke="#232c44" stroke-width="20" stroke-linecap="round"/>
+        <line id="roadSurface" x1="100" y1="278" x2="860" y2="278" stroke="#4a5878" stroke-width="3" stroke-linecap="round"/>
+        <line id="roadDash" x1="100" y1="284" x2="860" y2="284" stroke="#e8eefc" stroke-width="2" stroke-dasharray="16 12" opacity=".85"/>
+        <line id="roadBottom" x1="100" y1="294" x2="860" y2="294" stroke="#161e33" stroke-width="4" opacity=".7"/>
         <!-- 里程刻度 + 起终点 -->
         <g id="scaleG" font-size="10" fill="#7e8aa6"></g>
-        <text id="flagStart" x="52" y="252" font-size="11" fill="#3ddc97">🚩 起点</text>
-        <text id="flagEnd" x="826" y="252" font-size="11" fill="#ff6072">终点 🏁</text>
-        <!-- 卡车 -->
+        <text id="flagStart" x="94" y="262" font-size="11" fill="#3ddc97" text-anchor="middle">🚩 起点</text>
+        <text id="flagEnd" x="866" y="262" font-size="11" fill="#ff6072" text-anchor="middle">终点 🏁</text>
+        <!-- 卡车：原点=后轮-前轮中点的触地点 -->
         <g id="truck">
-          <!-- 轮子 -->
-          <circle id="w1" cx="0" cy="0" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
-          <circle id="w2" cx="0" cy="0" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
-          <circle id="w3" cx="0" cy="0" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
-          <!-- 底盘/车身 -->
-          <rect id="cab" x="0" y="0" width="34" height="22" rx="4" fill="#2b3a5c" stroke="#8fa3c8" stroke-width="1.5"/>
-          <rect id="box" x="36" y="0" width="64" height="30" rx="4" fill="#1d2a47" stroke="#8fa3c8" stroke-width="1.5"/>
-          <rect id="boxRoof" x="38" y="-3" width="30" height="4" rx="2" fill="#3ae3ff" opacity=".8"/>
-          <text id="truckLabel" x="44" y="20" font-size="11" fill="#c9d4ea">H₂</text>
-          <!-- 载重压痕 -->
-          <line id="squat" x1="20" y1="26" x2="90" y2="26" stroke="#ffb547" stroke-width="2" opacity="0"/>
+          <circle id="w1" cx="20" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
+          <circle id="w2" cx="46" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
+          <circle id="w3" cx="72" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
+          <rect id="frame" x="6" y="-16" width="84" height="8" rx="2" fill="#2b3a5c" stroke="#8fa3c8" stroke-width="1.2"/>
+          <rect id="cab" x="4" y="-40" width="30" height="24" rx="4" fill="#31436b" stroke="#9fb3d6" stroke-width="1.5"/>
+          <rect id="box" x="36" y="-46" width="56" height="32" rx="4" fill="#1d2a47" stroke="#8fa3c8" stroke-width="1.5"/>
+          <rect id="boxRoof" x="38" y="-50" width="30" height="5" rx="2" fill="#3ae3ff" opacity=".85"/>
+          <text id="truckLabel" x="46" y="-24" font-size="12" fill="#c9d4ea" text-anchor="middle">H₂</text>
+          <!-- 载重压痕（悬挂压缩示意） -->
+          <line id="squat" x1="12" y1="-15" x2="88" y2="-15" stroke="#ffb547" stroke-width="2.5" opacity="0"/>
         </g>
         <!-- 动力条 -->
         <g id="powerBar">
-          <rect x="760" y="20" width="14" height="120" rx="6" fill="#0d1526" stroke="#3a4665"/>
-          <rect id="powerFill" x="762" y="118" width="10" height="0" rx="4" fill="#3ae3ff"/>
-          <text id="powerText" x="748" y="152" font-size="11" fill="#b6c0d6" text-anchor="middle">P_fc</text>
+          <rect x="882" y="24" width="16" height="130" rx="7" fill="#0d1526" stroke="#3a4665"/>
+          <rect id="powerFill" x="884" y="128" width="12" height="0" rx="5" fill="#3ae3ff"/>
+          <text x="890" y="172" font-size="10.5" fill="#b6c0d6" text-anchor="middle">P<sub>fc</sub></text>
+          <text id="powerVal" x="890" y="186" font-size="10.5" fill="#b6c0d6" text-anchor="middle"></text>
         </g>
       </svg>
       <div class="hud" id="hud"></div>
@@ -224,7 +229,8 @@
           <thead><tr><th>中间变量</th><th class="v">数值</th></tr></thead>
           <tbody id="phyTable"></tbody>
         </table>
-        <div class="ml-note">公式与 <code>ml/physics.py</code> 完全一致：四阻力 → P_wheel → P_drive（驱动 /η_mt、再生 ×η_mt）→ P_fc/P_bat 削峰 → m_H₂=E_fc/(η_fc·LHV)。</div>
+        <div class="clamp-warn" id="clampHint" style="display:none"></div>
+        <div class="ml-note">公式与 <code>ml/physics.py</code> 完全一致：四阻力 → P<sub>wheel</sub> → P<sub>drive</sub>（驱动 /η<sub>mt</sub>、再生 ×η<sub>mt</sub>）→ P<sub>fc</sub>/P<sub>bat</sub> 削峰 → m<sub>H₂</sub>=E<sub>fc</sub>/(η<sub>fc</sub>·LHV)。</div>
       </div>
       <div class="res">
         <h4>🤖 机器学习对比 <span class="tag">后端模型 · 需 dev server</span></h4>
@@ -244,14 +250,15 @@
 /* ================= 车辆预设（与 SegmentsPanel 的 VEHICLE_PRESETS 一致） ================= */
 var PRESETS = {
   h49: { name:"H49 · 49t 半挂牵引车", curbKg:9700, crr:0.009, cd:0.35, frontArea:7.5, etaMt:0.9,
-         pFcMin:30, pFcMax:180, pBatMax:150, etaFc:0.5, pAux0:3, kT:0.15, fcKw:300, batKwh:75, h2:"7.1" },
+         pFcMin:30, pFcMax:180, pBatMax:150, etaFc:0.5, pAux0:3, kT:0.15, gvwKg:49000 },
   h18: { name:"H18 · 18t 厢式运输车", curbKg:9800, crr:0.009, cd:0.55, frontArea:8.5, etaMt:0.9,
-         pFcMin:12, pFcMax:72, pBatMax:100, etaFc:0.5, pAux0:3, kT:0.15, fcKw:120, batKwh:50, h2:"<5.5" },
+         pFcMin:12, pFcMax:72, pBatMax:100, etaFc:0.5, pAux0:3, kT:0.15, gvwKg:18000 },
   h45: { name:"H4.5 · 4.5t 冷藏车", curbKg:3700, crr:0.009, cd:0.55, frontArea:6.0, etaMt:0.9,
-         pFcMin:9, pFcMax:54, pBatMax:30, etaFc:0.5, pAux0:2.5, kT:0.15, fcKw:90, batKwh:14.9, h2:"<3.10" }
+         pFcMin:9, pFcMax:54, pBatMax:30, etaFc:0.5, pAux0:2.5, kT:0.15, gvwKg:4500 }
 };
 var RHO0 = 1.225, G = 9.8066, LHV = 33.3;
 var LV_SIGMA = { highway:0.05, expressway:0.05, national:0.10, provincial:0.10, city:0.20, other:0.20 };
+var LV_LABEL = { highway:"高速", national:"国道", provincial:"省道", city:"城市道路", other:"其他" };
 
 /* ================= 读参数 ================= */
 function $id(id){ return document.getElementById(id); }
@@ -269,14 +276,14 @@ function readParams(){
     else if (wd === "tail") { windDirDeg = 180; windText = "顺风"; }
     else { windDirDeg = 90; windText = "侧风"; }
   }
+  var curbKg = (num("curb") || veh.curbKg/1000) * 1000;
   return {
     L: L, v: v, g: g, H: H, T: T,
     windSpeedKmh: w, windDirDeg: windDirDeg, windAffects: windAffects, windText: windText,
     headingDeg: 0,
-    roadLevel: $id("lv").value,
-    // 车辆参数：高级面板优先（切车型时自动覆盖），否则用预设
-    curbKg: (num("curb") || veh.curbKg/1000) * 1000,
-    massKg: (num("curb") || veh.curbKg/1000) * 1000 + loadT * 1000,
+    roadLevel: $id("lv").value, roadLevelLabel: LV_LABEL[$id("lv").value] || $id("lv").value,
+    curbKg: curbKg,
+    massKg: curbKg + loadT * 1000,
     crr: num("crr") || veh.crr, cd: num("cd") || veh.cd, frontArea: num("A") || veh.frontArea,
     etaMt: num("etaMt") || veh.etaMt, pFcMin: num("pFcMin") || veh.pFcMin,
     pFcMax: num("pFcMax") || veh.pFcMax, pBatMax: num("pBatMax") || veh.pBatMax,
@@ -295,7 +302,6 @@ function physics(p){
   }
   var v_eff = v_mps + head_wind;
   var rho = RHO0 * Math.pow(1 - 2.25577e-5 * p.H, 4.25588);
-  // 速度波动 σ：按道路等级+均速经验估算（前端未采集时的兜底，与 python 一致）
   var sRatio = LV_SIGMA[p.roadLevel] != null ? LV_SIGMA[p.roadLevel] : 0.20;
   var sigmaKmh = Math.max((p.roadLevel === "highway" || p.roadLevel === "expressway") ? 2.0 : (p.roadLevel === "national" || p.roadLevel === "provincial") ? 3.0 : 5.0, p.v * sRatio);
   var sigmaMps = sigmaKmh / 3.6;
@@ -329,67 +335,71 @@ function physics(p){
 var svg = $id("stage");
 var NS = "http://www.w3.org/2000/svg";
 function setA(id, attr, val){ var el = svg.getElementById(id); if (el) el.setAttribute(attr, val); }
-var ROAD_X0 = 60, ROAD_X1 = 900, ROAD_Y0 = 270;
-var simT = 0, running = true, speedMul = 1, lastTs = 0;
+var ROAD_X0 = 100, ROAD_X1 = 860, ROAD_Y0 = 280;
+var SLOPE_PX = 6; // 坡度显示夸张系数：1% → 6px
+var frac = 0, running = true, speedMul = 1, lastTs = 0;
 
-function truckAtX(x, gradePct){
-  // 路是直线：y(x) = ROAD_Y0 - slopePx * (x - ROAD_X0) / (ROAD_X1 - ROAD_X0)
-  var slopePx = -gradePct * 7; // 上坡(g>0)右端抬升；SVG y 向下，故用负号
-  var y = ROAD_Y0 + slopePx * (x - ROAD_X0) / (ROAD_X1 - ROAD_X0);
-  var ang = Math.atan2(-slopePx, ROAD_X1 - ROAD_X0) * 180 / Math.PI; // 弧度→度（y 翻转）
-  return { y: y, ang: ang };
+function roadY(x, g){
+  var slopePx = -g * SLOPE_PX;
+  return ROAD_Y0 + slopePx * (x - ROAD_X0) / (ROAD_X1 - ROAD_X0);
 }
 
+/* 视觉时长：80km/h 约 10s 跑完；越快越短、越慢越长（仅动画，不影响计算） */
+function visDurSec(p){ return 10 * (80 / Math.max(p.v, 10)); }
+
 function draw(p, r){
-  // 坡度 → 路的倾斜（夸张显示）
-  var slopePx = -p.g * 7;
-  setA("roadTop", "y1", ROAD_Y0 + slopePx); setA("roadTop", "y2", ROAD_Y0 + slopePx);
-  setA("roadLine", "y1", ROAD_Y0 + slopePx); setA("roadLine", "y2", ROAD_Y0 + slopePx);
-  setA("roadBottom", "y1", ROAD_Y0 + slopePx + 8); setA("roadBottom", "y2", ROAD_Y0 + slopePx + 8);
-  var fy = ROAD_Y0 + slopePx;
-  setA("flagStart", "y", fy - 22); setA("flagEnd", "y", fy - 22);
+  var slopePx = -p.g * SLOPE_PX;
+  var yL = ROAD_Y0, yR = ROAD_Y0 + slopePx;
+  // 地形与路：左端固定，右端随坡度升降（上坡右端抬升）
+  setA("ground", "d", "M" + ROAD_X0 + " " + yL + " L" + ROAD_X1 + " " + yR + " L" + ROAD_X1 + " 340 L" + ROAD_X0 + " 340 Z");
+  setA("groundTop", "d", "M" + ROAD_X0 + " " + yL + " L" + ROAD_X1 + " " + yR);
+  setA("roadBody", "y1", yL + 6); setA("roadBody", "y2", yR + 6);
+  setA("roadSurface", "y1", yL); setA("roadSurface", "y2", yR);
+  setA("roadDash", "y1", yL + 6); setA("roadDash", "y2", yR + 6);
+  setA("roadBottom", "y1", yL + 16); setA("roadBottom", "y2", yR + 16);
+  // 起终点旗：跟各自位置的路面
+  setA("flagStart", "y", roadY(ROAD_X0, p.g) - 24);
+  setA("flagEnd", "y", roadY(ROAD_X1, p.g) - 24);
   // 里程刻度
   var scale = svg.getElementById("scaleG");
   scale.innerHTML = "";
   var nTick = Math.max(4, Math.min(10, Math.round(p.L)));
   for (var i = 0; i <= nTick; i++) {
     var fx = ROAD_X0 + (ROAD_X1 - ROAD_X0) * i / nTick;
-    var yy = ROAD_Y0 + slopePx * i / nTick;
+    var yy = roadY(fx, p.g) + 24;
     var t1 = document.createElementNS(NS, "line");
     t1.setAttribute("x1", fx); t1.setAttribute("x2", fx);
-    t1.setAttribute("y1", yy + 4); t1.setAttribute("y2", yy + 12);
+    t1.setAttribute("y1", yy - 6); t1.setAttribute("y2", yy + 6);
     t1.setAttribute("stroke", "#3a4665"); t1.setAttribute("stroke-width", "1.5");
     scale.appendChild(t1);
     var tt = document.createElementNS(NS, "text");
-    tt.setAttribute("x", fx); tt.setAttribute("y", yy + 24);
+    tt.setAttribute("x", fx); tt.setAttribute("y", yy + 16);
     tt.setAttribute("text-anchor", "middle"); tt.setAttribute("font-size", "9.5");
     tt.setAttribute("fill", "#7e8aa6");
     tt.textContent = (i * p.L / nTick).toFixed(0) + "km";
     scale.appendChild(tt);
   }
-  // 卡车位置
-  var frac = Math.min(1, simT / Math.max(r.t_h * 3600, 1e-6)); // simT 秒 vs t_h 小时
+  // 卡车：接触点沿路走，随路面旋转
   var x = ROAD_X0 + (ROAD_X1 - ROAD_X0) * frac;
-  var tp = truckAtX(x, p.g);
+  var cy = roadY(x, p.g);          // 路面 y
+  var surf = cy;                    // 触地点=路面线
+  var ang = Math.atan2(-slopePx, ROAD_X1 - ROAD_X0) * 180 / Math.PI;
   var g = svg.getElementById("truck");
-  g.setAttribute("transform", "translate(" + (x - 62) + "," + (tp.y - 42) + ") rotate(" + tp.ang + " 68 22)");
-  // 载重 → 车压下去（悬挂压缩）
-  var squat = Math.min(8, p.loadT / 5);
-  setA("squat", "y1", 30 + squat); setA("squat", "y2", 30 + squat);
+  g.setAttribute("transform", "translate(" + x + "," + surf + ") rotate(" + ang + ")");
+  // 载重 → 悬挂压缩（车身下沉，轮子贴地不动）
+  var squat = Math.min(7, p.loadT / 4);
+  setA("cab", "y", -40 + squat); setA("box", "y", -46 + squat);
+  setA("boxRoof", "y", -50 + squat); setA("truckLabel", "y", -24 + squat);
+  setA("frame", "y", -16 + squat);
+  setA("squat", "y1", -15 + squat); setA("squat", "y2", -15 + squat);
   setA("squat", "opacity", p.loadT > 1 ? 1 : 0);
-  setA("cab", "y", 2 + squat); setA("box", "y", 2 + squat);
-  setA("boxRoof", "y", -1 + squat); setA("truckLabel", "y", 20 + squat);
-  var wy = 30 + squat;
-  setA("w1", "cx", 16); setA("w1", "cy", wy);
-  setA("w2", "cx", 52); setA("w2", "cy", wy + 4);
-  setA("w3", "cx", 84); setA("w3", "cy", wy);
-  // 动力条（P_fc / P_fc_max，负→电池充电为绿）
+  // 动力条
   var fcMax = Math.max(p.pFcMax, 1);
-  var fillH = Math.max(0, Math.min(1, Math.abs(r.P_fc) / fcMax)) * 110;
+  var fillH = Math.max(0, Math.min(1, Math.abs(r.P_fc) / fcMax)) * 104;
   setA("powerFill", "height", fillH);
-  setA("powerFill", "y", 118 - fillH);
+  setA("powerFill", "y", 128 - fillH);
   setA("powerFill", "fill", r.P_bat < 0 ? "#3ddc97" : "#3ae3ff");
-  setA("powerText", "textContent", "P_fc " + r.P_fc.toFixed(0) + "kW");
+  svg.getElementById("powerVal").textContent = r.P_fc.toFixed(0) + " kW";
 }
 
 /* ================= 结果渲染 ================= */
@@ -401,30 +411,47 @@ function render(p, r){
     '<span>整备 ' + fmt(p.curbKg/1000,1) + ' t</span>' +
     '<span>总质量 ' + fmt(totalT,1) + ' t</span>' +
     '<span>载重 ' + fmt(p.loadT,1) + ' t</span>' +
-    '<span>Cd ' + p.cd + '</span>' +
-    '<span>P_fc∈[' + p.pFcMin + ',' + p.pFcMax + ']kW</span>';
+    '<span>C<sub>d</sub> ' + p.cd + '</span>' +
+    '<span>P<sub>fc</sub>∈[' + p.pFcMin + ',' + p.pFcMax + ']kW</span>';
   // 物理指标
   var m = [
-    ["氢耗 m_H₂", fmt(r.m_H2,3) + " kg", r.m_H2],
-    ["百公里氢耗", fmt(r.per100,2) + " kg/100km", r.per100],
-    ["电堆功率 P_fc", fmt(r.P_fc,1) + " kW", r.P_fc],
-    ["电池功率 P_bat", fmt(r.P_bat,1) + " kW", r.P_bat],
-    ["行驶时长", fmt(r.t_h,2) + " h", r.t_h]
+    ["氢耗 m<sub>H₂</sub>", fmt(r.m_H2,3) + " kg"],
+    ["百公里氢耗", fmt(r.per100,2) + " kg/100km"],
+    ["电堆功率 P<sub>fc</sub>", fmt(r.P_fc,1) + " kW"],
+    ["电池功率 P<sub>bat</sub>", fmt(r.P_bat,1) + " kW"],
+    ["行驶时长", fmt(r.t_h,2) + " h"]
   ];
   $id("phyMetrics").innerHTML = m.map(function(x){ return '<div class="metric"><b>' + x[1] + '</b><span>' + x[0] + '</span></div>'; }).join("");
   var rows = [
-    ["车速 v", fmt(r.v_mps,2), "m/s"], ["速度波动 σ", fmt(r.sigmaKmh,2), "km/h"],
-    ["空气密度 ρ", fmt(r.rho,4), "kg/m³"], ["滚动阻力 F_roll", fmt(r.F_roll,0), "N"],
-    ["空气阻力 F_aero", fmt(r.F_aero,0), "N"], ["坡度阻力 F_grade", fmt(r.F_grade,0), "N"],
-    ["总驱动力 F", fmt(r.F_total,0), "N"], ["轮边功率 P_wheel", fmt(r.P_wheel,1), "kW"],
-    ["附件功率 P_aux", fmt(r.P_aux,2), "kW"], ["驱动电功率 P_drive", fmt(r.P_drive,1), "kW"],
-    ["电堆电能 E_fc", fmt(r.E_fc,2), "kWh"], ["等效风速（相对车头）", fmt(r.headWindMps,2), "m/s"]
+    ["车速 v", fmt(r.v_mps,2), "m/s"],
+    ["速度波动 σ", fmt(r.sigmaKmh,2), "km/h"],
+    ["空气密度 ρ", fmt(r.rho,4), "kg/m³"],
+    ["滚动阻力 F<sub>roll</sub>", fmt(r.F_roll,0), "N"],
+    ["空气阻力 F<sub>aero</sub>", fmt(r.F_aero,0), "N"],
+    ["坡度阻力 F<sub>grade</sub>", fmt(r.F_grade,0), "N"],
+    ["总驱动力 F", fmt(r.F_total,0), "N"],
+    ["轮边功率 P<sub>wheel</sub>", fmt(r.P_wheel,1), "kW"],
+    ["附件功率 P<sub>aux</sub>", fmt(r.P_aux,2), "kW"],
+    ["驱动电功率 P<sub>drive</sub>", fmt(r.P_drive,1), "kW"],
+    ["电堆电能 E<sub>fc</sub>", fmt(r.E_fc,2), "kWh"],
+    ["等效风速（相对车头）", fmt(r.headWindMps,2), "m/s"]
   ];
   $id("phyTable").innerHTML = rows.map(function(x){ return '<tr><td>' + x[0] + '</td><td class="v">' + x[1] + ' ' + x[2] + '</td></tr>'; }).join("");
+  // 电堆饱和提示：此时温度/海拔/风等变化被电池吸收，氢耗不变
+  var hint = $id("clampHint");
+  var atMax = r.P_fc >= p.pFcMax - 0.5, atMin = r.P_fc <= p.pFcMin + 0.5;
+  if (atMax || atMin) {
+    hint.style.display = "block";
+    hint.innerHTML = "⚠️ 电堆功率已达" + (atMax ? "上限" : "下限") + "（P<sub>fc</sub>=" + r.P_fc.toFixed(0) + " kW）。此时温度/海拔/风等变化会被电池吸收（看 P<sub>bat</sub>），氢耗不变——这是电堆削峰的物理行为，不是 bug。";
+  } else {
+    hint.style.display = "none";
+  }
   // HUD
-  var dist = Math.min(p.L, simT / Math.max(r.t_h * 3600, 1e-6) * p.L);
+  var dist = frac * p.L;
+  var elapsedMin = frac * r.t_h * 60;
   $id("hud").innerHTML =
-    '<span class="chip">里程 <b>' + fmt(dist,1) + '</b> / ' + p.L + ' km</span>' +
+    '<span class="chip">已行驶 <b>' + fmt(dist,1) + '</b> / ' + p.L + ' km</span>' +
+    '<span class="chip">用时 <b>' + fmt(elapsedMin,1) + '</b> min</span>' +
     '<span class="chip">坡度 <b>' + fmt(p.g,1) + '</b> %</span>' +
     '<span class="chip">总质量 <b>' + fmt(totalT,1) + '</b> t</span>' +
     '<span class="chip">附件 <b>' + fmt(r.P_aux,1) + '</b> kW</span>' +
@@ -465,12 +492,12 @@ function callML(p){
       $id("mlMetrics").innerHTML =
         '<div class="metric"><b>' + fmt(s.h2_kg,3) + '</b><span>ML 氢耗 kg</span></div>' +
         '<div class="metric"><b>' + fmt(s.h2_per_km_kg * 100,2) + '</b><span>ML 百公里 kg/100km</span></div>' +
-        '<div class="metric"><b>' + fmt(s.v_p85,1) + '</b><span>巡航速度 v_p85 km/h</span></div>';
+        '<div class="metric"><b>' + fmt(s.v_p85,1) + '</b><span>巡航速度 v<sub>p85</sub> km/h</span></div>';
       $id("mlTable").innerHTML = [
         ["氢耗 kg", fmt(s.h2_kg,3)], ["百公里 kg/100km", fmt(s.h2_per_km_kg * 100,2)],
-        ["巡航速度 v_p85", fmt(s.v_p85,1) + " km/h"], ["加速能量 e_acc", fmt(s.e_acc,3)],
-        ["空阻能量 e_aero", fmt(s.e_aero,2)], ["上坡能量 e_grade_up", fmt(s.e_grade_up,3)],
-        ["停车占比 stop", fmt(s.stop_ratio,3)], ["速度波动 v_std", fmt(s.v_std,2) + " km/h"]
+        ["巡航速度 v<sub>p85</sub>", fmt(s.v_p85,1) + " km/h"], ["加速能量 e<sub>acc</sub>", fmt(s.e_acc,3)],
+        ["空阻能量 e<sub>aero</sub>", fmt(s.e_aero,2)], ["上坡能量 e<sub>grade_up</sub>", fmt(s.e_grade_up,3)],
+        ["停车占比 stop", fmt(s.stop_ratio,3)], ["速度波动 v<sub>std</sub>", fmt(s.v_std,2) + " km/h"]
       ].map(function(x){ return '<tr><td>' + x[0] + '</td><td class="v">' + x[1] + '</td></tr>'; }).join("");
       $id("mlNote").textContent = "ML 用两辆 H49 实车数据训练（工况合成 + HistGB），与物理模型互为交叉验证：一致→可信，差异大→检查输入（坡度/载重/温度）。";
     }).catch(function(e){
@@ -487,8 +514,6 @@ function update(){
   var p = readParams();
   var r = physics(p);
   currentP = p; currentR = r;
-  // 高级参数输入框在切换车型时若用户没手动改过，则用预设值填充
-  $id("vehChips").innerHTML = "";
   render(p, r);
   draw(p, r);
   callML(p);
@@ -499,7 +524,7 @@ function updateFromVehicle(){
   $id("etaMt").value = veh.etaMt; $id("pFcMin").value = veh.pFcMin; $id("pFcMax").value = veh.pFcMax;
   $id("pBatMax").value = veh.pBatMax; $id("etaFc").value = veh.etaFc; $id("pAux0").value = veh.pAux0;
   $id("kT").value = veh.kT; $id("curb").value = (veh.curbKg / 1000);
-  var maxLoad = Math.max(0, ((veh.curbKg === 9700 ? 49000 : veh.curbKg === 9800 ? 18000 : 4500) - veh.curbKg) / 1000);
+  var maxLoad = Math.max(0, (veh.gvwKg - veh.curbKg) / 1000);
   var load = $id("load");
   if (parseFloat(load.value) > maxLoad) load.value = maxLoad;
   load.max = Math.max(maxLoad, 0.5);
@@ -510,11 +535,8 @@ function loop(ts){
   if (lastTs === 0) lastTs = ts;
   var dt = Math.min(0.05, (ts - lastTs) / 1000);
   lastTs = ts;
-  if (running && currentR) {
-    simT += dt * speedMul;
-    // simT 单位是秒；t_h 是小时，转成秒再截断（否则卡车 0.125s 就跑完了）
-    var tSec = currentR.t_h * 3600;
-    if (simT > tSec) simT = tSec;
+  if (running && currentP && currentR) {
+    frac = Math.min(1, frac + dt * speedMul / visDurSec(currentP));
     render(currentP, currentR);
     draw(currentP, currentR);
   }
@@ -524,19 +546,21 @@ function loop(ts){
 /* ================= 控件绑定 ================= */
 ["L","v","g","H","T","W","Wd","lv","load"].forEach(function(id){
   $id(id).addEventListener("input", function(){
-    $id(id + "v").textContent = id === "g" ? ($id(id).value) : $id(id).value;
-    simT = 0; lastTs = 0; update();
+    var val = $id(id).value;
+    var out = $id(id + "v");
+    if (out) out.textContent = id === "lv" ? (LV_LABEL[val] || val) : val;
+    frac = 0; lastTs = 0; update();
   });
 });
 ["crr","cd","A","etaMt","pFcMin","pFcMax","pBatMax","etaFc","pAux0","kT","curb"].forEach(function(id){
-  $id(id).addEventListener("input", function(){ simT = 0; lastTs = 0; update(); });
+  $id(id).addEventListener("input", function(){ frac = 0; lastTs = 0; update(); });
 });
 $id("veh").addEventListener("change", updateFromVehicle);
 $id("playBtn").addEventListener("click", function(){
   running = !running;
   $id("playBtn").textContent = running ? "⏸ 暂停" : "▶ 播放";
 });
-$id("resetBtn").addEventListener("click", function(){ simT = 0; lastTs = 0; });
+$id("resetBtn").addEventListener("click", function(){ frac = 0; lastTs = 0; });
 $id("speedBtn").addEventListener("click", function(){
   speedMul = speedMul === 1 ? 2 : speedMul === 2 ? 4 : 1;
   $id("speedBtn").textContent = speedMul + "×";
