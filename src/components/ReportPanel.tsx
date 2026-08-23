@@ -17,7 +17,7 @@ import { LineAreaChartMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { polylineToCoords } from './MapView'
+import MapView from './MapView'
 
 /* ================= 费用假设（界面明示，可在此调整） ================= */
 export const COST_ASSUMPTIONS = {
@@ -67,6 +67,12 @@ function parseLngLat(s: string): [number, number] | null {
   if (!s) return null
   const [lng, lat] = s.split(',').map(Number)
   return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
+}
+
+/** 起终点地图点（报告真地图用） */
+function parseMapPoint(s: string, name: string): { name: string; lng: number; lat: number } | null {
+  const ll = parseLngLat(s)
+  return ll ? { name, lng: ll[0], lat: ll[1] } : null
 }
 function round1(n: number): number { return Math.round(n * 10) / 10 }
 function round2(n: number): number { return Math.round(n * 100) / 100 }
@@ -151,45 +157,6 @@ async function waitJob(jobId: string, onStatus?: (j: any) => void): Promise<{ se
   throw new Error('路段测算超时')
 }
 
-/* ================= 三路线 SVG 示意图（自绘，屏幕/PDF 都清晰） ================= */
-function routeCoords(r: RouteReport): Array<[number, number]> {
-  // 优先用路段折线点（报告必有 coordsWgs84），回退候选路线 polyline（高德 GCJ-02 折线）
-  const fromSegs: Array<[number, number]> = []
-  for (const s of r.segments) {
-    if (Array.isArray(s.coordsWgs84) && s.coordsWgs84.length) fromSegs.push(...s.coordsWgs84)
-  }
-  if (fromSegs.length >= 2) return fromSegs
-  return polylineToCoords(r.candidate.polyline)
-}
-function buildRouteMap(routes: RouteReport[], originLngLat: [number, number] | null, destLngLat: [number, number] | null) {
-  const all: Array<[number, number]> = []
-  for (const r of routes) {
-    const c = routeCoords(r)
-    if (!c.length) console.warn('[report-map] 路线无坐标：', r.candidate?.distanceKm, r.candidate?.polyline?.slice(0, 30))
-    all.push(...c)
-  }
-  if (all.length < 2) return null
-  const lngs = all.map((q) => q[0]), lats = all.map((q) => q[1])
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
-  const padLng = Math.max((maxLng - minLng) * 0.10, 0.01)
-  const padLat = Math.max((maxLat - minLat) * 0.10, 0.01)
-  const W = 840, H = 360, P = 30
-  const x = (lng: number) => P + ((lng - (minLng - padLng)) / (maxLng - minLng + 2 * padLng)) * (W - 2 * P)
-  const y = (lat: number) => H - P - ((lat - (minLat - padLat)) / (maxLat - minLat + 2 * padLat)) * (H - 2 * P)
-  const paths = routes.map((r, i) => {
-    const c = routeCoords(r)
-    return {
-      i,
-      d: c.map(([lng, lat], j) => (j ? 'L' : 'M') + x(lng).toFixed(1) + ',' + y(lat).toFixed(1)).join(' '),
-      color: ROUTE_COLORS[i % ROUTE_COLORS.length],
-      label: '路线' + (i + 1),
-      mid: c.length ? c[Math.floor(c.length / 2)] : null,
-    }
-  })
-  return { W, H, x, y, paths, origin: originLngLat, dest: destLngLat }
-}
-
 /* ================= 组件 ================= */
 export default function ReportPanel({ origin, destination, originName, destinationName, departureTime, vehicle, fixedLoadT }: Props) {
   const [stage, setStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
@@ -224,25 +191,35 @@ export default function ReportPanel({ origin, destination, originName, destinati
     setPdfBusy(true)
     el.classList.add('capturing')            // 隐藏导出按钮本身，避免进 PDF
     try {
-      await new Promise((r) => setTimeout(r, 60))   // 让 class 生效
-      const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#0d1424', useCORS: true, logging: false })
+      await new Promise((r) => setTimeout(r, 900))  // 让 capturing class 生效 + Leaflet 瓦片加载完成
+      // 分块排版：地图/每张曲线/表格/AI 各渲染成完整一块，逐块排进 A4 页面，
+      // 放不下就整块换页（绝不从图片中间切开，避免"图被腰斩"）。
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const pageW = 297, pageH = 210, margin = 8
-      const imgW = pageW - margin * 2
-      const imgH = (canvas.height * imgW) / canvas.width
-      const imgData = canvas.toDataURL('image/png')
-      let heightLeft = imgH
-      let position = margin
-      pdf.addImage(imgData, 'PNG', margin, position, imgW, imgH, undefined, 'FAST')
-      heightLeft -= pageH - margin * 2
-      while (heightLeft > 0) {
-        position = heightLeft - imgH + margin
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', margin, position, imgW, imgH, undefined, 'FAST')
-        heightLeft -= pageH - margin * 2
+      const pageW = 297, pageH = 210, margin = 10
+      const usableW = pageW - margin * 2
+      const usableH = pageH - margin * 2
+      let y = margin
+      let pageCount = 1
+      const secSel = '.report-head, .report-map, .report-chart, .report-table-wrap, .report-ai'
+      const sections = Array.from(el.querySelectorAll<HTMLElement>(secSel))
+      for (const sec of sections) {
+        const canvas = await html2canvas(sec, { scale: 2, backgroundColor: '#0d1424', useCORS: true, logging: false })
+        let imgW = usableW
+        let imgH = (canvas.height * imgW) / canvas.width
+        if (imgH > usableH) {           // 单块超过一页：整体等比缩小到一页，保持完整不切割
+          imgH = usableH
+          imgW = (canvas.width * imgH) / canvas.height
+        }
+        if (y + imgH > pageH - margin + 0.5) {
+          pdf.addPage()
+          pageCount += 1
+          y = margin
+        }
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, imgW, imgH, undefined, 'FAST')
+        y += imgH + 6
       }
       pdf.save(`氢耗预测报告_${originName}_${destinationName}.pdf`)
-      pushLog('✅ PDF 已导出（' + Math.ceil(imgH / (pageH - margin * 2)) + ' 页，A4 横向）', 'ok')
+      pushLog('✅ PDF 已导出（' + pageCount + ' 页，A4 横向，分块排版不切割图片）', 'ok')
     } catch (e: any) {
       pushLog('❌ PDF 导出失败：' + ((e && e.message) || String(e)), 'warn')
     } finally {
@@ -402,38 +379,21 @@ export default function ReportPanel({ origin, destination, originName, destinati
 
       {stage === 'done' && report && (
         <div className="report-body">
-          {/* 三路线地图（SVG 示意图，PDF 导出不依赖外链瓦片） */}
-          {(() => {
-            const map = report ? buildRouteMap(report.routes, parseLngLat(origin), parseLngLat(destination)) : null
-            if (!map) return null
-            return (
-              <div className="report-map">
-                <h4>🗺️ 三条路线地图</h4>
-                <svg viewBox={`0 0 ${map.W} ${map.H}`} className="chart-svg" role="img">
-                  <rect x={2} y={2} width={map.W - 4} height={map.H - 4} rx={10} fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" />
-                  {map.paths.map((pth) => (
-                    <path key={pth.i} d={pth.d} fill="none" stroke={pth.color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" opacity={0.95} />
-                  ))}
-                  {map.paths.map((pth) => pth.mid && (
-                    <text key={'t' + pth.i} x={map.x(pth.mid[0]) + 8} y={map.y(pth.mid[1]) - 8} fontSize="13" fontWeight="700" fill={pth.color}>{pth.label}</text>
-                  ))}
-                  {map.origin && (
-                    <g>
-                      <circle cx={map.x(map.origin[0])} cy={map.y(map.origin[1])} r={7} fill="#3ddc97" stroke="#0d1424" strokeWidth={2} />
-                      <text x={map.x(map.origin[0]) + 10} y={map.y(map.origin[1]) + 4} fontSize="12" fill="#3ddc97">起点</text>
-                    </g>
-                  )}
-                  {map.dest && (
-                    <g>
-                      <circle cx={map.x(map.dest[0])} cy={map.y(map.dest[1])} r={7} fill="#ff6072" stroke="#0d1424" strokeWidth={2} />
-                      <text x={map.x(map.dest[0]) + 10} y={map.y(map.dest[1]) + 4} fontSize="12" fill="#ff6072">终点</text>
-                    </g>
-                  )}
-                </svg>
-                <p className="report-note">三条候选路线叠加示意（同坐标系投影）；粗线即路线，起点绿点 / 终点红点。交互式地图见系统内「路线查询」页。</p>
-              </div>
-            )
-          })()}
+          {/* 三路线地图（Leaflet 高德底图，真实地图；PDF 导出用 html2canvas 截取） */}
+          <div className="report-map">
+            <h4>🗺️ 三条路线地图</h4>
+            <div className="report-map-canvas">
+              <MapView
+                routes={report.routes.map((r) => r.candidate)}
+                selectedIndex={-1}
+                onSelect={() => {}}
+                from={parseMapPoint(origin, originName)}
+                to={parseMapPoint(destination, destinationName)}
+                stations={[]}
+              />
+            </div>
+            <p className="report-note">三条候选路线叠加（高德底图）；路线分色显示，绿点起点 / 红点终点。PDF 导出会截取该地图。</p>
+          </div>
           {/* 四条曲线 */}
           <div className="report-charts">
             {chart('速度曲线（各段均速 km/h）', '均速', 'km/h', speedSeries)}

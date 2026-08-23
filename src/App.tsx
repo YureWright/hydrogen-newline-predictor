@@ -20,8 +20,9 @@ export default function App() {
   // 后退（analysis→query「重新选路」）时 +1，强制重建实例，回到干净的「开始测算」状态
   const [analysisSession, setAnalysisSession] = useState(0)
 
-  const [fromAddr, setFromAddr] = useState('乌兰察布')
-  const [toAddr, setToAddr] = useState('天津')
+  // 默认用短路线（清华→北大）便于快速演示/测试；可随时改任意地址
+  const [fromAddr, setFromAddr] = useState('北京市清华大学')
+  const [toAddr, setToAddr] = useState('北京市北京大学')
   const [from, setFrom] = useState<MapPoint | null>(null)
   const [to, setTo] = useState<MapPoint | null>(null)
   const [routes, setRoutes] = useState<RouteCandidate[]>([])

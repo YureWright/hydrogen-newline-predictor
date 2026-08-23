@@ -1670,7 +1670,8 @@ body::before {
   padding: 12px 14px; margin-bottom: 18px;
 }
 .report-map h4 { margin: 0 0 8px; font-size: 15px; color: var(--txt); }
-.report-map .chart-svg { width: 100%; height: auto; display: block; }
+.report-map-canvas { height: 380px; border-radius: 10px; overflow: hidden; }
+.report-map .leaflet-container { background: var(--bg-3); height: 380px; width: 100%; }
 .report-map .report-note { margin-top: 6px; }
 .report-chart { background: rgba(255,255,255,0.03); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 12px 14px; }
 .report-chart h4 { margin: 0 0 8px; font-size: 14px; color: var(--txt); }
@@ -1699,6 +1700,8 @@ body::before {
   .report-export .report-table th, .report-export .report-table td { border-color: #999; }
   .report-head .btn-primary { display: none; }
   .report-export.capturing .btn-report-pdf { display: none !important; }
+  .report-export.capturing .report-table-wrap { overflow: visible; max-width: none; }
+  .report-export.capturing .report-table { width: max-content; min-width: 100%; }
   .report-charts { break-inside: avoid; }
   .report-chart { border-color: #ccc; background: #fff; }
 }
