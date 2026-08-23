@@ -1667,6 +1667,7 @@ body::before {
 .report-table .pos { color: #3ddc97; }
 .report-table .neg { color: #ff6072; }
 .report-foot { color: var(--txt-2); font-size: 12px; margin-top: 6px; }
+.report-warn { color: #ffb547; font-size: 12px; margin: 8px 0 0; }
 .report-ai h4 { margin: 0 0 8px; font-size: 15px; color: var(--txt); }
 .report-ai-model { color: var(--txt-2); font-size: 11px; margin-top: 6px; }
 

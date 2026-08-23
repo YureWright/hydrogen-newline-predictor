@@ -321,6 +321,9 @@ export default function ReportPanel({ origin, destination, originName, destinati
               </tbody>
             </table>
             <p className="report-foot">⭐ = 总费用最低的路线（推荐基线，最终以 AI 综合评估为准）。燃料费按<b>物理模型</b>氢耗 × {A.h2Price} 元/kg；柴油 = 里程 × {A.dieselL100} L/100km × {A.dieselPrice} 元/L；司机 {A.driverRate} 元/h；其他 {A.otherPerKm} 元/km。ML 侧费用可按其氢耗 × {A.h2Price} 估算对比。</p>
+            {report.routes.some((r) => (r.candidate.tollsYuan ?? 0) <= 0 && (r.candidate.tollDistanceKm ?? 0) > 0) && (
+              <p className="report-warn">⚠️ 高德未返回部分路线的通行费（过路费按 0 计入），实际费用可能更高——请以收费站实收为准。</p>
+            )}
           </div>
 
           {/* AI 推荐 */}
