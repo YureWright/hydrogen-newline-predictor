@@ -507,8 +507,8 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <tr><td>② SOC 误差</td><td><span class="mi" data-k="1">\Delta SOC = SOC_{target}-SOC</span></td><td>目标约 0.6</td></tr>
 <tr><td>③ 等效因子</td><td><span class="mi" data-k="1">\lambda=\lambda_0+k_\lambda\,\Delta SOC</span></td><td>SOC 低 → λ 大</td></tr>
 <tr><td>④ 求最优 P_fc</td><td>在 <span class="mi" data-k="1">[P_{fc}^{min}, P_{fc}^{max}]</span> 内使 <span class="mi" data-k="1">\dot m_{H_2}^{eq}</span> 最小</td><td>一维搜索 / 格点扫描</td></tr>
-<tr><td>⑤ 电池功率</td><td><span class="mi" data-k="1">P_{bat}=P_{drive}-P_{fc}</span></td><td>正=放电，负=充电</td></tr>
-<tr><td>⑥ 再生优先</td><td><span class="mi" data-k="1">P_{drive}&lt;0</span> 时电堆降到最低、回收先充电池</td><td>下坡/减速</td></tr>
+<tr><td>⑤ 电池功率</td><td><span class="mi" data-k="1">P_{bat}=\mathrm{clip}(P_{drive}-P_{fc},-P_{bat}^{max},+P_{bat}^{max})</span></td><td>正=放电，负=充电；<span class="mi" data-k="1">P_{bat}^{max}=150</span>kW（75kWh×2C），超限部分由机械制动耗散</td></tr>
+<tr><td>⑥ 再生优先</td><td><span class="mi" data-k="1">P_{drive}&lt;0</span> 时电堆关闭（P_fc=0）、回收先充电池</td><td>下坡/减速；低速段（0&lt;P_drive&lt;30）电堆最低 30kW 稳定运行、富余充电池</td></tr>
 </table></div>
 <div class="box tip"><div class="bt">💡 数字例子：需求 150kW（猛加速）</div>
 <p>SOC 正常（λ=λ0）→ 电堆 90kW（高效区）+ 电池放电 60kW；<br>
@@ -820,7 +820,7 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 <tr><td rowspan="2">L1 能量矩（对账）</td><td>⑧</td><td>能量矩 E_wheel</td><td>Crr·m·g·s + ½ρCdA·E[v²]·s + m·g·Δh + ½δm·Δ(v²)</td><td>2646×6000 + 683×6000 + 30000×9.8×(−120) + 0 = 15.88+4.10−35.28 MJ</td><td>−15.3 MJ（净回收）</td></tr>
 <tr><td>⑨</td><td>对账校验</td><td>P_wheel×t = E_wheel？</td><td>−53.1kW×0.08h×3600 = −15.3 MJ ✅</td><td>一致</td></tr>
 <tr><td rowspan="2">L3 动力总成</td><td>⑩</td><td>驱动电功率</td><td>P_drive=P_wheel/η_mt+P_aux(T)</td><td>−53.1/0.9=−59.0；+3.75（T=15℃）</td><td>−55.3 kW（净负=回收）</td></tr>
-<tr><td>⑪</td><td>电堆/电池</td><td>P_drive&lt;0（再生）→ 电堆关闭：P_fc=0；P_bat=P_drive（电池充电，限幅 −180）</td><td>P_drive=−55.3&lt;0 → 电堆关闭 0；P_bat=−55.3</td><td>P_fc=<b>0（关闭）</b>；P_bat=<b>−55.3（电池充电）</b></td></tr>
+<tr><td>⑪</td><td>电堆/电池</td><td>P_drive&lt;0（再生）→ 电堆关闭：P_fc=0；P_bat=P_drive（电池充电，限幅 −150）</td><td>P_drive=−55.3&lt;0 → 电堆关闭 0；P_bat=−55.3</td><td>P_fc=<b>0（关闭）</b>；P_bat=<b>−55.3（电池充电）</b></td></tr>
 <tr><td>L4 效率</td><td>⑫</td><td>电堆系统效率</td><td>η_fc=0.5（15℃ 修正略）</td><td>—</td><td>0.5</td></tr>
 <tr><td rowspan="3">L5 氢耗</td><td>⑬</td><td>行驶时间</td><td>t=s/v</td><td>6÷75</td><td>0.080 h</td></tr>
 <tr><td>⑭</td><td>电堆电能</td><td>E_fc=P_fc·t</td><td>0×0.08</td><td>0 kWh</td></tr>

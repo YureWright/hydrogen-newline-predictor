@@ -29,6 +29,7 @@ ETA_MT = 0.9       # 电机+传动效率链
 DELTA = 1.05       # 旋转质量换算系数
 P_FC_MIN = 30.0    # 电堆最低稳定功率 kW（300kW×10%）
 P_FC_MAX = 180.0   # 电堆高效区上限 kW（300kW×60%）
+P_BAT_MAX = 150.0  # 电池充/放电功率限幅 kW（75kWh×2C 持续）；超限部分由机械制动耗散
 ETA_FC = 0.5       # 电堆系统效率（峰值简化；H49 官方 >55%，取 0.5 保守）
 LHV = 33.3         # 氢低热值 kWh/kg（120 MJ/kg ÷ 3.6）
 P_AUX0 = 3.0       # 附件基础功率 kW（20℃）
@@ -100,13 +101,11 @@ def predict_segment(seg):
 
     if P_drive >= P_FC_MIN:
         P_fc = min(P_FC_MAX, P_drive)                 # 正常驱动：电堆供电，超出高效区由电池补
-        P_bat = P_drive - P_fc
     elif P_drive > 0:
-        P_fc = P_drive                                # 低功率驱动：电堆跟随，不强拉到最低稳定线
-        P_bat = 0.0
+        P_fc = P_FC_MIN                               # 低速/怠速（0<P_drive<P_fc_min）：电堆最低稳定运行（避免关停-重启损耗），富余充电池
     else:
         P_fc = 0.0                                    # 下坡/减速再生：电堆关闭，不消耗氢气
-        P_bat = max(P_drive, -P_FC_MAX)               # 再生回收，电池充电功率受限
+    P_bat = max(-P_BAT_MAX, min(P_BAT_MAX, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±150kW 限幅；超限部分由机械制动耗散
 
     # ---- L4/L5 效率与氢耗 ----
     t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时
