@@ -2,10 +2,14 @@
 """物理氢耗模型引擎（PhysicsEngine）
 输入：SegmentData（与 ml/predict.py 同一数据接口）
   {distanceKm, avgSpeedKmh, gradePercent, elevationM, temperatureC,
-   windSpeedKmh, windDirDeg, windAffects, headingDeg, humidityPct, roadLevel, massKg, gainM}
-计算：四阻力 → 总力 → 轮边功率 → 驱动电功率(含附件) → 电堆/电池削峰 → 电堆效率 → 氢耗
+   windSpeedKmh, windDirDeg, windAffects, headingDeg, humidityPct, roadLevel, massKg, gainM,
+   sigmaKmh?（段内速度波动，可选；缺省按道路等级+均速估算，用于 F_aero 的 E[v²] 修正）,
+   车辆参数 override（可选，前端车型预设）: crr, cd, frontArea, eta_mt, p_fc_min, p_fc_max,
+                                              p_bat_max, eta_fc, p_aux0, k_t, p_aux_min, p_aux_max}
+计算：四阻力（含 cos(θ) 与 σ 修正）→ 总力 → 轮边功率 → 驱动电功率(驱动/再生方向不同)
+     → 电堆/电池削峰 → 电堆效率 → 氢耗
 输出：每段含全部中间变量（英文 key，中文名见 VAR_CN）+ 总计
-参考：docs/物理氢耗模型_设计方案.html（附录 A 伪代码 / 附录 B 手算工作簿）
+参考：docs/物理氢耗模型_设计方案.html（§4 四阻力 / §5 动力总成 / 附录 A 伪代码 / 附录 B 手算工作簿）
 """
 import sys, os, json, math
 
@@ -39,10 +43,12 @@ P_AUX_MIN, P_AUX_MAX = 2.0, 8.0
 # ---------------- 中间变量中文名（前端直接展示用） ----------------
 VAR_CN = {
   "v_mps": "车速 m/s",
+  "sigma_kmh": "速度波动 km/h",
   "rho": "空气密度 kg/m³",
   "F_roll": "滚动阻力 N",
   "F_aero": "空气阻力 N",
   "F_grade": "坡度阻力 N",
+  "F_acc": "加速阻力 N",
   "F_total": "总驱动力 N",
   "P_wheel": "轮边功率 kW",
   "P_aux": "附件功率 kW",
@@ -54,7 +60,7 @@ VAR_CN = {
   "E_fc": "电堆电能 kWh",
   "m_H2": "氢耗 kg",
 }
-VAR_ORDER = ["v_mps", "rho", "F_roll", "F_aero", "F_grade", "F_total",
+VAR_ORDER = ["v_mps", "sigma_kmh", "rho", "F_roll", "F_aero", "F_grade", "F_acc", "F_total",
              "P_wheel", "P_aux", "P_drive", "P_fc", "P_bat", "t_h", "eta_fc", "E_fc", "m_H2"]
 
 def _get(seg, key, default):
@@ -82,6 +88,8 @@ def predict_segment(seg):
     eta_fc    = float(_get(seg, "eta_fc", ETA_FC))
     p_aux0    = float(_get(seg, "p_aux0", P_AUX0))
     k_t       = float(_get(seg, "k_t", K_T))
+    p_aux_min = float(_get(seg, "p_aux_min", P_AUX_MIN))
+    p_aux_max = float(_get(seg, "p_aux_max", P_AUX_MAX))
     # 风：windSpeedKmh 是风速标量(≥0)，方向在 windDirDeg（来向，北=0 顺时针）；
     # 逆风分量 = 风速×cos(风来向 − 车头航向)，顺风为负。缺方向/未达阈值(windAffects=false)则不计风阻，
     # 避免把标量风速当成纯逆风而系统性高估。
@@ -97,18 +105,39 @@ def predict_segment(seg):
     else:
         head_wind_mps = 0.0
     v_eff = v_mps + head_wind_mps                     # 等效空气相对速度（逆风为正，顺风为负）
-    rho = RHO0 * (1 - 2.25577e-5 * H) ** 4.25588     # 海拔空气密度
-    F_roll = crr * m * G
-    F_aero = 0.5 * rho * cd * a_front * v_eff * abs(v_eff)  # 风阻：逆风增阻，顺风减阻（保号）
-    theta = math.atan(grade / 100.0)                  # 坡度 %
+    rho = RHO0 * (1 - 2.25577e-5 * H) ** 4.25588      # 海拔空气密度
+    # 段内速度波动 σ：设计文档 §B.0b 要求 F_aero 用 E[v²]=v̄²+σ² 修正（起停/波动段风阻会低估）；
+    # 前端未采集 σ 时按道路等级+均速经验估算（高速巡航波动小、城市起停波动大）。
+    sigma_kmh_raw = seg.get("sigmaKmh")
+    if sigma_kmh_raw is None:
+        lv_str = str(seg.get("roadLevel") or "other")
+        if lv_str in ("highway", "expressway"):
+            sigma_kmh = max(2.0, v_kmh * 0.05)         # 巡航 5% 均速（约 3~5 km/h）
+        elif lv_str in ("national", "provincial"):
+            sigma_kmh = max(3.0, v_kmh * 0.10)         # 稍波动
+        else:
+            sigma_kmh = max(5.0, v_kmh * 0.20)         # 城市起停：波动大
+    else:
+        sigma_kmh = float(sigma_kmh_raw)
+    sigma_mps = sigma_kmh / 3.6
+    theta = math.atan(grade / 100.0)                  # 坡度弧度（grade 为百分比）
+    F_roll = crr * m * G * math.cos(theta)            # 设计文档 §4.1：滚阻含 cos(θ)，陡坡时才不高估
+    # E[v_eff²] = v_eff·|v_eff| + σ² —— 逆风/顺风保号 + 速度波动修正
+    v_eff2 = v_eff * abs(v_eff) + sigma_mps * sigma_mps
+    F_aero = 0.5 * rho * cd * a_front * v_eff2
     F_grade = m * G * math.sin(theta)                 # 上坡正 / 下坡负
     F_acc = 0.0                                       # 匀速巡航 a=0（接口预留）
     F_total = F_roll + F_aero + F_grade + F_acc
 
     # ---- L3 动力总成 ----
     P_wheel = F_total * v_mps / 1000.0                # kW（负=下坡回收）
-    P_aux = max(P_AUX_MIN, min(P_AUX_MAX, p_aux0 + k_t * abs(T - 20.0)))
-    P_drive = P_wheel / eta_mt + P_aux
+    P_aux = max(p_aux_min, min(p_aux_max, p_aux0 + k_t * abs(T - 20.0)))
+    # 电机方向：驱动时电→机械 (P_wheel=P_elec×η)，再生时机械→电 (P_elec=|P_wheel|×η)；
+    # 一律用 /η 会让下坡回收电量虚高 ~20%（能量守恒方向反了）。
+    if P_wheel >= 0:
+        P_drive = P_wheel / eta_mt + P_aux            # 驱动：需要更多电才能输出这么多机械能
+    else:
+        P_drive = P_wheel * eta_mt + P_aux            # 再生：机械能转电时链路损耗，回收变少
 
     if P_drive >= p_fc_min:
         P_fc = min(p_fc_max, P_drive)                 # 正常驱动：电堆供电，超出高效区由电池补
@@ -132,6 +161,7 @@ def predict_segment(seg):
       "gradePercent": round(grade, 2),
       "elevationM": round(H, 0),
       "temperatureC": round(T, 1),
+      "humidityPct": seg.get("humidityPct"),
       "roadLevel": seg.get("roadLevel") or "other",
       "massKg": round(m, 0),
       # 风（透传供前端展示）
@@ -142,10 +172,12 @@ def predict_segment(seg):
       "headingDeg": seg.get("headingDeg"),
       # 中间变量
       "v_mps": round(v_mps, 2),
+      "sigma_kmh": round(sigma_kmh, 2),
       "rho": round(rho, 4),
       "F_roll": round(F_roll, 0),
       "F_aero": round(F_aero, 0),
       "F_grade": round(F_grade, 0),
+      "F_acc": round(F_acc, 0),
       "F_total": round(F_total, 0),
       "P_wheel": round(P_wheel, 1),
       "P_aux": round(P_aux, 2),

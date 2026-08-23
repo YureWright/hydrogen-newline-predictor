@@ -209,16 +209,18 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   // 物理模型中间变量列（中文名 + 悬停说明）
   const phCols = [
     { key: 'v_mps', cn: '车速', tip: 'm/s = v̄/3.6' },
+    { key: 'sigma_kmh', cn: '速度波动 σ', tip: 'km/h；段内速度波动，用于 F_aero 的 E[v²]=v̄²+σ² 修正（波动大→风阻大）' },
     { key: 'rho', cn: '空气密度', tip: 'kg/m³（随海拔 H 修正）' },
-    { key: 'F_roll', cn: '滚动阻力', tip: 'N = Crr·m·g' },
-    { key: 'F_aero', cn: '空气阻力', tip: 'N = ½ρCdA·v²' },
+    { key: 'F_roll', cn: '滚动阻力', tip: 'N = Crr·m·g·cos(θ)（陡坡时略降）' },
+    { key: 'F_aero', cn: '空气阻力', tip: 'N = ½ρCdA·(v_eff²+σ²)；逆风为正/顺风为负' },
     { key: 'F_grade', cn: '坡度阻力', tip: 'N = m·g·sinθ（上坡正/下坡负）' },
+    { key: 'F_acc', cn: '加速阻力', tip: 'N = δ·m·a（匀速巡航段=0，接口预留）' },
     { key: 'F_total', cn: '总驱动力', tip: 'N = 四力之和' },
-    { key: 'P_wheel', cn: '轮边功率', tip: 'kW = F·v' },
+    { key: 'P_wheel', cn: '轮边功率', tip: 'kW = F·v（负=下坡回收）' },
     { key: 'P_aux', cn: '附件功率', tip: 'kW（随温度 T）' },
-    { key: 'P_drive', cn: '驱动电功率', tip: 'kW = P_wheel/η_mt+P_aux' },
+    { key: 'P_drive', cn: '驱动电功率', tip: 'kW：驱动 P_wheel/η_mt+P_aux；再生 P_wheel×η_mt+P_aux（含链路损耗）' },
     { key: 'P_fc', cn: '电堆功率', tip: 'kW（高效区削峰）' },
-    { key: 'P_bat', cn: '电池功率', tip: 'kW（正=放电，负=充电）' },
+    { key: 'P_bat', cn: '电池功率', tip: 'kW（正=放电，负=充电，±P_bat_max 限幅）' },
     { key: 't_h', cn: '行驶时长', tip: 'h = s/v̄' },
     { key: 'eta_fc', cn: '电堆效率', tip: 'η_fc' },
     { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t' },
@@ -588,11 +590,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     return arr
   }, [mlSegs, hydroSortKey, hydroSortDesc])
   // 氢耗折线：x=累计里程，y=每公里氢耗（kg/100km）；高耗段打标记
+  // 依赖 activeHydro（既覆盖单模型也覆盖 both.physics）；写 hydroResult 会漏切换
   const hydroPts = useMemo(() => {
     const segs = activeHydro?.segments ?? []
     let cum = 0
     return segs.map((s) => { cum += s.distanceKm; return { x: Math.round(cum * 10) / 10, y: Math.round(s.h2_per_km_kg * 100 * 100) / 100 } })
-  }, [hydroResult])
+  }, [activeHydro])
   const hydroMarkers = useMemo(() => {
     const segs = activeHydro?.segments ?? []
     const thr = Math.max(8, (segs.reduce((a, s) => a + s.h2_per_km_kg, 0) / Math.max(segs.length, 1)) * 100 * 1.5)
@@ -603,7 +606,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       if (s.h2_per_km_kg * 100 > thr) markers.push({ x: Math.round(cum * 10) / 10, label: (s.h2_per_km_kg * 100).toFixed(0) + 'kg', color: '#ff6072' })
     }
     return markers
-  }, [hydroResult])
+  }, [activeHydro])
   // 电堆功率曲线：x=累计里程，y=P_fc（kW）
   const fcPts = useMemo(() => {
     const segs = activeHydro?.segments ?? []
@@ -1127,7 +1130,6 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     <option value="physics">物理模型（能量守恒公式）</option>
                     <option value="both">双引擎对比</option>
                     <option value="hybrid" disabled>🧪 物理+数据驱动混合（待开发）</option>
-                  <option value="hybrid" disabled>🧪 物理+数据驱动混合（待开发）</option>
                   </select>
                   <button className="btn-export" onClick={runHydro} disabled={hydroModel === hydroResult.model}>↻ 重新测算</button>
                   <span className="hydro-model-switch-hint">{hydroModel === hydroResult.model ? '（当前结果即所选模型）' : '（已切换，点击重新测算）'}</span>
@@ -1144,6 +1146,13 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
                 </div>
                 <div className="hydro-note">💡 物理模型按能量守恒：总氢耗 = 电堆电能/(电堆效率×氢热值)，含滚动/空气/坡度阻力与附件功耗；已按车型「{vehicle.name}」、载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）、海拔、温度参与计算。{hydroResult.model === 'both' ? '与机器学习对比：一致则互相印证，差异大请检查输入。' : '红线标记为高耗路段（超过 8 kg/100km 或均值 1.5 倍）。'}</div>
+                {(() => {
+                  const missing = phSegs.filter((p: any) => p.grade_missing).length
+                  if (missing === 0) return null
+                  return (
+                    <div className="hydro-warn">⚠️ {missing} 段无坡度数据，物理模型按平路(0%)计算：山区/丘陵路线氢耗可能被系统性低估（表格中带 ⚠ 的路段为坡度缺失段）</div>
+                  )
+                })()}
                 <div className="hydro-src-note"><b>物理模型参数（{vehicle.name}）：</b>Crr={vehicle.crr} · Cd={vehicle.cd} · A={vehicle.frontArea}m² · η_mt={vehicle.etaMt} · P_fc∈[{vehicle.pFcMin},{vehicle.pFcMax}]kW · P_bat≤{vehicle.pBatMax}kW · η_fc={vehicle.etaFc} · LHV=33.3 kWh/kg（详见技术原理 / 设计文档）</div>
                 <div className="hydro-chart">
                   <LineAreaChartMemo series={hydroSeries ?? undefined} points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
@@ -1232,7 +1241,10 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                         {phSorted.map((p: any) => (
                           <tr key={p.index}>
                             <td className="mono">{p.index}</td>
-                            <td className="road-name">{p.roadName || '—'}</td>
+                            <td className="road-name">
+                              {p.roadName || '—'}
+                              {p.grade_missing && <span title="该段无坡度数据，物理模型按平路(0%)计算，山区可能低估氢耗" style={{ color: '#ffb547', marginLeft: 4 }}>⚠</span>}
+                            </td>
                             {phCols.map((c) => <td key={c.key} className="mono">{p[c.key]}</td>)}
                             <td className="mono hydro-strong">{p.h2_per_km_kg != null ? (p.h2_per_km_kg * 100).toFixed(2) : '—'}</td>
                             <td className="mono">{p.h2_kg}</td>
