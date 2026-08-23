@@ -459,6 +459,9 @@ export function PhysicsTab() {
             ]} />
             <p className="hw-note"><b>合计：2.039 kg / 24 km = 8.50 kg/100km</b>，与 ml/physics.py 逐段完全一致（代码复现同一套公式）；方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km。</p>
           </Sec>
+          <Sec num="11" title="🔜 下一步：物理 + 数据驱动融合模型（待开发）">
+            <p className="hw-note">把上面的物理公式换成「可学习的映射」——隐藏层节点就是<b>电堆功率 / 电机功率 / 电池功率 / 附件功率</b>等物理量：输入（天气/路况/载重）先预测这些内部量，再由能量守恒出氢耗。物理保证可解释、数据保证精度（理论锚点：Lei et al. 2025, Theory-Constrained NN, IEEE TVT）。已完成文献调研与初步设计，<b>待开发</b>，详见文档库「物理+数据驱动融合模型 · 初步设计」。</p>
+          </Sec>
 </Sec>
 
     </>

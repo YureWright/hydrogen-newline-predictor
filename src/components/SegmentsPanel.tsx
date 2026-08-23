@@ -995,6 +995,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   <option value="ml">机器学习（实车数据）</option>
                   <option value="physics">物理模型（能量守恒公式）</option>
                   <option value="both">双引擎对比</option>
+                  <option value="hybrid" disabled>🧪 物理+数据驱动混合（待开发）</option>
                 </select>
               </div>
             </div>
@@ -1125,6 +1126,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     <option value="ml">机器学习（实车数据）</option>
                     <option value="physics">物理模型（能量守恒公式）</option>
                     <option value="both">双引擎对比</option>
+                    <option value="hybrid" disabled>🧪 物理+数据驱动混合（待开发）</option>
+                  <option value="hybrid" disabled>🧪 物理+数据驱动混合（待开发）</option>
                   </select>
                   <button className="btn-export" onClick={runHydro} disabled={hydroModel === hydroResult.model}>↻ 重新测算</button>
                   <span className="hydro-model-switch-hint">{hydroModel === hydroResult.model ? '（当前结果即所选模型）' : '（已切换，点击重新测算）'}</span>

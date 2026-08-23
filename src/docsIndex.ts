@@ -60,6 +60,7 @@ export const DOC_GROUPS: DocGroup[] = [
     { id: 'segment-contract', title: '路段数据契约 SegmentData', globKey: DOCS + '/segment-contract.md', kind: 'md' },
     { id: 'seg-research', title: '切分算法调研', globKey: DOCS + '/segmentation-research.md', kind: 'md' },
     { id: 'phy-research', title: '物理模型调研', globKey: DOCS + '/physics-model-research.md', kind: 'md' },
+    { id: 'hybrid-design', title: '物理+数据驱动融合模型 · 初步设计（待开发）', globKey: DOCS + '/物理数据驱动融合模型_初步设计.md', kind: 'md', hint: '可解释隐藏层 = 物理量：输入→电堆/电机/电池/附件功率→氢耗；文献调研 + 设计 + 路线图' },
   ] },
   { group: '知识库 · 总览与科普', items: [
     { id: 'kb00', title: '00 · 总览与阅读入口', globKey: KB + '/00_总览与阅读入口.md', kind: 'md' },
