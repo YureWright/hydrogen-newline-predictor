@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>核心创新算法详解 · 新线路氢耗预测工具（T05）</title>
+<link rel="stylesheet" href="/vendor/katex/katex.min.css" />
+<style>
+:root{
+  --bg:#04060c; --bg2:#070a13; --bg3:#0b1020;
+  --glass:rgba(255,255,255,.035); --glass2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+  --txt:#e9edf7; --txt2:#9aa6c0; --txt3:#6a7691;
+  --cyan:#3ae3ff; --blue:#4d8dff; --violet:#a473ff; --mint:#3ddc97; --amber:#ffb547; --red:#ff6072;
+  --grad:linear-gradient(120deg,#3ae3ff 0%,#4d8dff 52%,#a473ff 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,sans-serif;background:var(--bg);color:var(--txt);line-height:1.8;font-size:15px}
+.wrap{max-width:1060px;margin:0 auto;padding:28px 22px 80px}
+.hero{border:1px solid var(--line2);border-radius:22px;padding:40px 36px;background:radial-gradient(1200px 300px at 30% -10%,rgba(77,141,255,.14),transparent),var(--bg2)}
+.hero .kicker{font-size:12px;letter-spacing:3px;color:var(--cyan);text-transform:uppercase;margin-bottom:12px}
+.hero h1{font-size:32px;font-weight:800;line-height:1.3;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{color:var(--txt2);font-size:14.5px;margin-top:10px;max-width:840px}
+.hero .meta{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line2);color:var(--txt2);background:var(--glass)}
+.tag.hl{color:var(--cyan);border-color:rgba(58,227,255,.4)}
+.toc{margin:24px 0;border:1px solid var(--line);border-radius:16px;background:var(--glass);padding:18px 22px}
+.toc h3{font-size:13px;color:var(--cyan);letter-spacing:2px;margin-bottom:10px}
+.toc ol{padding-left:20px;color:var(--txt2);font-size:13.5px;display:grid;grid-template-columns:1fr 1fr;gap:3px 24px}
+section{margin-top:34px;border:1px solid var(--line);border-radius:18px;padding:24px 26px;background:var(--glass)}
+section h2{font-size:21px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:10px}
+section h2 .num{color:var(--cyan)}
+section h3{font-size:15.5px;color:var(--blue);margin:18px 0 8px}
+p{margin:8px 0}
+.eq{overflow-x:auto;padding:12px 16px;margin:12px 0;border-radius:12px;background:rgba(4,10,22,.65);border:1px solid var(--line);font-size:16.5px}
+.eq .katex-display{margin:0 auto}
+.eq .katex{white-space:nowrap}
+.mi .katex{white-space:nowrap}
+.note{color:var(--txt2);font-size:13.5px}
+.old{color:var(--txt3);font-size:13.5px}
+.story{background:rgba(61,220,151,.06);border:1px solid rgba(61,220,151,.25);border-radius:12px;padding:12px 16px;margin:12px 0;color:var(--txt)}
+.story .bt{color:var(--mint);font-weight:700;font-size:13px;letter-spacing:1px;margin-bottom:4px}
+.story p{color:var(--txt2);font-size:13.5px;margin:4px 0}
+.fig{margin:16px 0;border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--bg2)}
+.fig .cap{color:var(--txt3);font-size:12.5px;text-align:center;margin-top:8px}
+.tbl{margin:12px 0;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border:1px solid var(--line2);padding:7px 10px;text-align:left}
+th{background:rgba(255,255,255,.05);color:var(--txt)}
+td{color:var(--txt2)}
+td b{color:var(--txt)}
+.arrow{fill:none;stroke:#4d8dff;stroke-width:2;marker-end:url(#arr)}
+svg text{font-family:"Inter","PingFang SC","Microsoft YaHei",sans-serif}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="kicker">T05 · 氢能车辆运营智能分析与决策助手</div>
+  <h1>核心创新算法详解</h1>
+  <div class="sub">从一条只有"起点终点"的新线路，到一页能交给客户的三路线氢耗对比报告——本文把项目背后最核心的 5 组算法逐一拆开：路段自适应切分、工况合成（v-t）、物理模型算法族、双引擎对比、以及未来待研发的物理+数据驱动融合模型。每组都讲清 <b>核心原理</b> + <b>主要公式</b>，再配一段"老奶奶版"的生动讲解和示意图。</div>
+  <div class="meta">
+    <span class="tag hl">路段切分</span><span class="tag hl">工况合成</span><span class="tag hl">物理模型</span><span class="tag hl">双引擎</span><span class="tag">融合模型（未来）</span>
+    <span class="tag">2026-08-24</span>
+  </div>
+</div>
+
+<div class="toc">
+  <h3>目录</h3>
+  <ol>
+    <li>总览：一张图看懂 5 组算法怎么串起来</li>
+    <li>路段自适应切分：把"一刀切"的路切成仿真爱吃的小块</li>
+    <li>工况合成（v-t 算法）：给新线路"演一遍"实车速度曲线</li>
+    <li>物理模型算法族：能量守恒公式引擎</li>
+    <li>双引擎对比：数据驱动 × 机理模型互相印证</li>
+    <li>未来：物理 + 数据驱动融合模型（待研发）</li>
+    <li>参考文献</li>
+  </ol>
+</div>
+
+<!-- ================= 1 总览 ================= -->
+<section id="overview">
+  <h2><span class="num">1</span>总览：一张图看懂 5 组算法怎么串起来</h2>
+  <p>整套系统的输入只有两个地址，输出是一份决策报告。中间 5 组算法层层递进：先<span class="mi" data-k="1">\text{路线}</span>切成匀质路段，再给每段补上<span class="mi" data-k="1">v(t)</span>工况、<span class="mi" data-k="1">\theta</span>坡度、<span class="mi" data-k="1">T</span>温度等输入，分别喂给机器学习与物理模型两套引擎，最后汇总成费用与推荐。</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 300" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#4d8dff"/></marker></defs>
+    <g font-size="13" fill="#e9edf7">
+      <rect x="20" y="40" width="150" height="56" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="95" y="62" text-anchor="middle" fill="#3ae3ff" font-weight="700">① 地址 → 坐标</text>
+      <text x="95" y="80" text-anchor="middle" fill="#9aa6c0" font-size="11">高德地理编码 / 兜底</text>
+      <line x1="172" y1="68" x2="196" y2="68" class="arrow"/>
+      <rect x="200" y="40" width="150" height="56" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="275" y="62" text-anchor="middle" fill="#3ae3ff" font-weight="700">② 候选路线 ≤3 条</text>
+      <text x="275" y="80" text-anchor="middle" fill="#9aa6c0" font-size="11">里程/路况/过路费</text>
+      <line x1="352" y1="68" x2="376" y2="68" class="arrow"/>
+      <rect x="380" y="40" width="160" height="56" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="460" y="62" text-anchor="middle" fill="#3ae3ff" font-weight="700">③ 路段自适应切分</text>
+      <text x="460" y="80" text-anchor="middle" fill="#9aa6c0" font-size="11">L1 行为区 + L2 坡度带</text>
+      <line x1="542" y1="68" x2="566" y2="68" class="arrow"/>
+      <rect x="570" y="40" width="160" height="56" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="650" y="62" text-anchor="middle" fill="#3ae3ff" font-weight="700">④ 补数据</text>
+      <text x="650" y="80" text-anchor="middle" fill="#9aa6c0" font-size="11">DEM 高程 / OSM 等级 / 天气</text>
+    </g>
+    <g font-size="13" fill="#e9edf7">
+      <line x1="360" y1="96" x2="360" y2="150" stroke="#4d8dff" stroke-dasharray="4,4"/>
+      <rect x="230" y="155" width="270" height="58" rx="10" fill="rgba(255,255,255,.05)" stroke="#a473ff"/>
+      <text x="365" y="177" text-anchor="middle" fill="#a473ff" font-weight="700">⑤ 工况合成 v(t) → 深度特征</text>
+      <text x="365" y="196" text-anchor="middle" fill="#9aa6c0" font-size="11">片段库拼接 / 均速对齐 / 坡度调制</text>
+      <rect x="560" y="155" width="270" height="58" rx="10" fill="rgba(255,255,255,.05)" stroke="#a473ff"/>
+      <text x="695" y="177" text-anchor="middle" fill="#a473ff" font-weight="700">⑥ 物理模型（能量守恒）</text>
+      <text x="695" y="196" text-anchor="middle" fill="#9aa6c0" font-size="11">四阻力 / 启停 / 电堆削峰</text>
+      <line x1="502" y1="184" x2="556" y2="184" class="arrow"/>
+    </g>
+    <g font-size="13" fill="#e9edf7">
+      <line x1="365" y1="215" x2="365" y2="250" stroke="#4d8dff" stroke-dasharray="4,4"/>
+      <line x1="695" y1="215" x2="695" y2="250" stroke="#4d8dff" stroke-dasharray="4,4"/>
+      <rect x="200" y="250" width="660" height="42" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ddc97"/>
+      <text x="530" y="266" text-anchor="middle" fill="#3ddc97" font-weight="700">⑦ 双引擎对比 → 费用/柴油对比 → AI 推荐 → 报告导出 PDF</text>
+      <text x="530" y="282" text-anchor="middle" fill="#9aa6c0" font-size="11">一致 → 可信；差异大 → 提示检查输入或数据质量</text>
+    </g>
+  </svg>
+  <div class="cap">图 1 · 5 组核心算法的串联链路</div>
+  </div>
+</section>
+
+<!-- ================= 2 路段切分 ================= -->
+<section id="split">
+  <h2><span class="num">2</span>路段自适应切分：把"一刀切"的路切成仿真爱吃的小块</h2>
+
+  <h3>2.1 痛点：高德按"转向动作"切段，仿真根本没法用</h3>
+  <p>高德驾车路线是按"导航动作"切 step 的——高速上连续 90 公里不转弯，就只给 <b>1 段</b>；城区几米也给 1 段。若直接拿这些 step 做氢耗仿真：</p>
+  <ul>
+    <li>90km 长段里先爬升后下降，坡度被平均成 <b>≈0%</b>，而重卡氢耗对坡度最敏感——爬坡要多烧、下坡能回收，全被抹平了；</li>
+    <li>收费站 / 红绿灯 / 匝道这些"停车→启动"的行为区被吞进长段，起步的动能损耗被摊平，等于漏账。</li>
+  </ul>
+  <p class="old">文献实测：重卡用 5km 段平均速度预测能耗误差高达 25%，纳入坡度 / 载重 / 加速度后降到 11%（Transp. Res. Part D, 2025）。</p>
+
+  <h3>2.2 方案：两层切分（L1 行为区标注 + L2 坡度自适应）</h3>
+  <p><b>L1 行为区标注</b>：按路网事件独立成段，并为每类事件给出变速情况与变速概率（概率事件按概率计入期望次数，与切分方式无关）。</p>
+  <div class="tbl"><table>
+    <tr><th>事件</th><th>变速情况</th><th>变速概率（默认，可配置）</th></tr>
+    <tr><td>收费站（人工 / ETC）</td><td>减速→(停车)→启动</td><td>人工停车 P≈0.95；ETC 减速不停 P≈0.1</td></tr>
+    <tr><td>红绿灯路口</td><td>减速→(停车)→启动</td><td>停车是概率事件：单路口 P=0.35(畅通)~0.95(严重拥堵)，随实时路况变化</td></tr>
+    <tr><td>高速出入口匝道</td><td>减速→并线→加速</td><td>明显减速 P≈0.85</td></tr>
+    <tr><td>急转弯（指令 / 航向角&gt;40°）</td><td>减速→转弯→加速</td><td>减速 P≈0.7</td></tr>
+  </table></div>
+  <p><b>L2 坡度自适应切分</b>：对所有 ≥1km 的段沿 DEM 剖面切分，三条判据：</p>
+  <div class="eq" data-k="1">\text{坡度变号必切：}\quad \operatorname{sign}(g_i) \ne \operatorname{sign}(g_{i+1}) \;\Rightarrow\; \text{切}</div>
+  <div class="eq" data-k="1">\text{坡度带阈值：}\quad \left|\,\overline{g}_{\,500m} - \overline{g}_{\,seg}\,\right| &gt; 1.5\% \;\Rightarrow\; \text{切}</div>
+  <div class="eq" data-k="1">\text{长度约束：}\quad 0.5\;\mathrm{km} \le L_{sub} \le 10\;\mathrm{km}\qquad \text{短碎段不再一律合并}</div>
+  <p>目的：保证每个子段内部"<b>坡度幅度小、行为单一</b>"——要么整段上坡、要么整段下坡，不出现"一段里先上后下互相抵消"。这是物理仿真理想的输入单元。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 860 240" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+    <g font-size="12" fill="#9aa6c0">
+      <text x="20" y="22" fill="#ff6072" font-weight="700">优化前：90km 一个段，坡度被平均 ≈0%</text>
+      <rect x="20" y="34" width="800" height="34" rx="8" fill="rgba(255,96,114,.08)" stroke="#ff6072" stroke-dasharray="5,4"/>
+      <text x="420" y="55" text-anchor="middle" fill="#ff6072">高速 90km · 1 段 · 先爬升后下降 → 平均坡度 ≈ 0%</text>
+      <text x="20" y="110" fill="#3ddc97" font-weight="700">优化后：L1 行为区 + L2 坡度带 → 298 段</text>
+      <rect x="20" y="122" width="120" height="34" rx="8" fill="rgba(255,96,114,.25)" stroke="#ff6072"/><text x="80" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">收费站</text>
+      <rect x="150" y="122" width="160" height="34" rx="8" fill="rgba(58,227,255,.12)" stroke="#3ae3ff"/><text x="230" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">爬坡带 +4%</text>
+      <rect x="320" y="122" width="120" height="34" rx="8" fill="rgba(255,181,71,.15)" stroke="#ffb547"/><text x="380" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">下坡带 −3%</text>
+      <rect x="450" y="122" width="100" height="34" rx="8" fill="rgba(164,115,255,.2)" stroke="#a473ff"/><text x="500" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">匝道</text>
+      <rect x="560" y="122" width="150" height="34" rx="8" fill="rgba(58,227,255,.12)" stroke="#3ae3ff"/><text x="635" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">缓坡 +0.8%</text>
+      <rect x="720" y="122" width="100" height="34" rx="8" fill="rgba(255,96,114,.25)" stroke="#ff6072"/><text x="770" y="143" text-anchor="middle" fill="#e9edf7" font-size="11">红绿灯</text>
+      <text x="20" y="195" fill="#9aa6c0" font-size="11">每个子段要么只上坡、要么只下坡，行为单一 → 物理/机器学习模型都能算准这一小段</text>
+      <text x="20" y="215" fill="#9aa6c0" font-size="11">启停次数与切分无关：段内路口数 = 里程 × 路口密度（期望值），同一条路怎么切，全线期望停车次数不变</text>
+    </g>
+  </svg>
+  <div class="cap">图 2 · 90km 单段 → 行为区 + 坡度带切分（实测乌兰察布→天津：43 段 → 298 段）</div>
+  </div>
+
+  <div class="story"><div class="bt">👵 老奶奶版 · 切香肠</div>
+  <p>把一条路想成一根香肠。高德是按"要不要转弯"来切的——高速上一直直走，就给你一整根 90 公里的大香肠。可是蒸香肠要熟透，得切小段：先在"收费站、红绿灯、匝道"这些<b>必须停车的地方</b>切一刀（行为区）；再摸一摸每一小段<b>是上坡还是下坡</b>，把"先上后下"混在一起的大段再切开（坡度带）。这样每一小段要么纯上坡、要么纯下坡，厨房（仿真模型）就能精准掌握火候——这一段要加多少力、那一段能回收多少，都不会被"平均"糊弄过去。</p>
+  </div>
+</section>
+
+<!-- ================= 3 工况合成 ================= -->
+<section id="cycle">
+  <h2><span class="num">3</span>工况合成（v-t 算法）：给新线路"演一遍"实车速度曲线</h2>
+
+  <h3>3.1 痛点：新线路只有"平均速度"，氢耗却对加减速极敏感</h3>
+  <p>系统分段只提供每段的<b>平均速度</b>（比如 70 km/h）。但同样开 70，一路匀速巡航 vs 走走停停，氢耗能差 <b>20%~50%</b>。新线路没法实跑，只能靠实车数据"演"出最可能的速度曲线。</p>
+
+  <h3>3.2 四步算法</h3>
+  <p><b>① 建素材库</b>：把两辆 H49 重卡 60s 实车数据按「道路等级 × 均速」分 <b>8 个桶</b>，每个桶里都是真实司机在这类路上的驾驶片段。</p>
+  <p><b>② 拼接</b>：新线路某一段（比如"高速、80km/h"），就从对应桶里随机取速度片段，拼够这段的点数。</p>
+  <p><b>③ 均速对齐</b>：把拼出来的曲线整体缩放到目标均速：</p>
+  <div class="eq" data-k="1">v'(t) \;=\; v(t)\cdot\frac{\bar v_{target}}{\bar v_{fragment}}</div>
+  <p><b>④ 坡度调制</b>：重卡爬坡会掉速，按坡度微调：</p>
+  <div class="eq" data-k="1">v(t) \;\leftarrow\; v(t)\,\bigl(1 - 0.025\,g\bigr)\qquad (g\ \text{为坡度百分数，上坡为正})</div>
+  <p>最后加速度由差分得到 <span class="mi" data-k="1">a = \tfrac{\Delta v}{\Delta t}</span>，再从 v(t)/a(t) 里数出 9 个"驾驶体检指标"：</p>
+  <div class="tbl"><table>
+    <tr><th>特征</th><th>含义</th><th>为什么重要</th></tr>
+    <tr><td>v_std</td><td>速度波动标准差</td><td>波动大 = 频繁加减速，同样均速更费氢</td></tr>
+    <tr><td>v_p85</td><td>85 分位速度</td><td>巡航实际跑多快</td></tr>
+    <tr><td>absa_mean / a_p90</td><td>加速度均值 / 90 分位</td><td>起步猛不猛</td></tr>
+    <tr><td>cruise_ratio / stop_ratio</td><td>巡航占比 / 停车占比</td><td>走走停停是城市段费氢主因</td></tr>
+    <tr><td>e_acc / e_aero / e_grade_up</td><td>每公里加速 / 空阻 / 上坡能量</td><td>三大能量项，直接决定氢耗</td></tr>
+  </table></div>
+  <div class="eq" data-k="1">E_{acc} = \frac{1}{L}\sum_{t} \max(v\,a,\,0)\,\Delta t,\qquad E_{aero} = \frac{1}{L}\sum_{t} v^{3}\,\Delta t,\qquad E_{grade} = \frac{1}{L}\sum_{t} v\,g\,\sin\theta\,\Delta t</div>
+
+  <div class="fig">
+  <svg viewBox="0 0 860 260" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+    <g font-size="12" fill="#9aa6c0">
+      <text x="20" y="22" fill="#a473ff" font-weight="700">素材库（8 桶：道路等级 × 均速）</text>
+      <rect x="20" y="34" width="110" height="30" rx="6" fill="rgba(164,115,255,.15)" stroke="#a473ff"/><text x="75" y="53" text-anchor="middle" fill="#e9edf7" font-size="11">高速 · 80</text>
+      <rect x="140" y="34" width="110" height="30" rx="6" fill="rgba(164,115,255,.15)" stroke="#a473ff"/><text x="195" y="53" text-anchor="middle" fill="#e9edf7" font-size="11">高速 · 60</text>
+      <rect x="260" y="34" width="110" height="30" rx="6" fill="rgba(164,115,255,.15)" stroke="#a473ff"/><text x="315" y="53" text-anchor="middle" fill="#e9edf7" font-size="11">国道 · 70</text>
+      <rect x="380" y="34" width="110" height="30" rx="6" fill="rgba(164,115,255,.15)" stroke="#a473ff"/><text x="435" y="53" text-anchor="middle" fill="#e9edf7" font-size="11">城市 · 40</text>
+      <rect x="500" y="34" width="110" height="30" rx="6" fill="rgba(164,115,255,.15)" stroke="#a473ff"/><text x="555" y="53" text-anchor="middle" fill="#e9edf7" font-size="11">城市 · 30</text>
+      <text x="640" y="53" fill="#6a7691">…共 8 桶</text>
+      <line x1="330" y1="66" x2="330" y2="96" stroke="#4d8dff" stroke-dasharray="4,4"/>
+      <text x="20" y="112" fill="#a473ff" font-weight="700">拼接 + 均速对齐 + 坡度调制 → v(t) 曲线</text>
+      <polyline points="40,180 90,150 140,165 190,110 240,120 290,95 340,130 390,105 440,118 490,90 540,125 590,108 640,132 690,115 740,130 790,120" fill="none" stroke="#3ae3ff" stroke-width="3"/>
+      <text x="40" y="205" fill="#6a7691" font-size="11">0</text>
+      <text x="790" y="205" fill="#6a7691" font-size="11">t</text>
+      <text x="420" y="225" text-anchor="middle" fill="#9aa6c0" font-size="11">实车司机的驾驶习惯：加速、巡航、刹车、停顿的节奏，都被这条曲线"演"了出来</text>
+      <text x="20" y="245" fill="#9aa6c0" font-size="11">从 v(t)/a(t) 数出 9 个体检指标 → 喂给梯度提升树 → 预测每段氢耗</text>
+    </g>
+  </svg>
+  <div class="cap">图 3 · 工况合成：8 桶素材库 → 拼接 → 对齐 → 坡度调制 → v(t)</div>
+  </div>
+
+  <div class="story"><div class="bt">👵 老奶奶版 · 演一遍</div>
+  <p>把实车司机在这类路上<b>怎么踩油门</b>的习惯，录成 8 个抽屉的素材库（高速抽屉、城市抽屉……）。新线路来了，就从对应抽屉里抽出几段"开车片段"拼起来，再拧到和目标速度一致、按坡度微调一下——就像给新线路<b>请了个替身演员，照着剧本演一遍</b>。演完再从戏里数出 9 个体检指标：速度稳不稳、巡航多快、刹车多猛、每公里花多少能量。这样模型就能分清"匀速省着开"和"走走停停费着开"——实测这套方法把段级 R² 从 0.31 提到 0.45+，是模型提升最大的环节。</p>
+  </div>
+</section>
+
+<!-- ================= 4 物理模型 ================= -->
+<section id="physics">
+  <h2><span class="num">4</span>物理模型算法族：能量守恒公式引擎</h2>
+  <p>不依赖任何训练数据，从车辆动力学与燃料电池原理按公式逐段算：四阻力 → 轮边功率 → 电堆/电池削峰 → 氢耗。每个中间量都可展开查看、可排序、可导出。</p>
+
+  <h3>4.1 四阻力（L2）</h3>
+  <div class="eq" data-k="1">F_{roll}=C_{rr}\,m\,g\cos\theta,\qquad F_{aero}=\tfrac12\rho(H)\,C_d A\,(v^2+\sigma^2),\qquad F_{grade}=m\,g\sin\theta,\qquad F_{acc}=\delta m\,a</div>
+  <div class="eq" data-k="1">\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}</div>
+  <ul>
+    <li>滚阻含 <span class="mi" data-k="1">\cos\theta</span>：陡坡时法向力略降，不虚高；</li>
+    <li>空阻用 <span class="mi" data-k="1">E[v^2]=\bar v^2+\sigma^2</span> 修正：速度波动大 → 风阻大；</li>
+    <li><span class="mi" data-k="1">\rho(H)</span> 随海拔修正空气密度（平原到高原差 10~15%）。</li>
+  </ul>
+
+  <h3>4.2 启停能耗（L2b，2026-08-23 新增）</h3>
+  <p>匀速巡航假设在城市/收费站/路口会漏账：起步要把动能"买"进来，停车等待时附件与电堆最低功率还在烧氢。按段<b>期望停车次数 N</b> 计入：</p>
+  <div class="eq" data-k="1">E_{stop}^{ke}=N\cdot\tfrac12\,\delta\,m\,v^2\left(\tfrac1{\eta_{mt}}-\eta_{regen}\,\eta_{mt}\right),\qquad E_{stop}^{idle}=P_{fc}^{stop}\,N\,t_{stop}</div>
+  <div class="eq" data-k="1">P_{fc}^{stop}=\max\left(P_{fc}^{min},\,P_{aux}(T)\right),\qquad E_{fc}=P_{fc}\,t+E_{stop}^{ke}+E_{stop}^{idle}</div>
+  <p class="note">单次停车时长按行为类型：收费站 60s / 服务区 40s / 红绿灯 30s / 匝道 20s / 转弯 10s；η_regen=0.30（低速城市启停回收低、机械制动为主）。<b>N=0 时该项恒为 0</b>，纯巡航模型不变（回归保证）。</p>
+
+  <h3>4.3 动力总成（L3）与临界角</h3>
+  <div class="eq" data-k="1">P_{drive}=\begin{cases}P_{wheel}/\eta_{mt}+P_{aux} & P_{wheel}\ge 0\ \text{（驱动）}\\ P_{wheel}\,\eta_{mt}+P_{aux} & P_{wheel}&lt;0\ \text{（再生，链路损耗回收变少）}\end{cases}</div>
+  <div class="eq" data-k="1">\theta_c=\arctan(C_{rr})\approx 0.52^\circ\quad(\text{约 0.9\% 坡度})</div>
+  <p>临界角说明"下坡到底省不省"：缓下坡（<span class="mi" data-k="1">\theta&lt;\theta_c</span>）仍需轻驱动；陡下坡（<span class="mi" data-k="1">\theta&gt;\theta_c</span>）才真正"白捡"重力能，且要防超速、进入再生回收。代码不需要单独开关——由 <span class="mi" data-k="1">P_{wheel}=F_{total}\,v</span> 的符号天然判断。</p>
+
+  <h3>4.4 电堆 / 电池削峰（SOC 平衡）</h3>
+  <div class="eq" data-k="1">P_{fc}=\begin{cases}\min(P_{drive},P_{fc}^{max}) & P_{drive}\ge P_{fc}^{min}\\ P_{fc}^{min} & 0&lt;P_{drive}&lt;P_{fc}^{min}\\ P_{fc}^{min} & P_{drive}\le 0\ \text{（再生）}\end{cases},\qquad P_{bat}=\mathrm{clip}\left(P_{drive}-P_{fc},\,-P_{bat}^{max},\,P_{bat}^{max}\right)</div>
+  <p>电堆只在高效区（额定功率的 [10%,60%]）工作，低载/再生时保持最低稳定功率（避免关停-重启损耗），富余充电池；电池补差并受 ±限幅，超限部分由机械制动耗散。整个行程电池净放电约等于 0（削峰填谷），氢耗只看电堆。</p>
+
+  <div class="fig">
+  <svg viewBox="0 0 860 210" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+    <g font-size="12" fill="#9aa6c0">
+      <rect x="20" y="70" width="150" height="54" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="95" y="92" text-anchor="middle" fill="#3ae3ff" font-weight="700">四阻力 F</text>
+      <text x="95" y="110" text-anchor="middle" fill="#9aa6c0" font-size="11">滚+空+坡+加速</text>
+      <line x1="172" y1="97" x2="196" y2="97" class="arrow"/>
+      <rect x="200" y="70" width="150" height="54" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="275" y="92" text-anchor="middle" fill="#3ae3ff" font-weight="700">轮边功率 P_wheel</text>
+      <text x="275" y="110" text-anchor="middle" fill="#9aa6c0" font-size="11">= F·v（负=回收）</text>
+      <line x1="352" y1="97" x2="376" y2="97" class="arrow"/>
+      <rect x="380" y="70" width="170" height="54" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="465" y="92" text-anchor="middle" fill="#3ae3ff" font-weight="700">驱动电功率 P_drive</text>
+      <text x="465" y="110" text-anchor="middle" fill="#9aa6c0" font-size="11">/η_mt + P_aux(T)</text>
+      <line x1="552" y1="97" x2="576" y2="97" class="arrow"/>
+      <rect x="580" y="70" width="120" height="54" rx="10" fill="rgba(255,255,255,.05)" stroke="#ffb547"/>
+      <text x="640" y="92" text-anchor="middle" fill="#ffb547" font-weight="700">电堆 P_fc</text>
+      <text x="640" y="110" text-anchor="middle" fill="#9aa6c0" font-size="11">高效区削峰</text>
+      <rect x="712" y="70" width="120" height="54" rx="10" fill="rgba(255,255,255,.05)" stroke="#ffb547"/>
+      <text x="772" y="92" text-anchor="middle" fill="#ffb547" font-weight="700">电池 P_bat</text>
+      <text x="772" y="110" text-anchor="middle" fill="#9aa6c0" font-size="11">补差 ±限幅</text>
+      <text x="640" y="150" text-anchor="middle" fill="#3ddc97" font-size="13" font-weight="700">m_H₂ = (P_fc·t + E_stop) / (η_fc · LHV)</text>
+      <text x="420" y="178" text-anchor="middle" fill="#9aa6c0" font-size="12">整条链路的每个中间量都可展开、可排序、可导出 —— 不是黑箱</text>
+    </g>
+  </svg>
+  <div class="cap">图 4 · 物理模型能量流水线（四阻力 → 轮边 → 电堆/电池 → 氢耗）</div>
+  </div>
+
+  <div class="story"><div class="bt">👵 老奶奶版 · 算总账</div>
+  <p>物理模型就是给重卡<b>算总账</b>的：推着车跑，要克服四种"阻力"（轮胎磨地、撞开空气、爬坡、加速），这四笔账加起来就是轮子要出的力气（功率）。电机不能白出力，中间有损耗，还要养着空调气泵这些"附件"。电堆像锅炉、电池像蓄水池——锅炉只在最省火的档位烧，水多了先存起来、水少了再放出来。最后把烧掉的氢按热量一换算，就是这段路的氢耗。每一步都能给你看账本，不是黑箱。</p>
+  </div>
+</section>
+
+<!-- ================= 5 双引擎 ================= -->
+<section id="dual">
+  <h2><span class="num">5</span>双引擎对比：数据驱动 × 机理模型互相印证</h2>
+  <p>机器学习（HistGB，数据驱动）与物理模型（能量守恒，机理）共用同一套 <span class="mi" data-k="1">\text{SegmentData}</span> 输入契约：</p>
+  <div class="tbl"><table>
+    <tr><th></th><th>机器学习引擎</th><th>物理模型引擎</th></tr>
+    <tr><td><b>依据</b></td><td>两辆 H49 实车数据（工况合成 + HistGB）</td><td>车辆动力学 + 燃料电池原理（公式）</td></tr>
+    <tr><td><b>优点</b></td><td>隐含实车的驾驶习惯与损耗</td><td>不依赖数据、可解释、可手算验证</td></tr>
+    <tr><td><b>局限</b></td><td>受数据缺陷影响（见 README 局限说明）</td><td>依赖公式假设（η_fc、再生比例等）</td></tr>
+    <tr><td><b>用法</b></td><td colspan="2">双引擎同屏对比：<b>结论一致 → 结果可信；差异大 → 提示检查输入或数据质量</b></td></tr>
+  </table></div>
+</section>
+
+<!-- ================= 6 融合模型 ================= -->
+<section id="hybrid">
+  <h2><span class="num">6</span>未来：物理 + 数据驱动融合模型（待研发）</h2>
+  <p>目标：把物理公式换成"可学习的映射"，但<b>隐藏层每个节点都是可解释的物理量</b>（电堆功率 / 电机功率 / 电池功率 / 附件功率），而不是一堆没有含义的数字。</p>
+  <div class="eq" data-k="1">\underbrace{x}_{\text{天气/路况/载重}} \;\rightarrow\; \underbrace{h}_{\text{内部物理量（电堆/电机/电池/附件）}} \;\rightarrow\; \underbrace{y}_{\text{氢耗}}\qquad h=\phi(x),\;\; y=\psi(h)\ \text{（能量守恒约束）}</div>
+  <p>核心思想（文献锚点：Lei et al. 2025, Theory-Constrained NN, IEEE TVT）：<b>物理保证可解释、数据保证精度</b>——先用物理公式管住"输入→内部物理量→氢耗"的骨架，再用实车数据校准部件级偏差。</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+    <g font-size="12" fill="#9aa6c0">
+      <rect x="20" y="60" width="150" height="70" rx="10" fill="rgba(255,255,255,.05)" stroke="#3ae3ff"/>
+      <text x="95" y="86" text-anchor="middle" fill="#3ae3ff" font-weight="700">输入层 x</text>
+      <text x="95" y="104" text-anchor="middle" fill="#9aa6c0" font-size="11">天气/路况/载重</text>
+      <text x="95" y="120" text-anchor="middle" fill="#9aa6c0" font-size="11">（全部可抓取）</text>
+      <line x1="172" y1="95" x2="240" y2="95" class="arrow"/>
+      <rect x="245" y="30" width="150" height="48" rx="10" fill="rgba(164,115,255,.15)" stroke="#a473ff"/>
+      <text x="320" y="52" text-anchor="middle" fill="#a473ff" font-weight="700">电堆功率 P_fc</text>
+      <rect x="245" y="86" width="150" height="48" rx="10" fill="rgba(164,115,255,.15)" stroke="#a473ff"/>
+      <text x="320" y="108" text-anchor="middle" fill="#a473ff" font-weight="700">电机功率 P_m</text>
+      <rect x="245" y="142" width="150" height="48" rx="10" fill="rgba(164,115,255,.15)" stroke="#a473ff"/>
+      <text x="320" y="164" text-anchor="middle" fill="#a473ff" font-weight="700">电池/附件功率</text>
+      <line x1="397" y1="95" x2="470" y2="95" class="arrow"/>
+      <rect x="475" y="60" width="150" height="70" rx="10" fill="rgba(61,220,151,.12)" stroke="#3ddc97"/>
+      <text x="550" y="86" text-anchor="middle" fill="#3ddc97" font-weight="700">能量守恒</text>
+      <text x="550" y="104" text-anchor="middle" fill="#9aa6c0" font-size="11">y = f(P_fc, t)</text>
+      <text x="550" y="120" text-anchor="middle" fill="#9aa6c0" font-size="11">m_H₂ = E/(η_fc·LHV)</text>
+      <line x1="627" y1="95" x2="700" y2="95" class="arrow"/>
+      <rect x="705" y="60" width="130" height="70" rx="10" fill="rgba(255,181,71,.12)" stroke="#ffb547"/>
+      <text x="770" y="86" text-anchor="middle" fill="#ffb547" font-weight="700">氢耗 y</text>
+      <text x="770" y="104" text-anchor="middle" fill="#9aa6c0" font-size="11">可解释、可校验</text>
+      <text x="420" y="210" text-anchor="middle" fill="#9aa6c0" font-size="12">隐藏层 = 可解释物理量 → 每个节点都有物理含义，不再是黑箱</text>
+    </g>
+  </svg>
+  <div class="cap">图 5 · 物理+数据驱动融合模型架构（隐藏层为可解释物理量）</div>
+  </div>
+  <p><b>落地路线图</b>：P1 实车功率回填（用 CAN 电流/电压反推真实 P_fc/P_m）→ P2 残差校正 MLP（物理模型预测 + 数据修正）→ P3 完整可解释隐藏层 NN（物理约束训练）→ P4 前端接入（作为第三引擎，与 ML/物理并列对比）。</p>
+  <p class="old">已完成文献调研与初步设计（详见文档库《物理+数据驱动融合模型 · 初步设计》），前端「预测模型」下拉已预留「待开发」占位。</p>
+</section>
+
+<!-- ================= 7 参考文献 ================= -->
+<section id="refs">
+  <h2><span class="num">7</span>参考文献</h2>
+  <ol class="note">
+    <li>Ahn K., Rakha H. Developing a Hydrogen Fuel Cell Vehicle (HFCV) Energy Consumption Model for Transportation Applications. <i>Energies</i>, 2022, 15(2).</li>
+    <li>Zembi G., et al. 重型车工况敏感性研究（城市客车工况敏感性）. 2025.</li>
+    <li>Jiang, et al. 三参数对燃料电池混合动力汽车氢耗影响. 2024.</li>
+    <li>Lei, et al. Theory-Constrained Neural Network for FCET Energy Consumption. IEEE Trans. Veh. Technol., 2025, 74(6).</li>
+    <li>Gillespie T.D. Fundamentals of Vehicle Dynamics. SAE International, 1992.（四阻力模型）</li>
+    <li>曾小华. 氢耗分析模型与应用. 2019.</li>
+    <li>Transp. Res. Part D, 2025. 重型车辆分段平均速度能耗预测误差研究。</li>
+  </ol>
+</section>
+
+</div>
+<script src="/vendor/katex/katex.min.js"></script>
+<script>
+(function () {
+  function renderAll() {
+    if (!window.katex) return;
+    document.querySelectorAll('.eq[data-k]').forEach(function (el) {
+      try { window.katex.render(el.textContent.trim(), el, { displayMode: true, throwOnError: false }); }
+      catch (e) { el.textContent = el.textContent.trim(); }
+    });
+    document.querySelectorAll('.mi[data-k]').forEach(function (el) {
+      try { window.katex.render(el.textContent.trim(), el, { displayMode: false, throwOnError: false }); }
+      catch (e) { el.textContent = el.textContent.trim(); }
+    });
+  }
+  if (window.katex) renderAll();
+  else {
+    var s = document.createElement('script'); s.src = '/vendor/katex/katex.min.js'; s.onload = renderAll; document.head.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>

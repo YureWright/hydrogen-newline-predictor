@@ -54,6 +54,7 @@ export const DOC_GROUPS: DocGroup[] = [
     { id: 'worklog', title: 'WORKLOG · 工作日志', globKey: DOCS + '/WORKLOG.md', kind: 'md' },
     { id: 'tech', title: '⚡ 技术原理（ML + 物理模型）', kind: 'tech', hint: '机器学习与物理模型双 Tab 完整原理' },
     { id: 'design', title: '物理模型 · 设计文档（完整版）', kind: 'html', htmlSrc: '/docs/物理氢耗模型_设计方案.html', hint: 'HTML 完整设计：流程图 / 手算工作簿 / 临界角 / SOC 策略' },
+    { id: 'algo-doc', title: '🧭 核心创新算法详解', kind: 'html', htmlSrc: '/docs/核心创新算法详解.html', hint: '路段切分 / 工况合成 v(t) / 物理模型算法族 / 融合模型：核心原理 + 公式 + 示意图 + 生动讲解' },
     { id: 'segment-contract', title: '路段数据契约 SegmentData', globKey: DOCS + '/segment-contract.md', kind: 'md' },
     { id: 'seg-research', title: '切分算法调研', globKey: DOCS + '/segmentation-research.md', kind: 'md' },
     { id: 'phy-research', title: '物理模型调研', globKey: DOCS + '/physics-model-research.md', kind: 'md' },
