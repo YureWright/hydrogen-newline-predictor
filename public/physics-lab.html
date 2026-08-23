@@ -77,6 +77,10 @@
   th { color: var(--txt-3); font-weight: 500; }
   td.v { text-align: right; color: var(--txt); }
   .ml-note { font-size: 11px; color: var(--txt-3); margin-top: 8px; line-height: 1.7; }
+  .vt-box { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 14px; }
+  .vt-box h4 { font-size: 13px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .vt-box .tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(58,227,255,.4); color: var(--cyan); }
+  .vt-box svg { width: 100%; height: auto; display: block; }
   .ml-err { color: var(--amber); }
   .ml-load { color: var(--txt-3); }
   .clamp-warn { font-size: 11.5px; color: var(--amber); border: 1px dashed rgba(255,181,71,.5); background: rgba(255,181,71,.06); border-radius: 8px; padding: 6px 10px; margin-top: 8px; line-height: 1.6; }
@@ -226,6 +230,12 @@
       </div>
     </div>
 
+    <div class="vt-box">
+      <h4>📈 速度-时间曲线 v(t) <span class="tag">启停工况示意</span></h4>
+      <svg id="vtChart" viewBox="0 0 760 200" class="chart-svg"></svg>
+      <div class="ml-note">按当前「停车次数 × 单次停车时长」合成的段内速度剖面：加速(0.5 m/s²) → 巡航 → 制动(0.8 m/s²) → 怠速，循环 N 次后最终巡航至终点。与物理模型启停能耗口径一致（每次启停注入动能 ½δmv²，停车期间电堆最低稳定运行）。</div>
+    </div>
+
     <div class="results">
       <div class="res">
         <h4>🔋 物理模型 <span class="tag">JS 同源公式 · 实时</span></h4>
@@ -354,6 +364,66 @@ function physics(p){
     N_stops:N_stops, t_stop_total_h:t_stop_total_h,
     E_stop_ke_kwh:E_stop_ke_kwh, E_stop_idle_kwh:E_stop_idle_kwh, E_stop_kwh:E_stop_kwh, m_H2_stop:m_H2_stop
   };
+}
+
+/* ================= v-t 曲线（速度-时间剖面，与启停能耗口径一致） ================= */
+function buildVT(p){
+  var N = Math.max(0, Math.round(p.stops || 0));
+  var vMps = p.v / 3.6;
+  var Lm = p.L * 1000;
+  var A_ACC = 0.5, A_DEC = 0.8;            // 加速/制动 m/s²（重卡典型）
+  var tStop = (p.stopSecondsPer || 30);
+  if (N <= 0 || vMps <= 0 || Lm <= 0) {
+    var tc = Lm / Math.max(vMps, 1e-6);
+    return { t: [0, tc], v: [p.v, p.v], tTotal: tc, N: 0, tStop: tStop };
+  }
+  var tAcc = vMps / A_ACC, tDec = vMps / A_DEC;
+  var dAcc = 0.5 * A_ACC * tAcc * tAcc, dDec = 0.5 * A_DEC * tDec * tDec;
+  var dCycle = dAcc + dDec;
+  var Nmax = Math.max(0, Math.floor((Lm - 1) / Math.max(dCycle, 1e-6)));
+  var Neff = Math.min(N, Nmax);
+  var dCruise = Math.max(0, Lm - Neff * dCycle);
+  var tCruise = dCruise / vMps;
+  var perStop = Neff > 0 ? tCruise / (Neff + 1) : tCruise;
+  var t = [], v = [], tt = 0;
+  var pushCruise = function(dur){ if (dur > 1e-6) { t.push(tt, tt + dur); v.push(p.v, p.v); tt += dur; } };
+  for (var i = 0; i < Neff; i++){
+    t.push(tt, tt + tAcc); v.push(0, p.v); tt += tAcc;     // 加速
+    pushCruise(perStop);                                    // 巡航
+    t.push(tt, tt + tDec); v.push(p.v, 0); tt += tDec;     // 制动
+    t.push(tt, tt + tStop); v.push(0, 0); tt += tStop;     // 怠速
+  }
+  pushCruise(perStop);                                      // 最后一段巡航
+  return { t: t, v: v, tTotal: tt, N: Neff, tStop: tStop };
+}
+function renderVT(p){
+  var data = buildVT(p);
+  var svg = $id("vtChart");
+  if (!svg) return;
+  var W = 760, H = 200, PAD = { l: 54, r: 16, t: 18, b: 32 };
+  var tMax = Math.max(data.tTotal, 1);
+  var vMax = Math.max(p.v * 1.15, 12);
+  var X = function(t){ return PAD.l + (t / tMax) * (W - PAD.l - PAD.r); };
+  var Y = function(v){ return H - PAD.b - (v / vMax) * (H - PAD.t - PAD.b); };
+  var path = "";
+  for (var i = 0; i < data.t.length; i++){
+    path += (i ? "L" : "M") + X(data.t[i]).toFixed(1) + "," + Y(data.v[i]).toFixed(1) + " ";
+  }
+  var g = "";
+  for (var k = 0; k <= 4; k++){
+    var tx = X(tMax * k / 4), vy = Y(vMax * k / 4);
+    g += '<line x1="'+tx.toFixed(1)+'" y1="'+PAD.t+'" x2="'+tx.toFixed(1)+'" y2="'+(H-PAD.b)+'" stroke="rgba(255,255,255,0.06)"/>';
+    g += '<text x="'+tx.toFixed(1)+'" y="'+(H-PAD.b+16)+'" font-size="10.5" fill="#6a7691" text-anchor="middle">'+Math.round(tMax*k/4)+'</text>';
+    g += '<line x1="'+PAD.l+'" y1="'+vy.toFixed(1)+'" x2="'+(W-PAD.r)+'" y2="'+vy.toFixed(1)+'" stroke="rgba(255,255,255,0.06)"/>';
+    g += '<text x="'+(PAD.l-8)+'" y="'+(vy.toFixed(1)+4)+'" font-size="10.5" fill="#6a7691" text-anchor="end">'+Math.round(vMax*k/4)+'</text>';
+  }
+  g += '<text x="'+((PAD.l+W-PAD.r)/2)+'" y="'+(H-2)+'" font-size="10.5" fill="#6a7691" text-anchor="middle">时间 (s)</text>';
+  g += '<text x="12" y="'+(PAD.t+10)+'" font-size="10.5" fill="#6a7691">速度 (km/h)</text>';
+  var note = data.N > 0
+    ? (data.N + ' 次停车 × ' + data.tStop + 's · 总时长 ' + (data.tTotal/60).toFixed(1) + ' min · 里程守恒')
+    : ('匀速巡航 · 总时长 ' + (data.tTotal/60).toFixed(1) + ' min');
+  g += '<text x="'+(PAD.l+8)+'" y="'+(PAD.t+28)+'" font-size="11" fill="#9aa6c0">'+note+'</text>';
+  svg.innerHTML = g + '<path d="'+path+'" fill="none" stroke="#3ae3ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
 }
 
 /* ================= SVG 动画 ================= */
@@ -548,6 +618,7 @@ function update(){
   currentP = p; currentR = r;
   render(p, r);
   draw(p, r);
+  renderVT(p);
   callML(p);
 }
 function updateFromVehicle(){
