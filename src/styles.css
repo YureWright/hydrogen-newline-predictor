@@ -775,6 +775,7 @@ body::before {
 }
 .h2-card h4 { font-size: 15px; color: var(--cyan); }
 .hydro-result { margin-top: 12px; }
+.hydro-chart-fc { margin-top: 14px; }
 .hydro-model-tag {
   display: inline-block;
   margin-bottom: 12px;

@@ -160,7 +160,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     { key: 'eta_fc', cn: '电堆效率', tip: 'η_fc' },
     { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t' },
     { key: 'm_H2', cn: '氢耗', tip: 'kg = E_fc/(η_fc·LHV)' },
-    { key: 'windSpeedKmh', cn: '风速', tip: 'km/h；≥10.8 计入风阻' },
+    { key: 'windSpeedKmh', cn: '风速 km/h', tip: 'km/h；≥10.8 计入风阻' },
     { key: 'windDirText', cn: '风向', tip: '风向（来向）；缺角度/未达阈值则不计风阻' },
   ]
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
@@ -532,6 +532,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     }
     return markers
   }, [hydroResult])
+  // 电堆功率曲线：x=累计里程，y=P_fc（kW）
+  const fcPts = useMemo(() => {
+    const segs = activeHydro?.segments ?? []
+    let cum = 0
+    return segs.map((s) => { cum += s.distanceKm; return { x: Math.round(cum * 10) / 10, y: Math.round((s.P_fc ?? 0) * 10) / 10 } })
+  }, [activeHydro])
   // ML 每公里氢耗曲线（双引擎对比用）
   const mlPts = useMemo(() => {
     let cum = 0
@@ -568,8 +574,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
     }
     const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '温度℃', '风速km/h', '风向',
-      '氢耗kg/km', '氢耗kg', '巡航速度v_p85', '加速能量e_acc', '空阻能量e_aero', '上坡能量e_grade_up',
-      '加速度均值absa', '巡航占比cruise', '停车占比stop', '速度波动v_std', '强加速a_p90']
+      '氢耗kg/km', '氢耗kg', '巡航速度v_p85(km/h)', '加速能量e_acc(相对)', '空阻能量e_aero(相对)', '上坡能量e_grade_up(相对)',
+      '加速度均值absa(m/s²)', '巡航占比cruise(0~1)', '停车占比stop(0~1)', '速度波动v_std(km/h)', '强加速a_p90(m/s²)']
     const rows = segs.map((s: any) => [
       s.index, s.roadName ?? '', s.roadLevel ?? '', s.distanceKm, s.avgSpeedKmh, s.gradePercent, s.elevationM, s.temperatureC,
       s.windSpeedKmh ?? '', s.windDirText ?? '',
@@ -850,7 +856,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <th>爬升 m</th>
                 <th>下降 m</th>
                 <th>变速情况</th>
-                <th>变速概率/期望</th>
+                <th>变速期望(次)</th>
                 <th>路况</th>
                 <th>停车次/km</th>
                 <th>时长 h</th>
@@ -998,6 +1004,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <div className="hydro-chart">
                   <LineAreaChartMemo series={hydroSeries ?? undefined} points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
                 </div>
+                <div className="hydro-chart hydro-chart-fc">
+                  <LineAreaChartMemo points={fcPts} color="#ffb547" yLabel="电堆功率" unit="kW" />
+                </div>
                 {hydroResult.model === 'both' && hydroResult.ml?.segments?.length ? (
                   <div className="hydro-table-wrap">
                     <div className="hydro-table-head">
@@ -1012,22 +1021,22 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                             <th>道路</th>
                             <th>等级</th>
                             <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
-                            <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速 km/h{sortArrowHydro('avgSpeedKmh')}</th>
                             <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
                             <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
                             <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
-                            <th>风速</th><th>风向</th>
+                            <th>风速 km/h</th><th>风向</th>
                             <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
                             <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
-                            <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
-                            <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc{sortArrowHydro('e_acc')}</th>
-                            <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero{sortArrowHydro('e_aero')}</th>
-                            <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up{sortArrowHydro('e_grade_up')}</th>
-                            <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa{sortArrowHydro('absa_mean')}</th>
-                            <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise{sortArrowHydro('cruise_ratio')}</th>
-                            <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop{sortArrowHydro('stop_ratio')}</th>
-                            <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分均速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std{sortArrowHydro('v_std')}</th>
-                            <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90{sortArrowHydro('a_p90')}</th>
+                            <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85 km/h{sortArrowHydro('v_p85')}</th>
+                            <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc(相对){sortArrowHydro('e_acc')}</th>
+                            <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero(相对){sortArrowHydro('e_aero')}</th>
+                            <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up(相对){sortArrowHydro('e_grade_up')}</th>
+                            <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa m/s²{sortArrowHydro('absa_mean')}</th>
+                            <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise 0~1{sortArrowHydro('cruise_ratio')}</th>
+                            <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop 0~1{sortArrowHydro('stop_ratio')}</th>
+                            <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分均速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std km/h{sortArrowHydro('v_std')}</th>
+                            <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90 m/s²{sortArrowHydro('a_p90')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1121,22 +1130,22 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                           <th>道路</th>
                           <th>等级</th>
                           <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
-                          <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                          <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速 km/h{sortArrowHydro('avgSpeedKmh')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
-                          <th>风速</th><th>风向</th>
+                          <th>风速 km/h</th><th>风向</th>
                           <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
-                          <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
-                          <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc{sortArrowHydro('e_acc')}</th>
-                          <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero{sortArrowHydro('e_aero')}</th>
-                          <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up{sortArrowHydro('e_grade_up')}</th>
-                          <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa{sortArrowHydro('absa_mean')}</th>
-                          <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise{sortArrowHydro('cruise_ratio')}</th>
-                          <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop{sortArrowHydro('stop_ratio')}</th>
-                          <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分匀速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std{sortArrowHydro('v_std')}</th>
-                          <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90{sortArrowHydro('a_p90')}</th>
+                          <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85 km/h{sortArrowHydro('v_p85')}</th>
+                          <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc(相对){sortArrowHydro('e_acc')}</th>
+                          <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero(相对){sortArrowHydro('e_aero')}</th>
+                          <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up(相对){sortArrowHydro('e_grade_up')}</th>
+                          <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa m/s²{sortArrowHydro('absa_mean')}</th>
+                          <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise 0~1{sortArrowHydro('cruise_ratio')}</th>
+                          <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop 0~1{sortArrowHydro('stop_ratio')}</th>
+                          <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分匀速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std km/h{sortArrowHydro('v_std')}</th>
+                          <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90 m/s²{sortArrowHydro('a_p90')}</th>
                         </tr>
                       </thead>
                       <tbody>
