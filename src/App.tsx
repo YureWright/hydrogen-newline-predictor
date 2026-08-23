@@ -86,6 +86,9 @@ export default function App() {
               <span><b>QWeather</b> 沿线天气</span>
               <span><b>DeepSeek</b> AI 评估</span>
             </div>
+            <button className="hero-docs-btn" onClick={() => window.open('/?view=docs', '_blank')} title="全部重要文档：README/工作日志/技术原理/设计文档/知识库 30+篇">
+              📚 文档库
+            </button>
           </div>
           <span className="hero-tag">T05 · 氢能黑客松</span>
         </div>

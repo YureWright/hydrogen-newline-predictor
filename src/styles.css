@@ -1009,3 +1009,21 @@ body::before {
 .tech-tab-btn:hover { color: var(--txt); }
 .tech-tab-btn.on { color: var(--cyan); border-bottom-color: var(--cyan); font-weight: 600; }
 .howitworks-head-actions { display: flex; gap: 8px; align-items: center; }
+
+/* 首页文档库按钮 */
+.hero-docs-btn {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(58,227,255,0.08);
+  border: 1px solid rgba(58,227,255,0.35);
+  border-radius: 999px;
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.hero-docs-btn:hover { background: rgba(58,227,255,0.18); border-color: var(--cyan); box-shadow: 0 0 12px rgba(58,227,255,0.25); }
