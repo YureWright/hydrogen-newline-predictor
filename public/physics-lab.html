@@ -369,14 +369,36 @@ function physics(p){
 /* ================= v-t 曲线（速度-时间剖面，与启停能耗口径一致） ================= */
 function buildVT(p){
   var N = Math.max(0, Math.round(p.stops || 0));
-  var vMps = p.v / 3.6;
+  var v = p.v, vMps = v / 3.6;
   var Lm = p.L * 1000;
   var A_ACC = 0.5, A_DEC = 0.8;            // 加速/制动 m/s²（重卡典型）
   var tStop = (p.stopSecondsPer || 30);
-  if (N <= 0 || vMps <= 0 || Lm <= 0) {
-    var tc = Lm / Math.max(vMps, 1e-6);
-    return { t: [0, tc], v: [p.v, p.v], tTotal: tc, N: 0, tStop: tStop };
-  }
+  // 速度波动 σ（与 physics() 空阻修正 E[v²]=v̄²+σ² 同一口径）
+  var sRatio = LV_SIGMA[p.roadLevel] != null ? LV_SIGMA[p.roadLevel] : 0.20;
+  var sigma = Math.max((p.roadLevel === "highway" || p.roadLevel === "expressway") ? 2.0 : (p.roadLevel === "national" || p.roadLevel === "provincial") ? 3.0 : 5.0, v * sRatio);
+  var t = [], sp = [], tt = 0;
+  // 巡航段：按 σ 叠加平滑驾驶波动（司机微调车速，不是一条平线）
+  var cruise = function(dur){
+    if (dur <= 1e-6) return;
+    var n = Math.max(2, Math.round(dur / 4));       // 约每 4s 一个采样点
+    var period = Math.max(dur / 2.5, 8);            // 全程约 2~3 个波动周期
+    for (var i = 0; i <= n; i++){
+      var ti = tt + dur * i / n;
+      var f = sigma * (0.7 * Math.sin(2 * Math.PI * (ti / period)) + 0.3 * Math.sin(2 * Math.PI * (ti / period) * 2.7 + 1.3));
+      t.push(ti); sp.push(Math.max(0, v + f));
+    }
+    tt += dur;
+  };
+  var ramp = function(dur, from, to){               // 加速/制动线性过渡
+    var n = Math.max(1, Math.round(dur / 2));
+    for (var i = 0; i <= n; i++){
+      var ti = tt + dur * i / n;
+      t.push(ti); sp.push(from + (to - from) * i / n);
+    }
+    tt += dur;
+  };
+  var idle = function(dur){ if (dur > 1e-6) { t.push(tt, tt + dur); sp.push(0, 0); tt += dur; } };
+  if (vMps <= 0 || Lm <= 0) return { t: [0, 1], v: [0, 0], tTotal: 0, N: N, tStop: tStop, sigma: sigma };
   var tAcc = vMps / A_ACC, tDec = vMps / A_DEC;
   var dAcc = 0.5 * A_ACC * tAcc * tAcc, dDec = 0.5 * A_DEC * tDec * tDec;
   var dCycle = dAcc + dDec;
@@ -385,16 +407,14 @@ function buildVT(p){
   var dCruise = Math.max(0, Lm - Neff * dCycle);
   var tCruise = dCruise / vMps;
   var perStop = Neff > 0 ? tCruise / (Neff + 1) : tCruise;
-  var t = [], v = [], tt = 0;
-  var pushCruise = function(dur){ if (dur > 1e-6) { t.push(tt, tt + dur); v.push(p.v, p.v); tt += dur; } };
   for (var i = 0; i < Neff; i++){
-    t.push(tt, tt + tAcc); v.push(0, p.v); tt += tAcc;     // 加速
-    pushCruise(perStop);                                    // 巡航
-    t.push(tt, tt + tDec); v.push(p.v, 0); tt += tDec;     // 制动
-    t.push(tt, tt + tStop); v.push(0, 0); tt += tStop;     // 怠速
+    ramp(tAcc, 0, v);                               // 加速
+    cruise(perStop);                                // 巡航（带波动）
+    ramp(tDec, v, 0);                               // 制动
+    idle(tStop);                                    // 怠速
   }
-  pushCruise(perStop);                                      // 最后一段巡航
-  return { t: t, v: v, tTotal: tt, N: Neff, tStop: tStop };
+  cruise(perStop);                                  // 最后一段巡航
+  return { t: t, v: sp, tTotal: tt, N: Neff, tStop: tStop, sigma: sigma };
 }
 function renderVT(p){
   var data = buildVT(p);
@@ -420,8 +440,8 @@ function renderVT(p){
   g += '<text x="'+((PAD.l+W-PAD.r)/2)+'" y="'+(H-2)+'" font-size="10.5" fill="#6a7691" text-anchor="middle">时间 (s)</text>';
   g += '<text x="12" y="'+(PAD.t+10)+'" font-size="10.5" fill="#6a7691">速度 (km/h)</text>';
   var note = data.N > 0
-    ? (data.N + ' 次停车 × ' + data.tStop + 's · 总时长 ' + (data.tTotal/60).toFixed(1) + ' min · 里程守恒')
-    : ('匀速巡航 · 总时长 ' + (data.tTotal/60).toFixed(1) + ' min');
+    ? (data.N + ' 次停车 × ' + data.tStop + 's · 总时长 ' + (data.tTotal/60).toFixed(1) + ' min · 里程守恒 · σ=' + data.sigma.toFixed(1) + ' km/h')
+    : ('巡航（σ=' + data.sigma.toFixed(1) + ' km/h 驾驶波动）· 总时长 ' + (data.tTotal/60).toFixed(1) + ' min');
   g += '<text x="'+(PAD.l+8)+'" y="'+(PAD.t+28)+'" font-size="11" fill="#9aa6c0">'+note+'</text>';
   svg.innerHTML = g + '<path d="'+path+'" fill="none" stroke="#3ae3ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
 }
