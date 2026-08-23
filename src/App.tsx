@@ -2,12 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import MapView, { type MapPoint } from './components/MapView'
 import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
+import LandingPage from './components/LandingPage'
 import type { RouteCandidate, H2Station } from './route/types'
+
+type AppView = 'landing' | 'predict'
 
 interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
 interface RouteResult { ok: boolean; routes?: RouteCandidate[]; msg?: string }
 
 export default function App() {
+  const [view, setView] = useState<AppView>(() => {
+    return sessionStorage.getItem('h2-skip-landing') === '1' ? 'predict' : 'landing'
+  })
+
   const [fromAddr, setFromAddr] = useState('乌兰察布')
   const [toAddr, setToAddr] = useState('天津')
   const [from, setFrom] = useState<MapPoint | null>(null)
@@ -20,6 +27,11 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
+
+  const enterPredict = useCallback(() => {
+    sessionStorage.setItem('h2-skip-landing', '1')
+    setView('predict')
+  }, [])
 
   /** 空 → 空 的高亮更新直接忽略：避免下游传入新引用的空数组时白白触发一轮重渲染 */
   const applyHighlight = useCallback((list: Array<Array<[number, number]>>) => {
@@ -67,30 +79,25 @@ export default function App() {
     }
   }, [fromAddr, toAddr, geocode])
 
+  if (view === 'landing') {
+    return <LandingPage onStart={enterPredict} />
+  }
+
   return (
     <div className="app">
-      {/* 头图整块用海珀特官网主视觉原图（已抹掉官网自带的「预约品鉴」按钮与导航控件），
-          logo 和「以氢能创造无限可能 / Hydrogen Powering Infinity」都在图里，
-          不另行排版，避免字体/字距跟官方对不上 */}
-      <header className="hero">
+      <header className="hero hero-compact">
         <div className="hero-media">
           <div className="hero-scanline" aria-hidden="true" />
           <div className="hero-fade" aria-hidden="true" />
           <div className="hero-inner">
             <div className="hero-rule" />
             <h1>新线路氢耗预测工具</h1>
-            <p className="sub">面向 H49 燃料电池半挂牵引车 · 真实路网道路等级 / DEM 坡度剖面 / 沿线逐段天气</p>
-            <div className="hero-chips">
-              <span><b>OSM</b> 真实路网</span>
-              <span><b>DEM</b> 高程剖面</span>
-              <span><b>QWeather</b> 沿线天气</span>
-              <span><b>DeepSeek</b> AI 评估</span>
-            </div>
-            <button className="hero-docs-btn" onClick={() => window.open('/?view=docs', '_blank')} title="全部重要文档：README/工作日志/技术原理/设计文档/知识库 30+篇">
-              📚 文档库
-            </button>
+            <p className="sub">面向 H49 燃料电池半挂牵引车 · 真实路网 / DEM 坡度 / 沿线天气</p>
           </div>
           <span className="hero-tag">T05 · 氢能黑客松</span>
+          <button className="hero-back-btn" onClick={() => { sessionStorage.removeItem('h2-skip-landing'); setView('landing') }}>
+            ← 首页
+          </button>
         </div>
       </header>
       <main className="main">

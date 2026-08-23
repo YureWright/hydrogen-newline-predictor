@@ -1025,7 +1025,7 @@ body::before {
 .tech-tab-btn.on { color: var(--cyan); border-bottom-color: var(--cyan); font-weight: 600; }
 .howitworks-head-actions { display: flex; gap: 8px; align-items: center; }
 
-/* 首页文档库按钮 */
+/* 首页文档库按钮（保留兼容） */
 .hero-docs-btn {
   margin-top: 14px;
   display: inline-flex;
@@ -1042,3 +1042,359 @@ body::before {
   transition: all .2s;
 }
 .hero-docs-btn:hover { background: rgba(58,227,255,0.18); border-color: var(--cyan); box-shadow: 0 0 12px rgba(58,227,255,0.25); }
+
+/* ============ 紧凑 hero + 返回首页按钮 ============ */
+.hero-compact .hero-media { aspect-ratio: 1024 / 320; }
+.hero-compact .hero-inner { padding-bottom: 3%; }
+.hero-back-btn {
+  position: absolute; top: 20px; left: 4%;
+  padding: 6px 14px; border: 1px solid var(--line-2); border-radius: 999px;
+  background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+  font-size: 12px; color: var(--txt-2); cursor: pointer;
+  transition: all .2s; z-index: 2;
+}
+.hero-back-btn:hover { background: rgba(58,227,255,0.15); color: var(--cyan); border-color: rgba(58,227,255,0.4); }
+
+/* ================================================================
+   LANDING PAGE — 全屏起始页
+   ================================================================ */
+.landing {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* 顶部氛围光 */
+.landing-glow {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(77,141,255,0.20), transparent 60%),
+    radial-gradient(760px 460px at 88% 4%, rgba(164,115,255,0.16), transparent 62%),
+    radial-gradient(1100px 700px at 50% 108%, rgba(58,227,255,0.10), transparent 65%);
+}
+
+/* ===== 流动光带 ===== */
+.light-strip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 999px;
+}
+.strip-1 {
+  width: 460px; height: 2px;
+  top: 38%; left: -200px;
+  background: linear-gradient(90deg, transparent, var(--cyan), rgba(77,141,255,0.8), transparent);
+  box-shadow: 0 0 20px rgba(58,227,255,0.6), 0 0 60px rgba(58,227,255,0.3);
+  animation: strip-flow-lr 6s ease-in-out infinite;
+}
+.strip-2 {
+  width: 380px; height: 2px;
+  top: 62%; right: -200px;
+  background: linear-gradient(90deg, transparent, rgba(164,115,255,0.7), var(--violet), transparent);
+  box-shadow: 0 0 20px rgba(164,115,255,0.5), 0 0 50px rgba(164,115,255,0.25);
+  animation: strip-flow-rl 7s 1.5s ease-in-out infinite;
+}
+.strip-3 {
+  width: 300px; height: 1.5px;
+  bottom: 15%; left: 10%;
+  background: linear-gradient(90deg, transparent, rgba(61,220,151,0.6), var(--mint), transparent);
+  box-shadow: 0 0 16px rgba(61,220,151,0.4);
+  animation: strip-flow-lr 8s 3s ease-in-out infinite;
+}
+@keyframes strip-flow-lr {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 100%)); opacity: 0; }
+}
+@keyframes strip-flow-rl {
+  0%   { transform: translateX(100%); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateX(calc(-100vw - 100%)); opacity: 0; }
+}
+
+/* ===== 头图区 ===== */
+.landing-hero {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  z-index: 2;
+}
+.landing-hero-img {
+  width: 100%;
+  aspect-ratio: 1024 / 500;
+  background: url('/hero-hybot.png') center top / 100% auto no-repeat;
+  animation: rise 0.9s cubic-bezier(0.22,1,0.36,1) both;
+}
+.landing-hero-img::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, var(--bg), transparent 8%, transparent 92%, var(--bg));
+}
+.landing-scanline {
+  position: absolute; left: 0; right: 0; height: 140px; pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(180deg, transparent, rgba(58,227,255,0.09) 55%, rgba(58,227,255,0.22) 75%, transparent);
+  animation: hero-scan 7.5s linear infinite;
+}
+.landing-hero-fade {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 50%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(4,6,12,0.6) 40%, var(--bg));
+}
+
+/* ===== 主内容区 ===== */
+.landing-body {
+  position: relative;
+  z-index: 3;
+  max-width: 640px;
+  margin: -60px auto 0;
+  padding: 0 24px;
+  text-align: center;
+  animation: rise 0.9s 0.15s cubic-bezier(0.22,1,0.36,1) both;
+}
+.landing-rule {
+  width: 56px; height: 2px; margin: 0 auto 18px;
+  background: var(--accent-grad);
+  box-shadow: 0 0 16px rgba(58,227,255,0.6);
+  border-radius: 2px;
+}
+.landing-title {
+  font-size: clamp(24px, 3.2vw, 38px);
+  font-weight: 800;
+  letter-spacing: 4px;
+  line-height: 1.25;
+  background: linear-gradient(100deg, #ffffff 0%, #cfe4ff 44%, #a9c6ff 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 60px rgba(77,141,255,0.28);
+}
+.landing-sub {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--txt-2);
+  letter-spacing: 0.6px;
+  line-height: 1.7;
+}
+.landing-chips {
+  display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap;
+}
+.landing-chips span {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(4,6,12,0.55);
+  backdrop-filter: blur(8px);
+  font-size: 11.5px;
+  color: var(--txt-2);
+}
+.landing-chips span b { color: var(--cyan); font-weight: 600; }
+
+/* ===== 两个大按钮 ===== */
+.landing-actions {
+  display: flex; flex-direction: column; gap: 16px;
+  margin-top: 36px;
+  animation: rise 0.9s 0.3s cubic-bezier(0.22,1,0.36,1) both;
+}
+.landing-btn {
+  position: relative;
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 24px;
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s, border-color 0.25s;
+  overflow: hidden;
+  font-family: inherit;
+}
+.landing-btn::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  animation: shimmer 3.5s linear infinite;
+}
+.landing-btn:hover { transform: translateY(-3px); }
+
+.landing-btn-primary {
+  background: linear-gradient(135deg, rgba(58,227,255,0.12), rgba(77,141,255,0.08));
+  border: 1.5px solid rgba(58,227,255,0.45);
+  box-shadow: 0 8px 32px rgba(58,227,255,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+  color: #fff;
+}
+.landing-btn-primary:hover {
+  box-shadow: 0 14px 48px rgba(58,227,255,0.35), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 1px rgba(58,227,255,0.6);
+  border-color: var(--cyan);
+}
+.landing-btn-docs {
+  background: linear-gradient(135deg, rgba(164,115,255,0.10), rgba(77,141,255,0.06));
+  border: 1.5px solid rgba(164,115,255,0.35);
+  box-shadow: 0 8px 32px rgba(164,115,255,0.15), inset 0 1px 0 rgba(255,255,255,0.06);
+  color: #fff;
+}
+.landing-btn-docs:hover {
+  box-shadow: 0 14px 48px rgba(164,115,255,0.28), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(164,115,255,0.5);
+  border-color: var(--violet);
+}
+
+.landing-btn-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.landing-btn-primary .landing-btn-icon { color: var(--cyan); }
+.landing-btn-docs .landing-btn-icon { color: var(--violet); }
+
+.landing-btn-text { flex: 1; }
+.landing-btn-text strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.landing-btn-text small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--txt-2);
+  letter-spacing: 0.3px;
+}
+.landing-btn-arrow {
+  font-size: 20px;
+  color: var(--txt-3);
+  transition: transform 0.2s, color 0.2s;
+}
+.landing-btn:hover .landing-btn-arrow { transform: translateX(4px); color: var(--cyan); }
+.landing-btn-docs:hover .landing-btn-arrow { color: var(--violet); }
+
+/* ===== 标签和底部 ===== */
+.landing-tag {
+  position: absolute; top: 24px; right: 4%;
+  padding: 6px 14px; border: 1px solid var(--line-2); border-radius: 999px;
+  background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+  font-size: 11px; letter-spacing: 1.6px; color: var(--txt-2); z-index: 4;
+}
+.landing-footer {
+  margin-top: auto;
+  padding: 28px 24px 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--txt-3);
+  letter-spacing: 1.2px;
+  z-index: 3;
+}
+
+@media (max-width: 860px) {
+  .landing-tag { display: none; }
+  .landing-body { margin-top: -40px; }
+  .landing-btn { padding: 14px 16px; gap: 12px; }
+  .landing-btn-icon { width: 40px; height: 40px; }
+  .landing-btn-text strong { font-size: 15px; }
+  .hero-compact .hero-media { aspect-ratio: 1024 / 400; }
+}
+
+/* ================================================================
+   ROAD PROGRESS BAR — 道路 + 小车进度条动画
+   ================================================================ */
+.road-progress {
+  position: relative;
+  margin-top: 16px;
+  padding: 6px 0;
+}
+.road-track {
+  position: relative;
+  height: 32px;
+  background: linear-gradient(180deg, #1a1f2e, #22293a);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+/* 车道分隔线 */
+.road-track::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 2px;
+  transform: translateY(-1px);
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,0.25) 0px,
+    rgba(255,255,255,0.25) 16px,
+    transparent 16px,
+    transparent 28px
+  );
+}
+/* 路面纹理 */
+.road-track::after {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 20%, transparent 80%, rgba(255,255,255,0.04) 100%);
+  pointer-events: none;
+}
+/* 已走过的路段发光 */
+.road-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(58,227,255,0.08), rgba(58,227,255,0.15));
+  border-radius: 16px 0 0 16px;
+  transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
+}
+.road-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0; width: 30px;
+  background: linear-gradient(90deg, transparent, rgba(58,227,255,0.4));
+  box-shadow: 0 0 20px rgba(58,227,255,0.6);
+  filter: blur(2px);
+}
+/* 小车 */
+.road-truck {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px rgba(58,227,255,0.8));
+  transition: left 0.6s cubic-bezier(0.22,1,0.36,1);
+  z-index: 2;
+  line-height: 1;
+}
+/* 不确定进度时小车来回跑 */
+.road-truck.indeterminate {
+  animation: truck-shuttle 2.2s ease-in-out infinite;
+}
+@keyframes truck-shuttle {
+  0%   { left: 8%; }
+  50%  { left: 72%; }
+  100% { left: 8%; }
+}
+/* 路灯标记（里程碑） */
+.road-milestones {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px 0;
+  font-size: 10.5px;
+  color: var(--txt-3);
+}
+.road-milestone {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.road-milestone i {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.road-milestone.reached i { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.road-milestone.reached { color: var(--cyan); }
+.road-milestone.active { color: var(--cyan); font-weight: 600; }
+.road-milestone.active i { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); animation: pstep-pulse 1.3s ease-in-out infinite; }
+
+/* 氢耗预测小进度也用道路版 */
+.hydro-road { margin-top: 12px; }
+.hydro-road .road-track { height: 24px; }
+.hydro-road .road-truck { font-size: 18px; }

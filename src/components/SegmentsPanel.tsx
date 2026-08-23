@@ -735,26 +735,34 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     // 用户会把"归零重填"误读成卡死。这里把当前阶段映射到固定步骤序列，明确告诉他还在推进。
     const stepIndex = PHASE_TO_STEP[progress?.phase || ''] ?? 0
     const stepNo = stepIndex + 1
+    const truckLeft = pct != null ? `${Math.max(4, Math.min(96, pct))}%` : undefined
     return (
       <div className="segments-panel running-panel">
         <div className="truck-watermark" aria-hidden="true" />
         <h3>正在测算路线 {routeIndex + 1}</h3>
         <div className="progress-box">
-          <div className="progress-steps">
+          {/* 道路里程碑 */}
+          <div className="road-milestones">
             {PHASE_STEP_LABELS.map((label, i) => (
               <span
                 key={label}
-                className={'pstep' + (i < stepIndex ? ' done' : i === stepIndex ? ' active' : '')}
+                className={'road-milestone' + (i < stepIndex ? ' reached' : i === stepIndex ? ' active' : '')}
               >
                 <i />{label}
               </span>
             ))}
           </div>
-          <div className="progress-track">
-            <div
-              className={'progress-fill' + (pct == null ? ' indeterminate' : '')}
-              style={pct != null ? { width: pct + '%' } : undefined}
-            />
+          {/* 道路进度条 */}
+          <div className="road-progress">
+            <div className="road-track">
+              {pct != null && <div className="road-fill" style={{ width: pct + '%' }} />}
+              <span
+                className={'road-truck' + (pct == null ? ' indeterminate' : '')}
+                style={truckLeft ? { left: truckLeft } : undefined}
+                role="img"
+                aria-label="氢能重卡"
+              >🚛</span>
+            </div>
           </div>
           <div className="progress-text">
             <span className="step-badge">步骤 {stepNo}/{PHASE_STEP_LABELS.length}</span>
@@ -1108,13 +1116,23 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           </>
         )}
         {hydroStage === 'running' && (
-          <div className="hydro-progress">
-            <div className="hydro-steps">
-              <span className={hydroStep >= 1 ? 'on' : ''}>① 提取段特征</span>
-              <span className={hydroStep >= 2 ? 'on' : ''}>② 合成行驶工况</span>
-              <span className={hydroStep >= 3 ? 'on' : ''}>③ 模型预测</span>
+          <div className="hydro-road">
+            <div className="road-milestones">
+              <span className={'road-milestone' + (hydroStep >= 1 ? ' reached' : '')}>
+                <i />提取段特征
+              </span>
+              <span className={'road-milestone' + (hydroStep >= 2 ? ' reached' : hydroStep >= 1 ? ' active' : '')}>
+                <i />合成行驶工况
+              </span>
+              <span className={'road-milestone' + (hydroStep >= 3 ? ' reached' : hydroStep >= 2 ? ' active' : '')}>
+                <i />模型预测
+              </span>
             </div>
-            <div className="progress-track"><div className="progress-fill indeterminate" /></div>
+            <div className="road-progress">
+              <div className="road-track">
+                <span className="road-truck indeterminate" role="img" aria-label="氢能重卡">🚛</span>
+              </div>
+            </div>
             <div className="hydro-progress-tip">{hydroModel === 'physics' ? '正在调用物理模型计算四阻力→轮边功率→电堆/电池削峰→氢耗…' : '正在按道路等级×均速从实车片段库拼接 60s 工况…'}</div>
           </div>
         )}
