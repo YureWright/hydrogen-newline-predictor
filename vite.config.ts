@@ -146,7 +146,7 @@ function startDemJob(origin: string, destination: string, index: number, departu
 /** 调 python 预测脚本（stdin/stdout JSON；cwd=ml/） */
 function runPythonScript(script: string, input: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const py = process.env.PYTHON || 'python'
+    const py = process.env.PYTHON || 'python3'
     const child = spawn(py, [script], { cwd })
     let out = '', err = ''
     child.stdout.on('data', (d: Buffer) => { out += d.toString('utf8') })
