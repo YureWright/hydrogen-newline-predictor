@@ -79,6 +79,8 @@ def predict_segment(seg, rng, hour_default=12):
       "elevationM": round(elev, 0),
       "temperatureC": round(temp, 1),
       "windSpeedKmh": round(wind, 1),
+      "windDirDeg": seg.get("windDirDeg"),
+      "windDirText": seg.get("windDirText") or "",
       "humidityPct": round(hum, 0),
       "roadLevel": seg.get("roadLevel") or "other",
       "massKg": round(mass_kg, 0),

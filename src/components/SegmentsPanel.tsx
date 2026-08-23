@@ -160,6 +160,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     { key: 'eta_fc', cn: '电堆效率', tip: 'η_fc' },
     { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t' },
     { key: 'm_H2', cn: '氢耗', tip: 'kg = E_fc/(η_fc·LHV)' },
+    { key: 'windSpeedKmh', cn: '风速', tip: 'km/h；≥10.8 计入风阻' },
+    { key: 'windDirText', cn: '风向', tip: '风向（来向）；缺角度/未达阈值则不计风阻' },
   ]
   const [hydroStage, setHydroStage] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   // 载重输入：固定载重（t）或按里程的重量曲线（线性插值到每段）
@@ -453,8 +455,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
           windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
           // 风向 + 段航向 + 是否达风阻阈值：物理模型据此算逆风/顺风分量（缺则不计风阻）
-          windDirDeg: s.windDirDeg ?? null, windAffects: s.windAffects ?? false,
-          headingDeg: segHeadingDeg(s.coordsWgs84),
+          windDirDeg: s.windDirDeg ?? null, windDirText: s.windDirText ?? '',
+          windAffects: s.windAffects ?? false, headingDeg: segHeadingDeg(s.coordsWgs84),
           massKg: Math.round(CURB_KG + loadT * 1000),
           gainM: s.elevationGainM ?? 0,
         }
@@ -558,17 +560,19 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
 
   // 氢耗明细导出 CSV（普通字段 + 深度工况字段）
   const exportHydroCsv = useCallback(() => {
-    const segs = hydroResult?.segments ?? []
+    // both 模式导出 ML 结果；单模式导出当前结果
+    const segs = hydroResult?.model === 'both' ? hydroResult.ml?.segments ?? [] : hydroResult?.segments ?? []
     if (!segs.length) return
     const esc = (v: any): string => {
       const s = v == null ? '' : String(v)
       return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
     }
-    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '温度℃',
+    const header = ['序号', '道路', '等级', '里程km', '均速km/h', '坡度%', '海拔m', '温度℃', '风速km/h', '风向',
       '氢耗kg/km', '氢耗kg', '巡航速度v_p85', '加速能量e_acc', '空阻能量e_aero', '上坡能量e_grade_up',
       '加速度均值absa', '巡航占比cruise', '停车占比stop', '速度波动v_std', '强加速a_p90']
-    const rows = segs.map((s) => [
+    const rows = segs.map((s: any) => [
       s.index, s.roadName ?? '', s.roadLevel ?? '', s.distanceKm, s.avgSpeedKmh, s.gradePercent, s.elevationM, s.temperatureC,
+      s.windSpeedKmh ?? '', s.windDirText ?? '',
       (s.h2_per_km_kg * 100).toFixed(2), s.h2_kg, s.v_p85, s.e_acc, s.e_aero, s.e_grade_up,
       s.absa_mean, s.cruise_ratio, s.stop_ratio, s.v_std, s.a_p90,
     ].map(esc).join(','))
@@ -839,6 +843,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 <th>地形</th>
                 <th>温度 ℃</th>
                 <th>风速 km/h</th>
+                <th>风向</th>
                 <th>湿度 %</th>
                 <th>降水 mm</th>
                 <th>天气</th>
@@ -878,6 +883,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                     className={"mono" + (s.windAffects ? " windy" : "")}
                     title={[s.windDirText ? '风向 ' + s.windDirText : '', s.windAffects ? '风速≥阈值，计入风阻' : ''].filter(Boolean).join(' · ')}
                   >{s.windSpeedKmh != null ? s.windSpeedKmh + (s.windAffects ? ' 💨' : '') : '—'}</td>
+                  <td className="mono" title={s.windDirDeg != null ? '风向角 ' + s.windDirDeg + '°' : ''}>{s.windDirText ? s.windDirText : '—'}</td>
                   <td className="mono">{s.humidityPct != null ? s.humidityPct : '—'}</td>
                   <td className="mono">{s.precipMm != null ? s.precipMm : '—'}</td>
                   <td className="mono">{s.weatherText || '—'}</td>
@@ -994,17 +1000,36 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 </div>
                 {hydroResult.model === 'both' && hydroResult.ml?.segments?.length ? (
                   <div className="hydro-table-wrap">
-                    <div className="hydro-table-head"><span>🤖 机器学习明细（{hydroResult.ml.segments.length} 段）</span></div>
+                    <div className="hydro-table-head">
+                      <span>🤖 机器学习明细（{hydroResult.ml.segments.length} 段）<span className="table-tip">点击表头排序（# = 起点→终点顺序）</span></span>
+                      <button className="btn-export" onClick={exportHydroCsv} disabled={!mlSorted.length}>⬇ 导出 CSV</button>
+                    </div>
                     <div className="hydro-table-scroll">
                       <table className="hydro-table">
-                        <thead><tr>
-                          <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
-                          <th>道路</th><th>等级</th>
-                          <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
-                          <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
-                          <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/100km{sortArrowHydro('h2_per_km_kg')}</th>
-                          <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
-                        </tr></thead>
+                        <thead>
+                          <tr>
+                            <th className="sortable" onClick={() => headerSortHydro('index')}>#（路线顺序）{sortArrowHydro('index')}</th>
+                            <th>道路</th>
+                            <th>等级</th>
+                            <th className="sortable" onClick={() => headerSortHydro('distanceKm')}>里程km{sortArrowHydro('distanceKm')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('avgSpeedKmh')}>均速{sortArrowHydro('avgSpeedKmh')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
+                            <th>风速</th><th>风向</th>
+                            <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
+                            <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
+                            <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
+                            <th className="sortable" title="加速能量/km：每公里用于加速的轮边能量" onClick={() => headerSortHydro('e_acc')}>加速能量 e_acc{sortArrowHydro('e_acc')}</th>
+                            <th className="sortable" title="空气阻力能量/km：每公里撞开空气的轮边能量(∝v³)，高速重卡最大能量项" onClick={() => headerSortHydro('e_aero')}>空阻能量 e_aero{sortArrowHydro('e_aero')}</th>
+                            <th className="sortable" title="上坡能量/km：每公里克服重力爬坡的轮边能量（只计上坡，下坡可回收）" onClick={() => headerSortHydro('e_grade_up')}>上坡能量 e_grade_up{sortArrowHydro('e_grade_up')}</th>
+                            <th className="sortable" title="平均加速度强度(m/s²)：加减速平均幅度，反映驾驶激进程度" onClick={() => headerSortHydro('absa_mean')}>平均加速度 absa{sortArrowHydro('absa_mean')}</th>
+                            <th className="sortable" title="巡航占比：平稳行驶(|a|<0.15)时间占比，高=电堆高效区多=省氢" onClick={() => headerSortHydro('cruise_ratio')}>巡航占比 cruise{sortArrowHydro('cruise_ratio')}</th>
+                            <th className="sortable" title="停车占比：车速<1km/h 时间占比，高=起步频繁+附件时间摊薄=费氢" onClick={() => headerSortHydro('stop_ratio')}>停车占比 stop{sortArrowHydro('stop_ratio')}</th>
+                            <th className="sortable" title="速度标准差(km/h)：速度波动程度，区分均速巡航与走走停停" onClick={() => headerSortHydro('v_std')}>速度波动 v_std{sortArrowHydro('v_std')}</th>
+                            <th className="sortable" title="强加速水平(m/s²)：最猛10%时刻的加速度，捕捉急加速/急刹车" onClick={() => headerSortHydro('a_p90')}>强加速 a_p90{sortArrowHydro('a_p90')}</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           {mlSorted.map((m: any) => (
                             <tr key={m.index}>
@@ -1013,8 +1038,22 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                               <td>{m.roadLevel ? (ROAD_LEVEL_LABEL as Record<string, string>)[m.roadLevel] : '—'}</td>
                               <td className="mono">{m.distanceKm}</td>
                               <td className="mono">{m.avgSpeedKmh}</td>
+                              <td className="mono">{m.gradePercent}</td>
+                              <td className="mono">{m.elevationM}</td>
+                              <td className="mono">{m.temperatureC}</td>
+                              <td className="mono">{m.windSpeedKmh != null ? m.windSpeedKmh : '—'}</td>
+                              <td className="mono">{m.windDirText || '—'}</td>
                               <td className="mono hydro-strong">{(m.h2_per_km_kg * 100).toFixed(2)}</td>
                               <td className="mono">{m.h2_kg}</td>
+                              <td className="mono">{m.v_p85}</td>
+                              <td className="mono">{m.e_acc}</td>
+                              <td className="mono">{m.e_aero}</td>
+                              <td className="mono">{m.e_grade_up}</td>
+                              <td className="mono">{m.absa_mean}</td>
+                              <td className="mono">{m.cruise_ratio}</td>
+                              <td className="mono">{m.stop_ratio}</td>
+                              <td className="mono">{m.v_std}</td>
+                              <td className="mono">{m.a_p90}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1086,6 +1125,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                           <th className="sortable" onClick={() => headerSortHydro('gradePercent')}>坡度%{sortArrowHydro('gradePercent')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('elevationM')}>海拔m{sortArrowHydro('elevationM')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('temperatureC')}>温度℃{sortArrowHydro('temperatureC')}</th>
+                          <th>风速</th><th>风向</th>
                           <th className="sortable" onClick={() => headerSortHydro('h2_per_km_kg')}>氢耗kg/km{sortArrowHydro('h2_per_km_kg')}</th>
                           <th className="sortable" onClick={() => headerSortHydro('h2_kg')}>氢耗kg{sortArrowHydro('h2_kg')}</th>
                           <th className="sortable" title="巡航速度第85分位(km/h)" onClick={() => headerSortHydro('v_p85')}>巡航速度 v_p85{sortArrowHydro('v_p85')}</th>
@@ -1110,6 +1150,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                             <td className="mono">{s.gradePercent}</td>
                             <td className="mono">{s.elevationM}</td>
                             <td className="mono">{s.temperatureC}</td>
+                            <td className="mono">{s.windSpeedKmh != null ? s.windSpeedKmh : '—'}</td>
+                            <td className="mono">{s.windDirText || '—'}</td>
                             <td className="mono hydro-strong">{(s.h2_per_km_kg * 100).toFixed(2)}</td>
                             <td className="mono">{s.h2_kg}</td>
                             <td className="mono">{s.v_p85}</td>

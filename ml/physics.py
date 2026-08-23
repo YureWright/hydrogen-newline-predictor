@@ -123,6 +123,12 @@ def predict_segment(seg):
       "temperatureC": round(T, 1),
       "roadLevel": seg.get("roadLevel") or "other",
       "massKg": round(m, 0),
+      # 风（透传供前端展示）
+      "windSpeedKmh": round(float(_get(seg, "windSpeedKmh", 0.0)), 1),
+      "windDirDeg": seg.get("windDirDeg"),
+      "windDirText": seg.get("windDirText") or "",
+      "windAffects": bool(seg.get("windAffects", False)),
+      "headingDeg": seg.get("headingDeg"),
       # 中间变量
       "v_mps": round(v_mps, 2),
       "rho": round(rho, 4),
