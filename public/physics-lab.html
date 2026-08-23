@@ -210,7 +210,7 @@
         <g id="powerBar">
           <rect x="882" y="24" width="16" height="130" rx="7" fill="#0d1526" stroke="#3a4665"/>
           <rect id="powerFill" x="884" y="128" width="12" height="0" rx="5" fill="#3ae3ff"/>
-          <text x="890" y="172" font-size="10.5" fill="#b6c0d6" text-anchor="middle">P<sub>fc</sub></text>
+          <text x="890" y="172" font-size="10.5" fill="#b6c0d6" text-anchor="middle">P<tspan dy="3" font-size="8" fill="#7e8aa6">fc</tspan></text>
           <text id="powerVal" x="890" y="186" font-size="10.5" fill="#b6c0d6" text-anchor="middle"></text>
         </g>
       </svg>
@@ -401,7 +401,8 @@ function draw(p, r){
   setA("powerFill", "height", fillH);
   setA("powerFill", "y", 128 - fillH);
   setA("powerFill", "fill", r.P_bat < 0 ? "#3ddc97" : "#3ae3ff");
-  svg.getElementById("powerVal").textContent = r.P_fc.toFixed(0) + " kW";
+  var pvEl = svg.getElementById("powerVal");
+  if (pvEl) pvEl.textContent = r.P_fc.toFixed(0) + " kW";
 }
 
 /* ================= 结果渲染 ================= */
@@ -539,8 +540,12 @@ function loop(ts){
   lastTs = ts;
   if (running && currentP && currentR) {
     frac = Math.min(1, frac + dt * speedMul / visDurSec(currentP));
-    render(currentP, currentR);
-    draw(currentP, currentR);
+    try {
+      render(currentP, currentR);
+      draw(currentP, currentR);
+    } catch (e) {
+      console.error("[lab] frame error:", e && e.message || e);
+    }
   }
   requestAnimationFrame(loop);
 }
