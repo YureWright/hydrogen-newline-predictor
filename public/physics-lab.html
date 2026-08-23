@@ -193,16 +193,18 @@
         <text id="flagEnd" x="866" y="262" font-size="11" fill="#ff6072" text-anchor="middle">终点 🏁</text>
         <!-- 卡车：原点=后轮-前轮中点的触地点 -->
         <g id="truck">
-          <circle id="w1" cx="20" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
+          <!-- 轮子：挂车轮(左) + 中桥 + 牵引车轮(右)，触地线=local y=0 -->
+          <circle id="w1" cx="22" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
           <circle id="w2" cx="46" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
-          <circle id="w3" cx="72" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
+          <circle id="w3" cx="70" cy="-9" r="9" fill="#0a0f1c" stroke="#c9d4ea" stroke-width="2.5"/>
           <rect id="frame" x="6" y="-16" width="84" height="8" rx="2" fill="#2b3a5c" stroke="#8fa3c8" stroke-width="1.2"/>
-          <rect id="cab" x="4" y="-40" width="30" height="24" rx="4" fill="#31436b" stroke="#9fb3d6" stroke-width="1.5"/>
-          <rect id="box" x="36" y="-46" width="56" height="32" rx="4" fill="#1d2a47" stroke="#8fa3c8" stroke-width="1.5"/>
-          <rect id="boxRoof" x="38" y="-50" width="30" height="5" rx="2" fill="#3ae3ff" opacity=".85"/>
-          <text id="truckLabel" x="46" y="-24" font-size="12" fill="#c9d4ea" text-anchor="middle">H₂</text>
+          <!-- 挂车厢（左）+ 驾驶室（右=车头，朝右行驶） -->
+          <rect id="box" x="4" y="-46" width="50" height="32" rx="4" fill="#1d2a47" stroke="#8fa3c8" stroke-width="1.5"/>
+          <rect id="boxRoof" x="6" y="-50" width="26" height="5" rx="2" fill="#3ae3ff" opacity=".85"/>
+          <rect id="cab" x="56" y="-40" width="30" height="24" rx="4" fill="#31436b" stroke="#9fb3d6" stroke-width="1.5"/>
+          <text id="truckLabel" x="29" y="-24" font-size="12" fill="#c9d4ea" text-anchor="middle">H₂</text>
           <!-- 载重压痕（悬挂压缩示意） -->
-          <line id="squat" x1="12" y1="-15" x2="88" y2="-15" stroke="#ffb547" stroke-width="2.5" opacity="0"/>
+          <line id="squat" x1="10" y1="-15" x2="86" y2="-15" stroke="#ffb547" stroke-width="2.5" opacity="0"/>
         </g>
         <!-- 动力条 -->
         <g id="powerBar">
@@ -233,7 +235,7 @@
         <div class="ml-note">公式与 <code>ml/physics.py</code> 完全一致：四阻力 → P<sub>wheel</sub> → P<sub>drive</sub>（驱动 /η<sub>mt</sub>、再生 ×η<sub>mt</sub>）→ P<sub>fc</sub>/P<sub>bat</sub> 削峰 → m<sub>H₂</sub>=E<sub>fc</sub>/(η<sub>fc</sub>·LHV)。</div>
       </div>
       <div class="res">
-        <h4>🤖 机器学习对比 <span class="tag">后端模型 · 需 dev server</span></h4>
+        <h4>🤖 机器学习对比 <span class="tag">后端模型 · 需 dev server</span><button class="btn" id="mlRetry" style="margin-left:auto;padding:2px 10px;font-size:11px">🔄 重试</button></h4>
         <div class="metrics" id="mlMetrics"><div class="metric"><b>—</b><span>等待后端…</span></div></div>
         <table>
           <thead><tr><th>输出</th><th class="v">数值</th></tr></thead>
@@ -335,8 +337,8 @@ function physics(p){
 var svg = $id("stage");
 var NS = "http://www.w3.org/2000/svg";
 function setA(id, attr, val){ var el = svg.getElementById(id); if (el) el.setAttribute(attr, val); }
-var ROAD_X0 = 100, ROAD_X1 = 860, ROAD_Y0 = 280;
-var SLOPE_PX = 6; // 坡度显示夸张系数：1% → 6px
+var ROAD_X0 = 100, ROAD_X1 = 860, ROAD_Y0 = 205;
+var SLOPE_PX = 14; // 坡度显示夸张系数：1% → 14px（±10% 时路面端点落在 65~345，刚好在视口内）
 var frac = 0, running = true, speedMul = 1, lastTs = 0;
 
 function roadY(x, g){
@@ -383,7 +385,7 @@ function draw(p, r){
   var x = ROAD_X0 + (ROAD_X1 - ROAD_X0) * frac;
   var cy = roadY(x, p.g);          // 路面 y
   var surf = cy;                    // 触地点=路面线
-  var ang = Math.atan2(-slopePx, ROAD_X1 - ROAD_X0) * 180 / Math.PI;
+  var ang = Math.atan2(slopePx, ROAD_X1 - ROAD_X0) * 180 / Math.PI; // SVG 正角=顺时针：上坡右端高→负角=车头翘起
   var g = svg.getElementById("truck");
   g.setAttribute("transform", "translate(" + x + "," + surf + ") rotate(" + ang + ")");
   // 载重 → 悬挂压缩（车身下沉，轮子贴地不动）
@@ -473,7 +475,7 @@ function callML(p){
   var body = { segments: [seg], departureTime: new Date().toISOString().slice(0,16), model: "ml" };
   if (location.protocol === "file:") {
     $id("mlBadge").className = "badge";
-    $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">单独打开本文件时无后端：请通过 dev server（项目内 /physics-lab.html）打开即可对比机器学习。</td></tr>';
+    $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">当前是「双击文件」打开（file://），没有后端接口。<br>请改用本项目 dev server 打开：启动 <code>npm run dev</code> 后访问 <code>http://localhost:5174/physics-lab.html</code>。</td></tr>';
     $id("mlMetrics").innerHTML = '<div class="metric"><b>—</b><span>ML 需后端</span></div>';
     return;
   }
@@ -484,7 +486,7 @@ function callML(p){
     }).then(function(resp){ return resp.json(); }).then(function(j){
       $id("mlBadge").className = "badge on";
       if (!j.ok || !j.segments || !j.segments.length) {
-        $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">后端返回异常：' + (j.msg || "未知错误") + '</td></tr>';
+        $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">后端返回异常：' + (j.msg || "未知错误") + '<br>可点「🔄 重试」；若持续失败，检查 dev server 终端报错（模型加载/依赖）。</td></tr>';
         $id("mlMetrics").innerHTML = '<div class="metric"><b>—</b><span>ML 不可用</span></div>';
         return;
       }
@@ -502,7 +504,7 @@ function callML(p){
       $id("mlNote").textContent = "ML 用两辆 H49 实车数据训练（工况合成 + HistGB），与物理模型互为交叉验证：一致→可信，差异大→检查输入（坡度/载重/温度）。";
     }).catch(function(e){
       $id("mlBadge").className = "badge";
-      $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">后端未连接（请通过 dev server 打开本页再试）：' + (e && e.message || "") + '</td></tr>';
+      $id("mlTable").innerHTML = '<tr><td colspan="2" class="ml-err">调用后端失败：' + (e && e.message || e) + '<br>请确认是通过 dev server 打开（http://localhost:5174/physics-lab.html），可点「🔄 重试」。</td></tr>';
       $id("mlMetrics").innerHTML = '<div class="metric"><b>—</b><span>ML 不可用</span></div>';
     });
   }, 300);
@@ -561,6 +563,7 @@ $id("playBtn").addEventListener("click", function(){
   $id("playBtn").textContent = running ? "⏸ 暂停" : "▶ 播放";
 });
 $id("resetBtn").addEventListener("click", function(){ frac = 0; lastTs = 0; });
+$id("mlRetry").addEventListener("click", function(){ if (currentP) { callML(currentP); } });
 $id("speedBtn").addEventListener("click", function(){
   speedMul = speedMul === 1 ? 2 : speedMul === 2 ? 4 : 1;
   $id("speedBtn").textContent = speedMul + "×";
