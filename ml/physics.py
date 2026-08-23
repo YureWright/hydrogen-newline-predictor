@@ -4,10 +4,11 @@
   {distanceKm, avgSpeedKmh, gradePercent, elevationM, temperatureC,
    windSpeedKmh, windDirDeg, windAffects, headingDeg, humidityPct, roadLevel, massKg, gainM,
    sigmaKmh?（段内速度波动，可选；缺省按道路等级+均速估算，用于 F_aero 的 E[v²] 修正）,
+   stopCount?（期望停车次数，缺省 0；>0 时计入启停动能净损耗 + 停车附件耗电）, stopSecondsPer?（单次停车 s，缺省 30）, etaRegen?（再生回收比例，缺省 0.30）,
    车辆参数 override（可选，前端车型预设）: crr, cd, frontArea, eta_mt, p_fc_min, p_fc_max,
                                               p_bat_max, eta_fc, p_aux0, k_t, p_aux_min, p_aux_max}
 计算：四阻力（含 cos(θ) 与 σ 修正）→ 总力 → 轮边功率 → 驱动电功率(驱动/再生方向不同)
-     → 电堆/电池削峰 → 电堆效率 → 氢耗
+     → 电堆/电池削峰 → 启停能耗（动能净损耗 + 停车附件）→ 电堆效率 → 氢耗
 输出：每段含全部中间变量（英文 key，中文名见 VAR_CN）+ 总计
 参考：docs/物理氢耗模型_设计方案.html（§4 四阻力 / §5 动力总成 / 附录 A 伪代码 / 附录 B 手算工作簿）
 """
@@ -40,6 +41,10 @@ P_AUX0 = 3.0       # 附件基础功率 kW（20℃）
 K_T = 0.15         # 附件温度系数 kW/℃
 P_AUX_MIN, P_AUX_MAX = 2.0, 8.0
 
+# ---------------- 启停能耗参数（2026-08-23 新增：启停按期望次数计入） ----------------
+ETA_REGEN = 0.30          # 再生制动回收比例（重卡城市启停典型：机械制动为主，约回收 30%）
+T_STOP_S_DEFAULT = 30.0   # 单次停车时长默认 s（前端按行为类型传 stopSecondsPer 覆盖）
+
 # ---------------- 中间变量中文名（前端直接展示用） ----------------
 VAR_CN = {
   "v_mps": "车速 m/s",
@@ -59,9 +64,16 @@ VAR_CN = {
   "eta_fc": "电堆效率",
   "E_fc": "电堆电能 kWh",
   "m_H2": "氢耗 kg",
+  "N_stops": "期望停车次数",
+  "t_stop_total_h": "停车总时长 h",
+  "E_stop_ke_kwh": "启停动能净损耗 kWh",
+  "E_stop_idle_kwh": "停车附件耗电 kWh",
+  "E_stop_kwh": "启停附加电能 kWh",
+  "m_H2_stop": "启停附加氢耗 kg",
 }
 VAR_ORDER = ["v_mps", "sigma_kmh", "rho", "F_roll", "F_aero", "F_grade", "F_acc", "F_total",
-             "P_wheel", "P_aux", "P_drive", "P_fc", "P_bat", "t_h", "eta_fc", "E_fc", "m_H2"]
+             "P_wheel", "P_aux", "P_drive", "P_fc", "P_bat", "t_h", "eta_fc", "E_fc", "m_H2",
+             "N_stops", "t_stop_total_h", "E_stop_ke_kwh", "E_stop_idle_kwh", "E_stop_kwh", "m_H2_stop"]
 
 def _get(seg, key, default):
     v = seg.get(key)
@@ -147,10 +159,28 @@ def predict_segment(seg):
         P_fc = p_fc_min                                # 下坡/减速再生：电堆最低稳定运行（附件电由电堆烧氢出，回收电全部充电池）；避免关停-重启损耗，也不会「白拿」回收电
     P_bat = max(-p_bat_max, min(p_bat_max, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±限幅；超限部分由机械制动耗散
 
+    # ---- L2b 启停能耗（启停按期望次数计入；stopCount=0 时恒为 0，回到纯匀速巡航）----
+    # 输入：stopCount=段内期望停车次数（前端 expectedStopCount，含收费站/红绿灯/匝道/转弯 + 背景路口密度）；
+    #      stopSecondsPer=单次停车时长 s（前端按行为类型估计）；etaRegen=再生回收比例。
+    N_stops = max(0.0, float(_get(seg, "stopCount", 0.0)))
+    t_stop_s = max(0.0, float(_get(seg, "stopSecondsPer", T_STOP_S_DEFAULT)))
+    eta_regen = float(_get(seg, "etaRegen", ETA_REGEN))
+    # 单次启停动能：加速注入 ½·δ·m·v²（经电机传动链损耗需 /η_mt）；制动时回收 ½·δ·m·v²·η_regen·η_mt（机械→电链路损耗）。
+    # 净电耗 = KE/η_mt − KE·η_regen·η_mt = KE·(1/η_mt − η_regen·η_mt)
+    ke_j = 0.5 * DELTA * m * v_mps * v_mps                        # J
+    E_stop_ke_kwh = N_stops * ke_j * (1.0 / eta_mt - eta_regen * eta_mt) / 3.6e6
+    # 停车等待：附件功率持续消耗；电堆最低稳定运行（富余功率充电池，避免关停-重启损耗）
+    P_aux_stop = max(p_aux_min, min(p_aux_max, p_aux0 + k_t * abs(T - 20.0)))
+    P_fc_stop = max(p_fc_min, P_aux_stop)
+    t_stop_total_h = N_stops * t_stop_s / 3600.0
+    E_stop_idle_kwh = P_fc_stop * t_stop_total_h
+    E_stop_kwh = E_stop_ke_kwh + E_stop_idle_kwh                 # 启停附加电能 kWh（电堆侧）
+    m_H2_stop = (E_stop_kwh / (eta_fc * LHV)) if eta_fc > 0 else 0.0
+
     # ---- L4/L5 效率与氢耗 ----
-    t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时
+    t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时（纯行驶时长）
     # eta_fc already read in the vehicle-params block above (default ETA_FC)
-    E_fc = P_fc * t_h                                 # kWh
+    E_fc = P_fc * t_h + E_stop_kwh                    # kWh（巡航电堆电能 + 启停附加）
     m_H2 = (E_fc / (eta_fc * LHV)) if eta_fc > 0 else 0.0
 
     return {
@@ -189,6 +219,12 @@ def predict_segment(seg):
       "E_fc": round(E_fc, 2),
       "m_H2": round(m_H2, 4),
       # 结果（与 ML 输出同字段，方便前端复用）
+      "N_stops": round(N_stops, 2),
+      "t_stop_total_h": round(t_stop_total_h, 4),
+      "E_stop_ke_kwh": round(E_stop_ke_kwh, 4),
+      "E_stop_idle_kwh": round(E_stop_idle_kwh, 4),
+      "E_stop_kwh": round(E_stop_kwh, 4),
+      "m_H2_stop": round(m_H2_stop, 4),
       "h2_per_km_kg": round(m_H2 / L, 4) if L > 0 else 0,
       "h2_per_100km_kg": round(m_H2 / L * 100.0, 2) if L > 0 else 0,
       "h2_kg": round(m_H2, 3),

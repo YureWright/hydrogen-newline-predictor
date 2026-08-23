@@ -130,6 +130,7 @@
         <span class="val" id="lvv">高速</span>
         <span class="unit">（影响速度波动 σ）</span>
       </div>
+      <div class="row"><label>停车次数</label><input type="range" id="stops" min="0" max="20" step="1" value="0" /><span class="val" id="stopsv">0</span><span class="unit">次（启停 + 怠速）</span></div>
     </div>
 
     <div class="panel">
@@ -158,6 +159,8 @@
           <div class="f"><span>附件基础功率 (kW)</span><input type="number" id="pAux0" step="0.5" value="3" /></div>
           <div class="f"><span>附件温度系数 (kW/℃)</span><input type="number" id="kT" step="0.05" value="0.15" /></div>
           <div class="f"><span>整备质量 (t)</span><input type="number" id="curb" step="0.1" value="9.7" /></div>
+          <div class="f"><span>单次停车时长 (s)</span><input type="number" id="stopS" step="1" value="30" /></div>
+          <div class="f"><span>再生回收比例 η<sub>regen</sub></span><input type="number" id="etaRegen" step="0.05" value="0.3" /></div>
         </div>
       </details>
     </div>
@@ -259,6 +262,9 @@ var PRESETS = {
          pFcMin:9, pFcMax:54, pBatMax:30, etaFc:0.5, pAux0:2.5, kT:0.15, gvwKg:4500 }
 };
 var RHO0 = 1.225, G = 9.8066, LHV = 33.3;
+var DELTA = 1.05;            // 旋转质量换算系数
+var ETA_REGEN = 0.30;        // 再生制动回收比例（重卡城市启停典型）
+var T_STOP_S_DEFAULT = 30;   // 单次停车默认 s
 var LV_SIGMA = { highway:0.05, expressway:0.05, national:0.10, provincial:0.10, city:0.20, other:0.20 };
 var LV_LABEL = { highway:"高速", national:"国道", provincial:"省道", city:"城市道路", other:"其他" };
 
@@ -291,6 +297,9 @@ function readParams(){
     pFcMax: num("pFcMax") || veh.pFcMax, pBatMax: num("pBatMax") || veh.pBatMax,
     etaFc: num("etaFc") || veh.etaFc, pAux0: num("pAux0") || veh.pAux0, kT: num("kT") || veh.kT,
     pAuxMin: 2, pAuxMax: 8,
+    stops: Math.max(0, Math.round(num("stops") || 0)),
+    stopSecondsPer: Math.max(1, num("stopS") || T_STOP_S_DEFAULT),
+    etaRegen: (num("etaRegen") != null && num("etaRegen") > 0) ? num("etaRegen") : ETA_REGEN,
     loadT: loadT, vehName: veh.name
   };
 }
@@ -321,15 +330,29 @@ function physics(p){
   else if (P_drive > 0) P_fc = p.pFcMin;
   else P_fc = p.pFcMin;
   var P_bat = Math.max(-p.pBatMax, Math.min(p.pBatMax, P_drive - P_fc));
+  // ---- L2b 启停能耗（与 ml/physics.py 逐公式一致；stopCount=0 恒为 0，回到纯匀速巡航）----
+  var N_stops = Math.max(0, p.stops || 0);
+  var t_stop_s = Math.max(1, p.stopSecondsPer || T_STOP_S_DEFAULT);
+  var eta_regen = (p.etaRegen != null) ? p.etaRegen : ETA_REGEN;
+  var ke_j = 0.5 * DELTA * p.massKg * v_mps * v_mps;                       // 单次启停动能 J
+  var E_stop_ke_kwh = N_stops * ke_j * (1 / p.etaMt - eta_regen * p.etaMt) / 3.6e6; // 净电耗（注入/η_mt，回收×η_mt）
+  var P_aux_stop = Math.max(p.pAuxMin, Math.min(p.pAuxMax, p.pAux0 + p.kT * Math.abs(p.T - 20)));
+  var P_fc_stop = Math.max(p.pFcMin, P_aux_stop);                          // 停车：电堆最低稳定运行
+  var t_stop_total_h = N_stops * t_stop_s / 3600;
+  var E_stop_idle_kwh = P_fc_stop * t_stop_total_h;                        // 停车附件/怠速耗电
+  var E_stop_kwh = E_stop_ke_kwh + E_stop_idle_kwh;
+  var m_H2_stop = E_stop_kwh / (p.etaFc * LHV);
   var t_h = p.L / p.v;
-  var E_fc = P_fc * t_h;
+  var E_fc = P_fc * t_h + E_stop_kwh;                                      // 巡航电堆电能 + 启停附加
   var m_H2 = E_fc / (p.etaFc * LHV);
   var per100 = m_H2 / p.L * 100;
   return {
     v_mps:v_mps, rho:rho, sigmaKmh:sigmaKmh, headWindMps:head_wind, vEffMps:v_eff,
     F_roll:F_roll, F_aero:F_aero, F_grade:F_grade, F_total:F_total,
     P_wheel:P_wheel, P_aux:P_aux, P_drive:P_drive, P_fc:P_fc, P_bat:P_bat,
-    t_h:t_h, E_fc:E_fc, m_H2:m_H2, per100:per100
+    t_h:t_h, E_fc:E_fc, m_H2:m_H2, per100:per100,
+    N_stops:N_stops, t_stop_total_h:t_stop_total_h,
+    E_stop_ke_kwh:E_stop_ke_kwh, E_stop_idle_kwh:E_stop_idle_kwh, E_stop_kwh:E_stop_kwh, m_H2_stop:m_H2_stop
   };
 }
 
@@ -422,7 +445,7 @@ function render(p, r){
     ["百公里氢耗", fmt(r.per100,2) + " kg/100km"],
     ["电堆功率 P<sub>fc</sub>", fmt(r.P_fc,1) + " kW"],
     ["电池功率 P<sub>bat</sub>", fmt(r.P_bat,1) + " kW"],
-    ["行驶时长", fmt(r.t_h,2) + " h"]
+    ["行驶时长(含停车)", fmt(r.t_h + r.t_stop_total_h,2) + " h"]
   ];
   $id("phyMetrics").innerHTML = m.map(function(x){ return '<div class="metric"><b>' + x[1] + '</b><span>' + x[0] + '</span></div>'; }).join("");
   var rows = [
@@ -437,6 +460,11 @@ function render(p, r){
     ["附件功率 P<sub>aux</sub>", fmt(r.P_aux,2), "kW"],
     ["驱动电功率 P<sub>drive</sub>", fmt(r.P_drive,1), "kW"],
     ["电堆电能 E<sub>fc</sub>", fmt(r.E_fc,2), "kWh"],
+    ["期望停车次数 N", fmt(r.N_stops,0), "次"],
+    ["停车总时长", fmt(r.t_stop_total_h,3), "h"],
+    ["启停动能净损耗", fmt(r.E_stop_ke_kwh,3), "kWh"],
+    ["停车附件耗电", fmt(r.E_stop_idle_kwh,3), "kWh"],
+    ["启停附加氢耗", fmt(r.m_H2_stop,4), "kg"],
     ["等效风速（相对车头）", fmt(r.headWindMps,2), "m/s"]
   ];
   $id("phyTable").innerHTML = rows.map(function(x){ return '<tr><td>' + x[0] + '</td><td class="v">' + x[1] + ' ' + x[2] + '</td></tr>'; }).join("");
@@ -469,6 +497,7 @@ function callML(p){
     index: 0, roadName: "仿真路段", distanceKm: p.L, avgSpeedKmh: p.v, gradePercent: p.g,
     elevationM: p.H, temperatureC: p.T, windSpeedKmh: p.windSpeedKmh,
     windDirDeg: p.windDirDeg, windDirText: p.windText, windAffects: p.windAffects,
+    stopCount: p.stops || 0, stopSecondsPer: p.stopSecondsPer || T_STOP_S_DEFAULT,
     headingDeg: p.headingDeg, humidityPct: 60, roadLevel: p.roadLevel,
     durationH: p.v > 0 ? p.L / p.v : 0, massKg: Math.round(p.massKg),
     gainM: p.L * 10 * p.g
@@ -551,7 +580,7 @@ function loop(ts){
 }
 
 /* ================= 控件绑定 ================= */
-["L","v","g","H","T","W","Wd","lv","load"].forEach(function(id){
+["L","v","g","H","T","W","Wd","lv","load","stops"].forEach(function(id){
   $id(id).addEventListener("input", function(){
     var val = $id(id).value;
     var out = $id(id + "v");
@@ -559,7 +588,7 @@ function loop(ts){
     frac = 0; lastTs = 0; update();
   });
 });
-["crr","cd","A","etaMt","pFcMin","pFcMax","pBatMax","etaFc","pAux0","kT","curb"].forEach(function(id){
+["crr","cd","A","etaMt","pFcMin","pFcMax","pBatMax","etaFc","pAux0","kT","curb","stopS","etaRegen"].forEach(function(id){
   $id(id).addEventListener("input", function(){ frac = 0; lastTs = 0; update(); });
 });
 $id("veh").addEventListener("change", updateFromVehicle);

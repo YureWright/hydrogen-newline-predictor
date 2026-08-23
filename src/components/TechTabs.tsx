@@ -357,18 +357,21 @@ export function PhysicsTab() {
                 ["海拔 H","elevationM","段中点海拔（m），修正空气密度"],
                 ["温度 T","temperatureC","沿线天气温度（℃），修正附件功耗"],
                 ["总质量 m","massKg","所选车型整备（H49 9700kg / H18 9800kg / H4.5 3700kg）+ 用户输入载重×1000"],
+                ["期望停车次数 N","stopCount","段内收费站/红绿灯/匝道/转弯等停车事件的期望次数之和（概率事件按概率计入，与切分方式无关）"],
               ]} />
             </Sub>
 
-            <Sub title="7.2 计算链路（L2 四阻力 → L3 动力总成 → L4/L5 效率与氢耗）">
-              <p><b>① 四阻力（L2）</b>：滚动 / 空气 / 坡度 / 加速（匀速巡航 a=0，加速度项为 0）：</p>
+            <Sub title="7.2 计算链路（L2 四阻力 → L2b 启停能耗 → L3 动力总成 → L4/L5 效率与氢耗）">
+              <p><b>① 四阻力（L2）</b>：滚动 / 空气 / 坡度 / 加速：</p>
               <Tex block math="F_{roll}=C_{rr}\,m\,g,\quad F_{aero}=\tfrac12\rho(H)\,C_d A\,v^2,\quad F_{grade}=m\,g\sin\theta,\quad F_{acc}=\delta m\,a" />
               <Tex block math="\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}" />
-              <p><b>② 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
+              <p><b>② 启停能耗（L2b，2026-08-23 新增）</b>：路段按<b>期望停车次数 N</b> 计入启停——每次启停加速注入动能 ½δmv²（经电机传动链损耗 ÷η_mt），制动可回收 ½δmv²·η_regen·η_mt（低速城市启停回收低，η_regen=0.30，机械制动为主）；停车等待时附件功率持续消耗、电堆保持最低稳定运行（富余充电池）。N=0（纯巡航段）时该项恒为 0，与旧模型逐位一致：</p>
+              <Tex block math="E_{stop}^{ke}=N\cdot\tfrac12\,\delta\,m\,v^2\left(\tfrac1{\eta_{mt}}-\eta_{regen}\,\eta_{mt}\right),\qquad E_{stop}^{idle}=P_{fc}^{stop}\cdot N\cdot t_{stop},\qquad P_{fc}^{stop}=\max\!\left(P_{fc}^{min},\,P_{aux}(T)\right)" />
+              <p><b>③ 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
               <Tex block math="P_{wheel}=F_{total}\,v,\qquad P_{aux}=\mathrm{clip}\!\left(3+0.15\,|T-20|,\;2,\;8\right)\ \mathrm{kW}" />
               <Tex block math="P_{drive}=\begin{cases}P_{wheel}/\eta_{mt}+P_{aux} & P_{wheel}\ge 0\text{（驱动）}\\ P_{wheel}\,\eta_{mt}+P_{aux} & P_{wheel}&lt;0\text{（再生，链路损耗回收变少）}\end{cases},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 30 & P_{drive}\le 0\text{(再生)}\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />
-              <p><b>③ 效率与氢耗（L4/L5）</b>：行驶时长 → 电堆电能 → 除以（电堆效率 × 氢热值）：</p>
-              <Tex block math="t=\frac{s}{v},\qquad E_{fc}=P_{fc}\,t,\qquad m_{H_2}=\frac{E_{fc}}{\eta_{fc}\,LHV},\qquad \eta_{fc}=0.5,\; LHV=33.3\ \mathrm{kWh/kg}" />
+              <p><b>④ 效率与氢耗（L4/L5）</b>：行驶时长 → 电堆电能（巡航 + 启停附加）→ 除以（电堆效率 × 氢热值）：</p>
+              <Tex block math="t=\frac{s}{v},\qquad E_{fc}=P_{fc}\,t+E_{stop}^{ke}+E_{stop}^{idle},\qquad m_{H_2}=\frac{E_{fc}}{\eta_{fc}\,LHV},\qquad \eta_{fc}=0.5,\; LHV=33.3\ \mathrm{kWh/kg}" />
             </Sub>
 
             <Sub title="7.3 车型预设（海珀特全系）与物理参数">
@@ -457,7 +460,8 @@ export function PhysicsTab() {
               ["电池 P_bat","0","+85.2（放电削峰）","−74.1（充电）"],
               ["氢耗 m_H₂","0.660 kg","1.235 kg","0.144 kg"],
             ]} />
-            <p className="hw-note"><b>合计：2.040 kg / 24 km = 8.50 kg/100km</b>，与 ml/physics.py 逐段完全一致（代码复现同一套公式，含 PR#10 再生回收方向修正）；方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km。</p>
+            <p className="hw-note"><b>合计：2.040 kg / 24 km = 8.50 kg/100km</b>，与 ml/physics.py 逐段完全一致（代码复现同一套公式，含 PR#10 再生回收方向修正）；方向正确：上坡 15.4 &gt; 平路 6.6 &gt; 下坡 2.4 kg/100km。三段的 <b>stopCount=0（纯巡航）</b>，启停项为 0。</p>
+            <p className="hw-note"><b>启停能耗示例（L2b，与 ml/physics.py 一致）</b>：一段 5km 城市道路、40km/h、30t、<b>6 次停车 × 30s</b>（stopCount=6）→ 动能净损耗 E_stop^ke=2.73 kWh（½δmv²×(1/η_mt−η_regen·η_mt)×6）、停车附件 E_stop^idle=1.50 kWh（30kW×0.05h），启停附加氢耗 m_H₂^stop=<b>0.254 kg</b>，比纯巡航段（0.287 kg）高约 88%——这就是"同样均速，走走停停比匀速巡航费氢"的物理来源。</p>
           </Sec>
           <Sec num="11" title="🔜 下一步：物理 + 数据驱动融合模型（待开发）">
             <p className="hw-note">把上面的物理公式换成「可学习的映射」——隐藏层节点就是<b>电堆功率 / 电机功率 / 电池功率 / 附件功率</b>等物理量：输入（天气/路况/载重）先预测这些内部量，再由能量守恒出氢耗。物理保证可解释、数据保证精度（理论锚点：Lei et al. 2025, Theory-Constrained NN, IEEE TVT）。已完成文献调研与初步设计，<b>待开发</b>，详见文档库「物理+数据驱动融合模型 · 初步设计」。</p>

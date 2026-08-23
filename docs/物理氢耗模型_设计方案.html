@@ -417,6 +417,18 @@ td.num,th.num{font-variant-numeric:tabular-nums;text-align:right;font-family:"Je
 <div class="box story"><div class="bt">👵 老奶奶版 · 下坡</div>
 <p class="story-zh">奶奶，下坡就像下楼梯。楼梯不陡的时候你慢慢走还省力；楼梯很陡的时候你不得不一路扶着栏杆（刹车）。"再生回收"就像在楼梯口装了个<b>发电机</b>，下楼梯的力气顺便发了点电。但如果楼下的<b>充电宝已经满了</b>（SOC 高），发电机再发也没地方存，只能让刹车片干磨（机械制动）。所以模型里，回收多少不是拍脑袋，而是看<b>坡度够不够陡 + 电池还有没有空位</b>。</p>
 </div>
+
+<h3>4.5 启停能耗：启停按期望次数计入（2026-08-23 新增）</h3>
+<p>匀速巡航假设在<b>城市 / 收费站 / 路口</b>路段会漏账：起步要把 <span class="mi" data-k="1">	frac12\delta m v^2</span> 的动能"买"进来（经电机传动链损耗需 ÷η_mt），停车等待时附件与电堆最低稳定功率还要持续烧氢。2026-08-23 起，按路段<b>期望停车次数 N</b>（前端 expectedStopCount：收费站 / 红绿灯 / 匝道 / 转弯事件的概率期望 + 背景路口密度）计入启停能耗：</p>
+<div class="eq" data-k="1">E_{stop}^{ke} \;=\; N\cdot	frac12\,\delta\,m\,v^2\left(	frac1{\eta_{mt}}-\eta_{regen}\,\eta_{mt}
+ight),\qquad E_{stop}^{idle} \;=\; P_{fc}^{stop}\,N\,t_{stop},\qquad E_{fc} \;=\; P_{fc}\,t_{cruise}+E_{stop}^{ke}+E_{stop}^{idle}</div>
+<div class="tbl"><table>
+<tr><th>项</th><th>取值 / 说明</th></tr>
+<tr><td><span class="mi" data-k="1">t_{stop}</span></td><td>单次停车时长：收费站 60s / 服务区 40s / 红绿灯 30s / 匝道 20s / 转弯 10s（前端按行为类型估计，可配置；ml/physics.py 默认 30s）</td></tr>
+<tr><td><span class="mi" data-k="1">\eta_{regen}</span></td><td>启停再生回收比例 <b>0.30</b>——低速城市启停回收低、机械制动为主（区别于 4.4 高速下坡回收的 0.6~0.7）</td></tr>
+<tr><td><span class="mi" data-k="1">P_{fc}^{stop}</span></td><td>停车时电堆最低稳定运行 <span class="mi" data-k="1">\max(P_{fc}^{min},\,P_{aux}(T))</span>，富余功率充电池（避免关停-重启损耗）</td></tr>
+<tr><td>回归保证</td><td><b>N=0（纯巡航段）时 E_stop≡0</b>——手算工作簿三路段（附录 B）数字不变（合计 2.040 kg），旧模型是它 N=0 的特例</td></tr>
+</table></div>
 </section>
 <section id="s5">
 <h2><span class="num">5</span>第 3 层 · 动力总成：传动效率 + 附件功耗 + 电池削峰<span class="ln"></span></h2>
@@ -732,7 +744,7 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 │  ③ F_roll = Crr·m·g                               // 滚动
 │  ④ F_aero = ½·ρ·Cd·A·(v̄/3.6)²                    // 空气（含 E[v²] 修正）
 │  ⑤ F_grade = m·g·sin(atan(θ/100))                 // 坡度（上下坡符号不同）
-│  ⑥ F_acc = δ·m·a（匀速段=0）                      // 加速
+│  ⑥ F_acc = δ·m·a（启停按期望次数计入动能项）      // 加速（N=0 时为 0）
 │  ⑦ F = F_roll+F_aero+F_grade+F_acc；P_wheel=F·v̄/3.6
 │  ⑧ P_drive = P_wheel/η_mt + P_aux(T)              // 附件温度耦合
 │  ⑨ P_fc = clamp(P_drive, 30, 180)                 // 电堆高效区削峰
@@ -755,7 +767,7 @@ SOC 偏高（λ 小）→ 电堆 70kW + 电池放 80kW（多用电池电）。<b
 <tr><td>2</td><td>高速上坡</td><td>8 km</td><td>70 km/h</td><td>5 km/h</td><td>+3%</td><td>170 m（爬升 240m）</td><td>30℃</td><td>同</td></tr>
 <tr><td>3</td><td>高速下坡</td><td>6 km</td><td>75 km/h</td><td>2 km/h</td><td>−2%</td><td>230 m（下降 120m）</td><td>15℃</td><td>同</td></tr>
 </table></div>
-<p class="lead">σ（速度波动）→ 空气阻力用 E[v²]=v̄²+σ² 修正；海拔 H → 空气密度 ρ(H) 修正；温度 T → 附件 P_aux(T) 与电堆效率修正；三段为<b>匀速巡航（a=0）</b>，故 F_acc=0、动能项 Δ(v²)=0——<b>公式照写、代入为 0</b>（若含加速段则非零）。</p>
+<p class="lead">σ（速度波动）→ 空气阻力用 E[v²]=v̄²+σ² 修正；海拔 H → 空气密度 ρ(H) 修正；温度 T → 附件 P_aux(T) 与电堆效率修正；三段为<b>匀速巡航（stopCount=0）</b>，故 F_acc=0、动能项 Δ(v²)=0、启停项 E_stop=0——<b>公式照写、代入为 0</b>（若含加速/启停段则非零，动能按 4.5 计入；示例：5km 城市 40km/h、6 次停车×30s → E_stop^ke=2.73kWh + E_stop^idle=1.50kWh，+0.254 kg 氢，比纯巡航高约 88%）。</p>
 
 <h3>B.0b 通用前置计算（每段先算这 5 个，后面直接引用）</h3>
 <div class="tbl"><table>

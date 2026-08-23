@@ -5,7 +5,20 @@
 
 ---
 
-## 2026-08-23 · 审查 PR#10（物理模型 9 项修复 + 前端多页面改版）
+## 2026-08-23 · 物理模型加入「启停能耗」（L2b，启停按期望次数计入）
+
+| 工作 | 说明 |
+| --- | --- |
+| 触发 | 用户连续拷问 SimLab 与预测物理模型"算不算启动/停车"→ 确认此前纯匀速巡航（F_acc=0、t=s/v），要求按最高标准补上并同步文档 |
+| 模型 | 每段按期望停车次数 N 计入两类能量：① 动能净损耗 E_stop^ke = N·½δmv²·(1/η_mt − η_regen·η_mt)（加速注入 ½δmv²/η_mt、制动回收 ½δmv²·η_regen·η_mt）；② 停车附件/怠速 E_stop^idle = P_fc^stop·N·t_stop（P_fc^stop=max(P_fc^min, P_aux(T))，电堆最低稳定运行）；E_fc = P_fc·t + E_stop^ke + E_stop^idle |
+| 参数 | η_regen=0.30（低速城市启停回收低、机械制动为主；区别于设计文档 §4.4 高速下坡回收 0.6~0.7）；单次停车时长按行为类型：收费站 60s / 服务区 40s / 红绿灯 30s / 匝道 20s / 转弯 10s，默认 30s |
+| 输入链路 | 前端 slim payload 新增 `stopCount`（expectedStopCount 权威口径）+ `stopSecondsPer`（按段主导行为类型估计）→ /api/predict-hydrogen → ml/physics.py |
+| 回归保证 | **stopCount=0 时 E_stop≡0**：手算工作簿三路段（附录 B）合计 2.040 kg / 8.50 kg/100km 逐位不变（已实测）；新增中间变量 6 个（N_stops/t_stop_total_h/E_stop_ke_kwh/E_stop_idle_kwh/E_stop_kwh/m_H2_stop），物理表 19→25 列 |
+| SimLab | physics-lab.html 同步同公式 + 「停车次数」滑杆（0~20）+ 高级参数「单次停车时长/再生回收比例」，与后端逐公式一致；ML 对比请求也带上启停输入 |
+| 文档同步 | 技术原理 §7.1（输入表+N）/§7.2（L2b 公式，重编号 ①②③④）/§7.4（启停示例 5km 城市 6 次停车 → +0.254kg，高约 88%）；README（21 个中间变量/启停行/手算说明/25 列，修正"暂忽略 σ"旧表述）；设计文档 §4.5 新增 + 伪代码⑥注释 + 附录 B 说明；WORKLOG 本条 |
+| 验证 | physics.py 回归（N=0 → 2.040kg 不变）+ 带启停用例数值手算复核一致；tsc --noEmit + vite build 通过 |
+
+
 
 | 工作 | 说明 |
 | --- | --- |

@@ -6,6 +6,19 @@ import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Chart
 import MarkdownLight from './MarkdownLight'
 import HydrogenHowItWorks from './HydrogenHowItWorks'
 
+/** 单次停车时长估计（s）：按段主导行为类型——收费站最久、路口/匝道/转弯依次递减；巡航/背景路口取 30s。
+ * 传给物理模型做「停车附件/怠速耗电」与启停动能项（ml/physics.py stopSecondsPer）。 */
+function stopSecondsFor(s: SegmentData): number {
+  switch (s.motionBehavior) {
+    case 'toll': return 60          // 收费站（人工/ETC）
+    case 'serviceArea': return 40   // 服务区
+    case 'intersection': return 30  // 红绿灯路口
+    case 'ramp': return 20          // 高速匝道并线
+    case 'turn': return 10          // 急转弯
+    default: return 30              // 背景路口/偶发停车
+  }
+}
+
 interface DemInfo { z: number; tiles: number; source: string }
 interface OsmInfo { queries: number; coveredKm: number; fallbackKm: number }
 /** 天气抓取状态：必须上屏，否则"全线天气没抓到"和"这段恰好没数据"在界面上长得一模一样 */
@@ -231,7 +244,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     { key: 'F_roll', cn: '滚动阻力', tip: 'N = Crr·m·g·cos(θ)（陡坡时略降）' },
     { key: 'F_aero', cn: '空气阻力', tip: 'N = ½ρCdA·(v_eff²+σ²)；逆风为正/顺风为负' },
     { key: 'F_grade', cn: '坡度阻力', tip: 'N = m·g·sinθ（上坡正/下坡负）' },
-    { key: 'F_acc', cn: '加速阻力', tip: 'N = δ·m·a（匀速巡航段=0，接口预留）' },
+    { key: 'F_acc', cn: '加速阻力', tip: 'N = δ·m·a；段内启停按期望次数 N 计入动能项（见「启停动能净损耗」列）' },
     { key: 'F_total', cn: '总驱动力', tip: 'N = 四力之和' },
     { key: 'P_wheel', cn: '轮边功率', tip: 'kW = F·v（负=下坡回收）' },
     { key: 'P_aux', cn: '附件功率', tip: 'kW（随温度 T）' },
@@ -240,8 +253,14 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     { key: 'P_bat', cn: '电池功率', tip: 'kW（正=放电，负=充电，±P_bat_max 限幅）' },
     { key: 't_h', cn: '行驶时长', tip: 'h = s/v̄' },
     { key: 'eta_fc', cn: '电堆效率', tip: 'η_fc' },
-    { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t' },
-    { key: 'm_H2', cn: '氢耗', tip: 'kg = E_fc/(η_fc·LHV)' },
+    { key: 'E_fc', cn: '电堆电能', tip: 'kWh = P_fc·t + E_stop（含启停附加电能）' },
+    { key: 'm_H2', cn: '氢耗', tip: 'kg = E_fc/(η_fc·LHV)（含启停附加）' },
+    { key: 'N_stops', cn: '期望停车次数', tip: '段内收费站/红绿灯/匝道/转弯停车事件的期望次数之和（概率事件按概率计入，与切分方式无关）' },
+    { key: 't_stop_total_h', cn: '停车总时长', tip: 'h = N × 单次停车时长（收费站60s/路口30s/匝道20s/转弯10s）' },
+    { key: 'E_stop_ke_kwh', cn: '启停动能净损耗', tip: 'kWh = N·½δmv²(1/η_mt − η_regen·η_mt)；加速注入 ½δmv²/η_mt，制动回收 ½δmv²·η_regen·η_mt' },
+    { key: 'E_stop_idle_kwh', cn: '停车附件耗电', tip: 'kWh = P_fc^stop·N·t_stop，P_fc^stop=max(P_fc^min, P_aux(T))（电堆最低稳定运行，富余充电池）' },
+    { key: 'E_stop_kwh', cn: '启停附加电能', tip: 'kWh = E_stop_ke + E_stop_idle' },
+    { key: 'm_H2_stop', cn: '启停附加氢耗', tip: 'kg = E_stop_kwh/(η_fc·LHV)' },
     { key: 'windSpeedKmh', cn: '风速 km/h', tip: 'km/h；≥10.8 计入风阻' },
     { key: 'windDirText', cn: '风向', tip: '风向（来向）；缺角度/未达阈值则不计风阻' },
   ]
@@ -545,6 +564,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           windAffects: s.windAffects ?? false, headingDeg: segHeadingDeg(s.coordsWgs84),
           massKg: Math.round(vehicle.curbKg + loadT * 1000),
           gainM: s.elevationGainM ?? 0,
+          // 启停能耗输入：期望停车次数（expectedStopCount 权威口径）+ 单次停车时长（按行为类型）
+          stopCount: Math.max(0, expectedStopCount(s)),
+          stopSecondsPer: stopSecondsFor(s),
           // 车辆/物理参数：物理模型按所选车型逐段计算（ML 只用 massKg，忽略其余车参数）
           crr: vehicle.crr, cd: vehicle.cd, frontArea: vehicle.frontArea, eta_mt: vehicle.etaMt,
           p_fc_min: vehicle.pFcMin, p_fc_max: vehicle.pFcMax, p_bat_max: vehicle.pBatMax,
