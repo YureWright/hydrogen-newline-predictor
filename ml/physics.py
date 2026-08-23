@@ -71,6 +71,17 @@ def predict_segment(seg):
     H = float(_get(seg, "elevationM", 100.0))
     T = float(_get(seg, "temperatureC", 20.0))
     m = float(_get(seg, "massKg", 30000.0))          # 前端已算：整备 9700 + 载重×1000
+    # ---- vehicle/physical params (default H49; per-segment override from frontend) ----
+    crr       = float(_get(seg, "crr", CRR))
+    cd        = float(_get(seg, "cd", CD))
+    a_front   = float(_get(seg, "frontArea", A))
+    eta_mt    = float(_get(seg, "eta_mt", ETA_MT))
+    p_fc_min  = float(_get(seg, "p_fc_min", P_FC_MIN))
+    p_fc_max  = float(_get(seg, "p_fc_max", P_FC_MAX))
+    p_bat_max = float(_get(seg, "p_bat_max", P_BAT_MAX))
+    eta_fc    = float(_get(seg, "eta_fc", ETA_FC))
+    p_aux0    = float(_get(seg, "p_aux0", P_AUX0))
+    k_t       = float(_get(seg, "k_t", K_T))
     # 风：windSpeedKmh 是风速标量(≥0)，方向在 windDirDeg（来向，北=0 顺时针）；
     # 逆风分量 = 风速×cos(风来向 − 车头航向)，顺风为负。缺方向/未达阈值(windAffects=false)则不计风阻，
     # 避免把标量风速当成纯逆风而系统性高估。
@@ -87,8 +98,8 @@ def predict_segment(seg):
         head_wind_mps = 0.0
     v_eff = v_mps + head_wind_mps                     # 等效空气相对速度（逆风为正，顺风为负）
     rho = RHO0 * (1 - 2.25577e-5 * H) ** 4.25588     # 海拔空气密度
-    F_roll = CRR * m * G
-    F_aero = 0.5 * rho * CD * A * v_eff * abs(v_eff)  # 风阻：逆风增阻，顺风减阻（保号）
+    F_roll = crr * m * G
+    F_aero = 0.5 * rho * cd * a_front * v_eff * abs(v_eff)  # 风阻：逆风增阻，顺风减阻（保号）
     theta = math.atan(grade / 100.0)                  # 坡度 %
     F_grade = m * G * math.sin(theta)                 # 上坡正 / 下坡负
     F_acc = 0.0                                       # 匀速巡航 a=0（接口预留）
@@ -96,20 +107,20 @@ def predict_segment(seg):
 
     # ---- L3 动力总成 ----
     P_wheel = F_total * v_mps / 1000.0                # kW（负=下坡回收）
-    P_aux = max(P_AUX_MIN, min(P_AUX_MAX, P_AUX0 + K_T * abs(T - 20.0)))
-    P_drive = P_wheel / ETA_MT + P_aux
+    P_aux = max(P_AUX_MIN, min(P_AUX_MAX, p_aux0 + k_t * abs(T - 20.0)))
+    P_drive = P_wheel / eta_mt + P_aux
 
-    if P_drive >= P_FC_MIN:
-        P_fc = min(P_FC_MAX, P_drive)                 # 正常驱动：电堆供电，超出高效区由电池补
+    if P_drive >= p_fc_min:
+        P_fc = min(p_fc_max, P_drive)                 # 正常驱动：电堆供电，超出高效区由电池补
     elif P_drive > 0:
-        P_fc = P_FC_MIN                               # 低速/怠速（0<P_drive<P_fc_min）：电堆最低稳定运行（避免关停-重启损耗），富余充电池
+        P_fc = p_fc_min                               # 低速/怠速（0<P_drive<P_fc_min）：电堆最低稳定运行（避免关停-重启损耗），富余充电电池
     else:
-        P_fc = P_FC_MIN                               # 下坡/减速再生：电堆最低稳定运行（附件电由电堆烧氢出，回收电全部充电池）；避免关停-重启损耗，也不会“白拿”回收电
-    P_bat = max(-P_BAT_MAX, min(P_BAT_MAX, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±150kW 限幅；超限部分由机械制动耗散
+        P_fc = p_fc_min                                # 下坡/减速再生：电堆最低稳定运行（附件电由电堆烧氢出，回收电全部充电池）；避免关停-重启损耗，也不会「白拿」回收电
+    P_bat = max(-p_bat_max, min(p_bat_max, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±限幅；超限部分由机械制动耗散
 
     # ---- L4/L5 效率与氢耗 ----
     t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时
-    eta_fc = ETA_FC                                    # 简化（可扩展极化曲线/温度修正）
+    # eta_fc already read in the vehicle-params block above (default ETA_FC)
     E_fc = P_fc * t_h                                 # kWh
     m_H2 = (E_fc / (eta_fc * LHV)) if eta_fc > 0 else 0.0
 
@@ -160,6 +171,19 @@ def main():
         print(json.dumps({"ok": False, "msg": "JSON 解析失败: " + str(e)}, ensure_ascii=False)); return
     segs = payload.get("segments") or []
     out = [predict_segment(s) for s in segs]
+    # echo which vehicle params were actually used (first segment override or defaults)
+    def _sp(key, default):
+        for s in segs:
+            v = s.get(key)
+            if v is not None:
+                return v
+        return default
+    vehicle_used = {
+        "crr": _sp("crr", CRR), "cd": _sp("cd", CD), "frontArea": _sp("frontArea", A),
+        "eta_mt": _sp("eta_mt", ETA_MT), "p_fc_min": _sp("p_fc_min", P_FC_MIN), "p_fc_max": _sp("p_fc_max", P_FC_MAX),
+        "p_bat_max": _sp("p_bat_max", P_BAT_MAX), "eta_fc": _sp("eta_fc", ETA_FC),
+        "p_aux0": _sp("p_aux0", P_AUX0), "k_t": _sp("k_t", K_T),
+    }
     total_kg = sum(s["h2_kg"] for s in out)
     total_km = sum(s["distanceKm"] for s in out)
     print(json.dumps({
@@ -168,6 +192,7 @@ def main():
         "per100km_kg": round(total_kg / (total_km / 100.0), 2) if total_km > 0 else 0,
         "var_cn": VAR_CN,
         "var_order": VAR_ORDER,
+        "vehicle": vehicle_used,
         "segments": out,
     }, ensure_ascii=False))
 

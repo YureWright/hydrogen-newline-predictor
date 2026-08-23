@@ -72,8 +72,71 @@ type Stage = 'idle' | 'running' | 'done' | 'error'
 
 /** 模块级常量：无数据时的稳定空数组引用（见下方 segments 的说明） */
 const EMPTY_SEGMENTS: SegmentData[] = []
-/** H49 整备质量 kg（官方自重 <10t，取 9.7t） */
-const CURB_KG = 9700
+/** 海珀特全系车型预设（H49 / H18 / H4.5）——官网规格优先；官网未公布参数按同族常规值估算（诚实标注，可手动修正） */
+interface VehicleParams {
+  id: string
+  name: string
+  brief: string
+  curbKg: number
+  gvwKg: number
+  crr: number
+  cd: number
+  frontArea: number
+  etaMt: number
+  pFcMin: number
+  pFcMax: number
+  pBatMax: number
+  etaFc: number
+  pAux0: number
+  kT: number
+  fcKw?: number
+  batKwh?: number
+  officialH2?: string
+  note?: string
+}
+const H49_PRESET: VehicleParams = {
+  id: 'h49', name: 'H49 · 49t 半挂牵引车（干线物流）',
+  brief: '300kW 燃料电池 · 75kWh 电池 · 风阻 0.35 · 满载 49t 高速 7.1kg/100km',
+  curbKg: 9700, gvwKg: 49000,
+  crr: 0.009, cd: 0.35, frontArea: 7.5, etaMt: 0.9,
+  pFcMin: 30, pFcMax: 180, pBatMax: 150, etaFc: 0.5, pAux0: 3, kT: 0.15,
+  fcKw: 300, batKwh: 75, officialH2: '7.1（满载高速）',
+  note: '官网规格：300kW 燃料电池、75kWh 电池、风阻系数 0.35、整备 <10t（取 9.7t）；电堆 [10%,60%] 高效区与电池 ±2C 限幅沿用设计文档',
+}
+const H18_PRESET: VehicleParams = {
+  id: 'h18', name: 'H18 · 18t 燃料电池厢式运输车（城际）',
+  brief: '120kW 燃料电池 · 50kWh 电池 · 整备 <9.8t · 官耗 <5.5kg/100km',
+  curbKg: 9800, gvwKg: 18000,
+  crr: 0.009, cd: 0.55, frontArea: 8.5, etaMt: 0.9,
+  pFcMin: 12, pFcMax: 72, pBatMax: 100, etaFc: 0.5, pAux0: 3, kT: 0.15,
+  fcKw: 120, batKwh: 50, officialH2: '<5.5（满载）',
+  note: '官网规格：120kW 燃料电池、50kWh 电池、整备 <9.8t、最高车速 89km/h、最大爬坡 32%；Cd/迎风面积官网未公布，按厢式货车常规值估算（外廓 2.54×3.95m，迎风面取 8.5m²），可在下方手动修正',
+}
+const H45_PRESET: VehicleParams = {
+  id: 'h45', name: 'H4.5 · 4.5t 燃料电池冷藏车（冷链配送）',
+  brief: '80/90kW 燃料电池 · 14.9kWh 电池 · 整备 3.7t · 官耗 <3.10kg/100km',
+  curbKg: 3700, gvwKg: 4500,
+  crr: 0.009, cd: 0.55, frontArea: 6.0, etaMt: 0.9,
+  pFcMin: 9, pFcMax: 54, pBatMax: 30, etaFc: 0.5, pAux0: 2.5, kT: 0.15,
+  fcKw: 90, batKwh: 14.9, officialH2: '<3.10（满载）',
+  note: '官网规格：80/90kW 燃料电池、14.9kWh 电池、整备 3.7t、最高车速 90km/h、最大爬坡 23%；Cd/迎风面积官网未公布，按冷藏厢式车常规值估算，可在下方手动修正',
+}
+const VEHICLE_PRESETS: VehicleParams[] = [H49_PRESET, H18_PRESET, H45_PRESET]
+
+/** 车型高级参数输入框（通用小部件：label + number + 单位，悬停有解释） */
+function VehicleField({ label, unit, value, min, max, step, tip, onChange }: {
+  label: string; unit: string; value: number; min?: number; max?: number; step?: number; tip: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <label className="vehicle-field" title={tip}>
+      <span>{label}</span>
+      <input type="number" min={min} max={max} step={step} value={Number.isFinite(value) ? value : 0}
+             onChange={(e) => onChange(Number(e.target.value) || 0)} />
+      <em>{unit}</em>
+    </label>
+  )
+}
 
 /** 段行进航向角（0~360，北=0 顺时针）：取折线首尾两点的大圆方位角，供物理模型算逆风分量。
  *  坐标为 WGS-84 [lng,lat]；点数不足返回 null（物理模型据此不计风向）。 */
@@ -168,6 +231,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   const [massMode, setMassMode] = useState<'fixed' | 'curve'>('fixed')
   const [fixedLoadT, setFixedLoadT] = useState(30)
   const [weightPoints, setWeightPoints] = useState<Array<{ km: number; loadT: number }>>([{ km: 0, loadT: 30 }])
+  // 车型选择：海珀特全系预设 + 高级参数可调（整备/阻力/电堆/电池/附件等）
+  const [vehicle, setVehicle] = useState<VehicleParams>(H49_PRESET)
+  const [showVehicleAdvanced, setShowVehicleAdvanced] = useState(false)
   const loadTAtKm = useCallback((km: number) => {
     // 阶梯语义：载重在整个区间内是定值，只有在「装卸货关键点」处突变。
     // 段中点里程落在 [该点km, 下一点km) 区间 → 用该点的载重。
@@ -180,6 +246,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     }
     return load
   }, [massMode, fixedLoadT, weightPoints])
+  // 该车型最大载重 t（GVW − 整备）；切换车型时自动收窄，超限输入会夹到上限
+  const maxLoadT = Math.max(0, (vehicle.gvwKg - vehicle.curbKg) / 1000)
   const [hydroResult, setHydroResult] = useState<{
     total_h2_kg?: number; per100km_kg?: number; model?: string;
     ml?: any; physics?: any;
@@ -457,8 +525,12 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           // 风向 + 段航向 + 是否达风阻阈值：物理模型据此算逆风/顺风分量（缺则不计风阻）
           windDirDeg: s.windDirDeg ?? null, windDirText: s.windDirText ?? '',
           windAffects: s.windAffects ?? false, headingDeg: segHeadingDeg(s.coordsWgs84),
-          massKg: Math.round(CURB_KG + loadT * 1000),
+          massKg: Math.round(vehicle.curbKg + loadT * 1000),
           gainM: s.elevationGainM ?? 0,
+          // 车辆/物理参数：物理模型按所选车型逐段计算（ML 只用 massKg，忽略其余车参数）
+          crr: vehicle.crr, cd: vehicle.cd, frontArea: vehicle.frontArea, eta_mt: vehicle.etaMt,
+          p_fc_min: vehicle.pFcMin, p_fc_max: vehicle.pFcMax, p_bat_max: vehicle.pBatMax,
+          eta_fc: vehicle.etaFc, p_aux0: vehicle.pAux0, k_t: vehicle.kT,
         }
       })
       const r = await fetch('/api/predict-hydrogen', {
@@ -473,7 +545,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
       if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
     }
-  }, [data, departureTime, hydroModel, loadTAtKm])
+  }, [data, departureTime, hydroModel, loadTAtKm, vehicle])
 
   // 活跃结果（both 模式用物理模型 segments 画折线）
   const activeHydro = useMemo<typeof hydroResult>(() => {
@@ -926,6 +998,75 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                 </select>
               </div>
             </div>
+            <div className="mass-input vehicle-input">
+              <div className="mass-head">
+                <span className="mass-label">🚛 车型选择（海珀特全系）</span>
+                <select value={vehicle.id} onChange={(e) => {
+                  const v = VEHICLE_PRESETS.find((x) => x.id === e.target.value)
+                  if (!v) return
+                  setVehicle(v)
+                  const maxL = Math.max(0, (v.gvwKg - v.curbKg) / 1000)
+                  setFixedLoadT((t) => Math.min(t, Math.round(maxL * 10) / 10))
+                  setWeightPoints((pts) => pts.map((pt) => ({ ...pt, loadT: Math.min(pt.loadT, Math.round(maxL * 10) / 10) })))
+                }}>
+                  {VEHICLE_PRESETS.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
+              <div className="vehicle-brief">
+                <div className="vehicle-brief-line">{vehicle.brief}</div>
+                <div className="vehicle-chips">
+                  <span>整备 {(vehicle.curbKg / 1000).toFixed(1)} t</span>
+                  <span>燃料电池 {vehicle.fcKw} kW</span>
+                  <span>电池 {vehicle.batKwh} kWh</span>
+                  <span>风阻 Cd {vehicle.cd}</span>
+                  <span>官耗 {vehicle.officialH2} kg/100km</span>
+                </div>
+                {vehicle.id !== 'h49' && (
+                  <div className="hydro-warn">⚠️ 机器学习模型用两辆 H49 实车数据训练：切到「{vehicle.name}」后 ML 只能按质量近似外推，建议以「物理模型 / 双引擎对比」为准。</div>
+                )}
+                {vehicle.note && <div className="vehicle-note">📌 {vehicle.note}</div>}
+                <button className="vehicle-toggle" onClick={() => setShowVehicleAdvanced(!showVehicleAdvanced)}>
+                  {showVehicleAdvanced ? '▾ 收起高级参数' : '▸ 调整车辆参数（高级）'}
+                </button>
+                {showVehicleAdvanced && (
+                  <div className="vehicle-grid">
+                    <VehicleField label="整备质量" unit="t" step={0.1} min={1} value={Math.round(vehicle.curbKg / 100) / 10}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, curbKg: Math.round(v * 1000) }))}
+                                  tip="车辆空载质量（不含货物/氢气），切换车型自动更新" />
+                    <VehicleField label="滚动阻力系数 Crr" unit="" step={0.001} min={0.001} value={vehicle.crr}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, crr: v }))}
+                                  tip="轮胎-路面滚动阻力系数，重载卡车典型 0.008~0.012" />
+                    <VehicleField label="风阻系数 Cd" unit="" step={0.01} min={0.1} value={vehicle.cd}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, cd: v }))}
+                                  tip="空气阻力系数；牵引车流线型≈0.35，厢式/冷藏车≈0.5~0.6" />
+                    <VehicleField label="迎风面积 A" unit="m²" step={0.1} min={1} value={vehicle.frontArea}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, frontArea: v }))}
+                                  tip="正投影面积；厢式车约宽×高×0.85" />
+                    <VehicleField label="电机+传动效率 η_mt" unit="" step={0.01} min={0.5} max={0.98} value={vehicle.etaMt}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, etaMt: v }))}
+                                  tip="驱动链效率（电机+减速/传动），典型 0.85~0.93" />
+                    <VehicleField label="电堆最低功率" unit="kW" step={1} min={0} value={vehicle.pFcMin}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, pFcMin: v }))}
+                                  tip="电堆最低稳定运行功率（约额定×10%），避免关停-重启损耗" />
+                    <VehicleField label="电堆最高功率" unit="kW" step={1} min={0} value={vehicle.pFcMax}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, pFcMax: v }))}
+                                  tip="电堆高效区上限（约额定×60%），超出部分由电池削峰" />
+                    <VehicleField label="电池功率限幅" unit="kW" step={1} min={0} value={vehicle.pBatMax}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, pBatMax: v }))}
+                                  tip="电池充/放电最大功率（容量×2C 持续），超限由机械制动耗散" />
+                    <VehicleField label="电堆效率 η_fc" unit="" step={0.01} min={0.1} max={0.7} value={vehicle.etaFc}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, etaFc: v }))}
+                                  tip="燃料电池系统效率（含 BOP；H49 官方 >55%，取 0.5 保守）" />
+                    <VehicleField label="附件基础功率" unit="kW" step={0.5} min={0} value={vehicle.pAux0}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, pAux0: v }))}
+                                  tip="20℃ 时附件功耗（气泵/转向/低压电子/冷机等）" />
+                    <VehicleField label="附件温度系数" unit="kW/℃" step={0.05} min={0} value={vehicle.kT}
+                                  onChange={(v) => setVehicle((prev) => ({ ...prev, kT: v }))}
+                                  tip="附件功耗随 |T−20℃| 的变化率（空调制冷/PTC 制热等）" />
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="mass-input">
               <div className="mass-head">
                 <span className="mass-label">⚖️ 载重输入</span>
@@ -936,9 +1077,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
               </div>
               {massMode === 'fixed' ? (
                 <div className="mass-row">
-                  <input type="number" min={0} max={40} step={1} value={fixedLoadT}
-                         onChange={(e) => setFixedLoadT(Math.max(0, Math.min(40, Number(e.target.value) || 0)))} />
-                  <span>吨（总质量 ≈ {(9.7 + fixedLoadT).toFixed(1)} t）</span>
+                  <input type="number" min={0} max={Math.max(maxLoadT, 0.1)} step={1} value={fixedLoadT}
+                         onChange={(e) => setFixedLoadT(Math.max(0, Math.min(maxLoadT, Number(e.target.value) || 0)))} />
+                  <span>吨（总质量 ≈ {((vehicle.curbKg / 1000) + fixedLoadT).toFixed(1)} t）</span>
                 </div>
               ) : (
                 <div className="mass-curve">
@@ -947,8 +1088,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                       <input type="number" min={0} placeholder="里程 km" value={p.km}
                              onChange={(e) => { const n = [...weightPoints]; n[i] = { ...n[i], km: Math.max(0, Number(e.target.value) || 0) }; setWeightPoints(n) }} />
                       <span className="mass-unit">km</span>
-                      <input type="number" min={0} max={40} placeholder="载重 t" value={p.loadT}
-                             onChange={(e) => { const n = [...weightPoints]; n[i] = { ...n[i], loadT: Math.max(0, Math.min(40, Number(e.target.value) || 0)) }; setWeightPoints(n) }} />
+                      <input type="number" min={0} max={Math.max(maxLoadT, 0.1)} placeholder="载重 t" value={p.loadT}
+                             onChange={(e) => { const n = [...weightPoints]; n[i] = { ...n[i], loadT: Math.max(0, Math.min(maxLoadT, Number(e.target.value) || 0)) }; setWeightPoints(n) }} />
                       <span className="mass-unit">t</span>
                       <button className="mass-del" title="删除该关键点"
                               onClick={() => setWeightPoints(weightPoints.filter((_, j) => j !== i))}>✕</button>
@@ -999,8 +1140,8 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
                   <div className="hydro-metric"><b>{activeHydro?.per100km_kg?.toFixed(2)}</b><span>物理 百公里 kg/100km</span></div>
                   <div className="hydro-metric"><b>{segments.length}</b><span>路段数</span></div>
                 </div>
-                <div className="hydro-note">💡 物理模型按能量守恒：总氢耗 = 电堆电能/(电堆效率×氢热值)，含滚动/空气/坡度阻力与附件功耗；已按载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）、海拔、温度参与计算。{hydroResult.model === 'both' ? '与机器学习对比：一致则互相印证，差异大请检查输入。' : '红线标记为高耗路段（超过 8 kg/100km 或均值 1.5 倍）。'}</div>
-                <div className="hydro-src-note"><b>物理模型参数：</b>Crr=0.009 · Cd=0.35 · A=7.5m² · η_mt=0.9 · P_fc∈[30,180]kW · η_fc=0.5 · LHV=33.3 kWh/kg（详见技术原理 / 设计文档）</div>
+                <div className="hydro-note">💡 物理模型按能量守恒：总氢耗 = 电堆电能/(电堆效率×氢热值)，含滚动/空气/坡度阻力与附件功耗；已按车型「{vehicle.name}」、载重（{massMode === 'fixed' ? fixedLoadT + ' t' : '重量曲线'}）、海拔、温度参与计算。{hydroResult.model === 'both' ? '与机器学习对比：一致则互相印证，差异大请检查输入。' : '红线标记为高耗路段（超过 8 kg/100km 或均值 1.5 倍）。'}</div>
+                <div className="hydro-src-note"><b>物理模型参数（{vehicle.name}）：</b>Crr={vehicle.crr} · Cd={vehicle.cd} · A={vehicle.frontArea}m² · η_mt={vehicle.etaMt} · P_fc∈[{vehicle.pFcMin},{vehicle.pFcMax}]kW · P_bat≤{vehicle.pBatMax}kW · η_fc={vehicle.etaFc} · LHV=33.3 kWh/kg（详见技术原理 / 设计文档）</div>
                 <div className="hydro-chart">
                   <LineAreaChartMemo series={hydroSeries ?? undefined} points={hydroPts} color="#3ddc97" yLabel="每公里氢耗" unit="kg/100km" markers={hydroMarkers} />
                 </div>

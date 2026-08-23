@@ -960,6 +960,21 @@ body::before {
 .mass-add:hover { border-color: var(--cyan); }
 .mass-tip { font-size: 11px; color: var(--txt-3); margin-top: 2px; }
 
+/* 车型选择（海珀特全系预设 + 高级参数） */
+.vehicle-input { border-color: rgba(58,227,255,.28); }
+.vehicle-brief { display: flex; flex-direction: column; gap: 7px; }
+.vehicle-brief-line { font-size: 12.5px; color: var(--cyan); font-weight: 600; line-height: 1.5; }
+.vehicle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vehicle-chips span { font-size: 11.5px; color: var(--txt-2); background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 9px; }
+.vehicle-note { font-size: 11px; color: var(--txt-3); line-height: 1.6; }
+.vehicle-toggle { align-self: flex-start; background: transparent; border: 1px dashed var(--line-2); color: var(--cyan); border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.vehicle-toggle:hover { border-color: var(--cyan); background: rgba(58,227,255,.06); }
+.vehicle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 4px; }
+.vehicle-field { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); cursor: help; }
+.vehicle-field > span { font-size: 10.5px; color: var(--txt-3); line-height: 1.35; }
+.vehicle-field input { background: var(--bg-3); color: var(--txt); border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 6px; font-size: 12px; width: 100%; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.vehicle-field em { font-style: normal; font-size: 10px; color: var(--txt-3); }
+
 /* 技术原理页：通俗理解块（老奶奶版） */
 .hw-story { margin: 12px 0; padding: 12px 14px; border: 1px solid rgba(164,115,255,.35); border-radius: 10px; background: rgba(164,115,255,.06); font-size: 13px; line-height: 1.85; }
 .hw-story > b { color: #c3aaff; font-size: 13.5px; }
