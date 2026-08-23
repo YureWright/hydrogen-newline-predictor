@@ -50,6 +50,7 @@ interface ReportData {
   destinationName: string
   routes: RouteReport[]
   ai: { text: string; model: string } | null
+  generatedAt: string
 }
 
 interface Props {
@@ -191,22 +192,20 @@ export default function ReportPanel({ origin, destination, originName, destinati
     setPdfBusy(true)
     el.classList.add('capturing')            // 隐藏导出按钮本身，避免进 PDF
     try {
-      await new Promise((r) => setTimeout(r, 900))  // 让 capturing class 生效 + Leaflet 瓦片加载完成
-      // 分块排版：地图/每张曲线/表格/AI 各渲染成完整一块，逐块排进 A4 页面，
-      // 放不下就整块换页（绝不从图片中间切开，避免"图被腰斩"）。
+      await new Promise((r) => setTimeout(r, 1200))
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const pageW = 297, pageH = 210, margin = 10
+      const pageW = 297, pageH = 210, margin = 12
       const usableW = pageW - margin * 2
       const usableH = pageH - margin * 2
       let y = margin
       let pageCount = 1
-      const secSel = '.report-head, .report-map, .report-chart, .report-table-wrap, .report-ai'
+      const secSel = '.report-cover, .report-params, .report-summary-cards, .report-map, .report-chart, .report-cost-bars, .report-table-wrap, .report-top-segs, .report-ai, .report-footer-block'
       const sections = Array.from(el.querySelectorAll<HTMLElement>(secSel))
       for (const sec of sections) {
-        const canvas = await html2canvas(sec, { scale: 2, backgroundColor: '#0d1424', useCORS: true, logging: false })
+        const canvas = await html2canvas(sec, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
         let imgW = usableW
         let imgH = (canvas.height * imgW) / canvas.width
-        if (imgH > usableH) {           // 单块超过一页：整体等比缩小到一页，保持完整不切割
+        if (imgH > usableH) {
           imgH = usableH
           imgW = (canvas.width * imgH) / canvas.height
         }
@@ -216,10 +215,18 @@ export default function ReportPanel({ origin, destination, originName, destinati
           y = margin
         }
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, imgW, imgH, undefined, 'FAST')
-        y += imgH + 6
+        y += imgH + 4
+      }
+      const totalPages = pdf.getNumberOfPages()
+      for (let p = 1; p <= totalPages; p++) {
+        pdf.setPage(p)
+        pdf.setFontSize(8)
+        pdf.setTextColor(160)
+        pdf.text(`第 ${p} / ${totalPages} 页`, pageW - margin, pageH - 4, { align: 'right' })
+        pdf.text('氢能重卡路线氢耗预测系统', margin, pageH - 4)
       }
       pdf.save(`氢耗预测报告_${originName}_${destinationName}.pdf`)
-      pushLog('✅ PDF 已导出（' + pageCount + ' 页，A4 横向，分块排版不切割图片）', 'ok')
+      pushLog('✅ PDF 已导出（' + totalPages + ' 页，A4 横向，白底专业排版）', 'ok')
     } catch (e: any) {
       pushLog('❌ PDF 导出失败：' + ((e && e.message) || String(e)), 'warn')
     } finally {
@@ -300,7 +307,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
         if (aj.ok && aj.text) ai = { text: aj.text, model: aj.model }
       } catch { /* AI 失败不阻断报告 */ }
 
-      setReport({ originName, destinationName, routes: out, ai })
+      setReport({ originName, destinationName, routes: out, ai, generatedAt: new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) })
       setStage('done')
       pushLog('✅ 报告生成完成，可查看图表 / 总表 / AI 推荐，并导出 PDF', 'ok')
     } catch (e: any) {
@@ -379,9 +386,80 @@ export default function ReportPanel({ origin, destination, originName, destinati
 
       {stage === 'done' && report && (
         <div className="report-body">
-          {/* 三路线地图（Leaflet 高德底图，真实地图；PDF 导出用 html2canvas 截取） */}
+          {/* ===== 1. 封面信息区 ===== */}
+          <div className="report-cover">
+            <div className="cover-title">氢能重卡路线综合分析报告</div>
+            <div className="cover-route">{originName} → {destinationName}</div>
+            <div className="cover-meta">
+              <span>生成时间：{report.generatedAt}</span>
+              <span>分析引擎：机器学习 + 物理模型双引擎</span>
+              <span>候选路线：{report.routes.length} 条</span>
+            </div>
+          </div>
+
+          {/* ===== 2. 车辆参数 & 费用假设 ===== */}
+          <div className="report-params">
+            <div className="params-col">
+              <h4>车辆参数</h4>
+              <table className="params-table">
+                <tbody>
+                  <tr><td>整备质量</td><td>{vehicle.curbKg.toLocaleString()} kg</td></tr>
+                  <tr><td>载货质量</td><td>{(fixedLoadT * 1000).toLocaleString()} kg（{fixedLoadT}t）</td></tr>
+                  <tr><td>总质量</td><td>{(vehicle.curbKg + fixedLoadT * 1000).toLocaleString()} kg</td></tr>
+                  <tr><td>滚动阻力系数</td><td>{vehicle.crr}</td></tr>
+                  <tr><td>风阻系数 × 迎风面积</td><td>{vehicle.cd} × {vehicle.frontArea} m²</td></tr>
+                  <tr><td>电堆功率范围</td><td>{vehicle.pFcMin} ~ {vehicle.pFcMax} kW</td></tr>
+                  <tr><td>电堆效率</td><td>{(vehicle.etaFc * 100).toFixed(0)}%</td></tr>
+                  <tr><td>传动效率</td><td>{(vehicle.etaMt * 100).toFixed(0)}%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="params-col">
+              <h4>费用假设</h4>
+              <table className="params-table">
+                <tbody>
+                  <tr><td>氢价</td><td>{A.h2Price} 元/kg</td></tr>
+                  <tr><td>柴油价</td><td>{A.dieselPrice} 元/L</td></tr>
+                  <tr><td>柴油百公里油耗</td><td>{A.dieselL100} L/100km</td></tr>
+                  <tr><td>司机费用</td><td>{A.driverRate} 元/h</td></tr>
+                  <tr><td>其他成本</td><td>{A.otherPerKm} 元/km</td></tr>
+                  <tr><td>燃料费计算</td><td>物理模型氢耗 × 氢价</td></tr>
+                  <tr><td>对比口径</td><td>氢能总费用 vs 柴油总费用</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ===== 3. 路线概览摘要卡片 ===== */}
+          <div className="report-section-title">路线概览</div>
+          <div className="report-summary-cards">
+            {report.routes.map((r, i) => {
+              const isBest = bestRoute && r === bestRoute
+              return (
+                <div key={i} className={'summary-card' + (isBest ? ' card-best' : '')}>
+                  <div className="card-header" style={{ borderColor: ROUTE_COLORS[i] }}>
+                    <span className="card-route" style={{ color: ROUTE_COLORS[i] }}>路线 {i + 1}</span>
+                    {isBest && <span className="card-badge">推荐</span>}
+                  </div>
+                  <div className="card-metrics">
+                    <div className="metric"><span className="metric-val">{r.candidate.distanceKm.toFixed(1)}</span><span className="metric-lbl">里程 km</span></div>
+                    <div className="metric"><span className="metric-val">{r.candidate.durationH.toFixed(1)}</span><span className="metric-lbl">时长 h</span></div>
+                    <div className="metric"><span className="metric-val">{((r.candidate.highwayRatio ?? 0) * 100).toFixed(0)}%</span><span className="metric-lbl">高速占比</span></div>
+                    <div className="metric"><span className="metric-val">{(r.physics?.total_h2_kg ?? 0).toFixed(2)}</span><span className="metric-lbl">物理氢耗 kg</span></div>
+                    <div className="metric"><span className="metric-val">{(r.ml?.total_h2_kg ?? 0).toFixed(2)}</span><span className="metric-lbl">ML氢耗 kg</span></div>
+                    <div className="metric"><span className="metric-val">{r.cost.totalYuan.toFixed(0)}</span><span className="metric-lbl">总费用 元</span></div>
+                  </div>
+                  <div className="card-delta" style={{ color: r.cost.deltaYuan <= 0 ? '#16a34a' : '#dc2626' }}>
+                    较柴油 {r.cost.deltaYuan >= 0 ? '+' : ''}{r.cost.deltaYuan.toFixed(0)} 元
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ===== 4. 三路线地图 ===== */}
+          <div className="report-section-title">路线地图</div>
           <div className="report-map">
-            <h4>🗺️ 三条路线地图</h4>
             <div className="report-map-canvas">
               <MapView
                 routes={report.routes.map((r) => r.candidate)}
@@ -392,9 +470,10 @@ export default function ReportPanel({ origin, destination, originName, destinati
                 stations={[]}
               />
             </div>
-            <p className="report-note">三条候选路线叠加（高德底图）；路线分色显示，绿点起点 / 红点终点。PDF 导出会截取该地图。</p>
           </div>
-          {/* 四条曲线 */}
+
+          {/* ===== 5. 四条曲线 ===== */}
+          <div className="report-section-title">数据曲线</div>
           <div className="report-charts">
             {chart('速度曲线（各段均速 km/h）', '均速', 'km/h', speedSeries)}
             {chart('机器学习氢耗曲线（累计 kg）', '氢耗', 'kg', mlH2Series)}
@@ -402,7 +481,41 @@ export default function ReportPanel({ origin, destination, originName, destinati
             {chart('电堆功率曲线（物理模型，kW）', '电堆功率', 'kW', phPfcSeries)}
           </div>
 
-          {/* 总表 */}
+          {/* ===== 6. 费用对比可视化 ===== */}
+          <div className="report-section-title">费用对比</div>
+          <div className="report-cost-bars">
+            {report.routes.map((r, i) => {
+              const maxCost = Math.max(...report.routes.map((x) => Math.max(x.cost.totalYuan, x.cost.dieselTotalYuan)), 1)
+              return (
+                <div key={i} className="cost-row">
+                  <div className="cost-label" style={{ color: ROUTE_COLORS[i] }}>路线 {i + 1}</div>
+                  <div className="cost-pair">
+                    <div className="cost-bar-wrap">
+                      <span className="cost-type">氢能</span>
+                      <div className="cost-bar">
+                        <div className="cost-fill cost-h2" style={{ width: `${(r.cost.totalYuan / maxCost) * 100}%` }}>
+                          <span className="cost-detail">燃料 {r.cost.fuelYuan.toFixed(0)} + 过路 {r.cost.tollYuan.toFixed(0)} + 司机 {r.cost.driverYuan.toFixed(0)} + 其他 {r.cost.otherYuan.toFixed(0)}</span>
+                        </div>
+                        <span className="cost-total">{r.cost.totalYuan.toFixed(0)} 元</span>
+                      </div>
+                    </div>
+                    <div className="cost-bar-wrap">
+                      <span className="cost-type">柴油</span>
+                      <div className="cost-bar">
+                        <div className="cost-fill cost-diesel" style={{ width: `${(r.cost.dieselTotalYuan / maxCost) * 100}%` }}>
+                          <span className="cost-detail">燃料 {r.cost.dieselYuan.toFixed(0)} + 过路 {r.cost.tollYuan.toFixed(0)} + 司机 {r.cost.driverYuan.toFixed(0)} + 其他 {r.cost.otherYuan.toFixed(0)}</span>
+                        </div>
+                        <span className="cost-total">{r.cost.dieselTotalYuan.toFixed(0)} 元</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ===== 7. 详细数据总表 ===== */}
+          <div className="report-section-title">详细数据总表</div>
           <div className="report-table-wrap">
             <table className="report-table">
               <thead>
@@ -412,7 +525,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
                   <th>时长 h</th>
                   <th>ML 氢耗 kg</th>
                   <th>ML kg/100km</th>
-                  <th>物理 氢耗 kg</th>
+                  <th>物理氢耗 kg</th>
                   <th>物理 kg/100km</th>
                   <th>燃料费 元</th>
                   <th>过路费 元</th>
@@ -444,20 +557,56 @@ export default function ReportPanel({ origin, destination, originName, destinati
                 ))}
               </tbody>
             </table>
-            <p className="report-foot">⭐ = 总费用最低的路线（推荐基线，最终以 AI 综合评估为准）。<b>对比口径：氢能总费用 vs 柴油总费用</b>——柴油总费用 = 柴油燃料（里程 × {A.dieselL100} L/100km × {A.dieselPrice} 元/L）+ 过路费 + 司机 + 其他（后三项两车相同），故「较柴油 ±」= 氢燃料 − 柴油燃料。燃料费按<b>物理模型</b>氢耗 × {A.h2Price} 元/kg；司机 {A.driverRate} 元/h；其他 {A.otherPerKm} 元/km。ML 侧费用可按其氢耗 × {A.h2Price} 估算对比。</p>
+            <p className="report-foot">⭐ = 总费用最低路线。燃料费 = 物理模型氢耗 × {A.h2Price} 元/kg；柴油 = 里程 × {A.dieselL100} L/100km × {A.dieselPrice} 元/L；「较柴油±」= 氢燃料费 − 柴油燃料费。</p>
             {report.routes.some((r) => (r.candidate.tollsYuan ?? 0) <= 0 && (r.candidate.tollDistanceKm ?? 0) > 0) && (
-              <p className="report-warn">⚠️ 高德未返回部分路线的通行费（过路费按 0 计入），实际费用可能更高——请以收费站实收为准。</p>
+              <p className="report-warn">⚠️ 高德未返回部分路线的通行费（过路费按 0 计入），实际费用可能更高。</p>
             )}
           </div>
 
-          {/* AI 推荐 */}
+          {/* ===== 8. 路段氢耗 Top5 ===== */}
+          <div className="report-section-title">各路线氢耗最高路段（Top 5）</div>
+          <div className="report-top-segs">
+            {report.routes.map((r, i) => {
+              const segs = (r.physics?.segments ?? []) as Array<{ roadName?: string; distanceKm: number; h2_kg: number; avgSpeedKmh?: number; gradePercent?: number; P_fc?: number }>
+              const top5 = [...segs].sort((a, b) => (b.h2_kg ?? 0) - (a.h2_kg ?? 0)).slice(0, 5)
+              return (
+                <div key={i} className="top-seg-col">
+                  <h5 style={{ color: ROUTE_COLORS[i] }}>路线 {i + 1}</h5>
+                  <table className="top-seg-table">
+                    <thead><tr><th>路段</th><th>距离 km</th><th>氢耗 kg</th><th>均速 km/h</th><th>坡度 %</th><th>电堆 kW</th></tr></thead>
+                    <tbody>
+                      {top5.map((s, j) => (
+                        <tr key={j}>
+                          <td>{s.roadName || `段${j + 1}`}</td>
+                          <td>{(s.distanceKm ?? 0).toFixed(2)}</td>
+                          <td><b>{(s.h2_kg ?? 0).toFixed(3)}</b></td>
+                          <td>{(s.avgSpeedKmh ?? 0).toFixed(0)}</td>
+                          <td>{(s.gradePercent ?? 0).toFixed(1)}</td>
+                          <td>{(s.P_fc ?? 0).toFixed(1)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ===== 9. AI 推荐 ===== */}
+          <div className="report-section-title">AI 路线推荐</div>
           <div className="report-ai">
-            <h4>🤖 AI 路线推荐</h4>
             {report.ai ? (
               <div className="ai-box"><MarkdownLight text={report.ai.text} /><p className="report-ai-model">模型：{report.ai.model}</p></div>
             ) : (
               <p className="report-note">⚠️ AI 推荐生成失败（可能未配置 DEEPSEEK_API_KEY 或服务超时），请参考上表 ⭐ 最低费用路线。</p>
             )}
+          </div>
+
+          {/* ===== 10. 报告尾页 ===== */}
+          <div className="report-footer-block">
+            <div className="footer-line" />
+            <p>本报告由「氢能重卡路线氢耗预测系统」自动生成，仅供运营规划参考。实际氢耗受驾驶行为、天气变化、车辆状态等因素影响，可能与预测值存在偏差。</p>
+            <p className="footer-meta">生成时间：{report.generatedAt} ｜ 分析引擎：ML + 物理双引擎 ｜ 队伍：氢氢敲醒沉睡的新能源车</p>
           </div>
         </div>
       )}

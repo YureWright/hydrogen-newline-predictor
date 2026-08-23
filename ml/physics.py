@@ -160,28 +160,37 @@ def predict_segment(seg):
     P_bat = max(-p_bat_max, min(p_bat_max, P_drive - P_fc))   # 电池补差（正=放电，负=充电），受±限幅；超限部分由机械制动耗散
 
     # ---- L2b 启停能耗（启停按期望次数计入；stopCount=0 时恒为 0，回到纯匀速巡航）----
-    # 输入：stopCount=段内期望停车次数（前端 expectedStopCount，含收费站/红绿灯/匝道/转弯 + 背景路口密度）；
-    #      stopSecondsPer=单次停车时长 s（前端按行为类型估计）；etaRegen=再生回收比例。
     N_stops = max(0.0, float(_get(seg, "stopCount", 0.0)))
+    N_stops = min(N_stops, L * 10.0)       # 物理约束：不超过 10 次/km（最短停车间距 ~100m）
     t_stop_s = max(0.0, float(_get(seg, "stopSecondsPer", T_STOP_S_DEFAULT)))
     eta_regen = float(_get(seg, "etaRegen", ETA_REGEN))
-    # 单次启停动能：加速注入 ½·δ·m·v²（经电机传动链损耗需 /η_mt）；制动时回收 ½·δ·m·v²·η_regen·η_mt（机械→电链路损耗）。
-    # 净电耗 = KE/η_mt − KE·η_regen·η_mt = KE·(1/η_mt − η_regen·η_mt)
-    ke_j = 0.5 * DELTA * m * v_mps * v_mps                        # J
+    # 有效停车速度：城区走走停停时车不会在两个停车点间加速到段平均速度，
+    # 用一个更低的有效峰值速度计算动能，避免城区短段氢耗虚高。
+    lv_stop_cap = {"city": 30.0, "county": 35.0, "other": 35.0,
+                   "provincial": 50.0, "national": 50.0, "expressway": 70.0, "highway": 80.0}
+    v_stop_cap_mps = lv_stop_cap.get(lv_str, 40.0) / 3.6
+    v_stop_mps = min(v_mps, v_stop_cap_mps)
+    ke_j = 0.5 * DELTA * m * v_stop_mps * v_stop_mps              # J
     E_stop_ke_kwh = N_stops * ke_j * (1.0 / eta_mt - eta_regen * eta_mt) / 3.6e6
-    # 停车等待：附件功率持续消耗；电堆最低稳定运行（富余功率充电池，避免关停-重启损耗）
     P_aux_stop = max(p_aux_min, min(p_aux_max, p_aux0 + k_t * abs(T - 20.0)))
     P_fc_stop = max(p_fc_min, P_aux_stop)
     t_stop_total_h = N_stops * t_stop_s / 3600.0
+    # 停车总时长不超过行驶时长（物理约束：停的时间不该比开的时间还长）
+    t_drive_h = L / v_kmh if v_kmh > 0 else 0.0
+    t_stop_total_h = min(t_stop_total_h, t_drive_h)
     E_stop_idle_kwh = P_fc_stop * t_stop_total_h
-    E_stop_kwh = E_stop_ke_kwh + E_stop_idle_kwh                 # 启停附加电能 kWh（电堆侧）
+    E_stop_kwh = E_stop_ke_kwh + E_stop_idle_kwh
     m_H2_stop = (E_stop_kwh / (eta_fc * LHV)) if eta_fc > 0 else 0.0
 
     # ---- L4/L5 效率与氢耗 ----
-    t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时（纯行驶时长）
-    # eta_fc already read in the vehicle-params block above (default ETA_FC)
-    E_fc = P_fc * t_h + E_stop_kwh                    # kWh（巡航电堆电能 + 启停附加）
+    t_h = L / v_kmh if v_kmh > 0 else 0.0
+    E_fc = P_fc * t_h + E_stop_kwh
     m_H2 = (E_fc / (eta_fc * LHV)) if eta_fc > 0 else 0.0
+    # 物理上限保护：极端城区最恶劣条件下重卡氢耗率不超过 25 kg/100km（文献上限 ~20，留余量）
+    MAX_H2_PER_100KM = 25.0
+    max_h2_for_seg = MAX_H2_PER_100KM * L / 100.0
+    if L > 0 and m_H2 > max_h2_for_seg:
+        m_H2 = max_h2_for_seg
 
     return {
       "index": seg.get("index", 0),
