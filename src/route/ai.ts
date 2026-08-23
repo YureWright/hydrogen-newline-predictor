@@ -108,3 +108,80 @@ export async function evaluateRoute(
   if (!text) throw new Error('AI 返回内容为空：' + JSON.stringify(j).slice(0, 200))
   return { text, model }
 }
+
+/* ================= 报告：三路线对比 + AI 推荐（2026-08-23 新增） ================= */
+
+export interface RouteReportSummary {
+  index: number
+  distanceKm: number
+  durationH: number
+  tollsYuan: number
+  avgSpeedKmh: number
+  highwayRatio: number
+  ml: { totalH2Kg: number; per100kmKg: number }
+  physics: { totalH2Kg: number; per100kmKg: number }
+  cost: {
+    fuelYuan: number; tollYuan: number; driverYuan: number; otherYuan: number
+    totalYuan: number; dieselYuan: number; deltaYuan: number
+  }
+}
+
+export interface RouteRecommendInput {
+  origin: string
+  destination: string
+  routes: RouteReportSummary[]
+}
+
+const RECOMMEND_SYSTEM_PROMPT =
+  '你是氢能重卡运营与成本分析专家，服务于新能源重卡销售决策。' +
+  '给定三条候选路线的里程/时长/过路费/氢耗（机器学习与物理模型双口径）与费用构成（燃料/过路费/司机/其他）及柴油对比，' +
+  '推荐最值得运营的一条路线并说明理由。输出 markdown：先一行结论「推荐路线 X」，再分点列出理由（成本、氢耗、时效、路况风险），' +
+  '最后给出可执行的运营建议（如建议载重/巡航速度/补能点）。总字数控制在 400 字以内，实事求是，不编造数据。'
+
+function buildRecommendPrompt(input: RouteRecommendInput): string {
+  const lines: string[] = []
+  lines.push(`起点 ${input.origin} → 终点 ${input.destination}，共 ${input.routes.length} 条候选路线：`)
+  lines.push('')
+  for (const r of input.routes) {
+    lines.push(`【路线 ${r.index + 1}】`)
+    lines.push(`里程 ${r.distanceKm}km，预计 ${r.durationH}h，均速 ${r.avgSpeedKmh}km/h，高速占比 ${(r.highwayRatio * 100).toFixed(0)}%，过路费 ${r.tollsYuan} 元`)
+    lines.push(`机器学习氢耗 ${r.ml.totalH2Kg.toFixed(2)}kg（${r.ml.per100kmKg.toFixed(2)}kg/100km）；物理模型氢耗 ${r.physics.totalH2Kg.toFixed(2)}kg（${r.physics.per100kmKg.toFixed(2)}kg/100km）`)
+    lines.push(`费用构成：燃料 ${r.cost.fuelYuan.toFixed(0)} 元 + 过路费 ${r.cost.tollYuan.toFixed(0)} + 司机 ${r.cost.driverYuan.toFixed(0)} + 其他 ${r.cost.otherYuan.toFixed(0)} = 合计 ${r.cost.totalYuan.toFixed(0)} 元；柴油对比 ${r.cost.dieselYuan.toFixed(0)} 元，${r.cost.deltaYuan >= 0 ? '比柴油贵' : '比柴油省'} ${Math.abs(r.cost.deltaYuan).toFixed(0)} 元`)
+    lines.push('')
+  }
+  lines.push('请给出推荐路线与原因（注意：两个模型结论不一致时要指出差异与取舍）。')
+  return lines.join('\n')
+}
+
+export async function recommendRoute(
+  input: RouteRecommendInput,
+  config: AiConfig,
+): Promise<{ text: string; model: string }> {
+  const baseUrl = (config.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')
+  const model = config.model || 'deepseek-v4-flash'
+  const r = await fetch(baseUrl + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + config.apiKey,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: RECOMMEND_SYSTEM_PROMPT },
+        { role: 'user', content: buildRecommendPrompt(input) },
+      ],
+      temperature: 0.3,
+      max_tokens: 1200,
+    }),
+    signal: AbortSignal.timeout(60000),
+  })
+  if (!r.ok) {
+    const t = await r.text()
+    throw new Error('AI 请求失败 HTTP ' + r.status + ': ' + t.slice(0, 300))
+  }
+  const j: any = await r.json()
+  const text = j.choices?.[0]?.message?.content ?? ''
+  if (!text) throw new Error('AI 返回内容为空：' + JSON.stringify(j).slice(0, 200))
+  return { text, model }
+}

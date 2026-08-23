@@ -11,7 +11,7 @@ import { enrichSegmentsWithDem } from './src/route/demFetch'
 import { enrichSegmentsWithOsmRoads } from './src/route/osmRoad'
 import { enrichSegmentsWithWeather } from './src/route/weather'
 import { summarizeSegments } from './src/route/segment'
-import { evaluateRoute, getAiConfig } from './src/route/ai'
+import { evaluateRoute, getAiConfig, recommendRoute } from './src/route/ai'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -316,6 +316,22 @@ export default defineConfig({
               if (!candidate || !segments) return send(res, 400, { ok: false, msg: '缺少候选路线/路段数据' })
               try {
                 const r = await evaluateRoute({ origin, destination, candidate, segments, summary }, cfg)
+                return send(res, 200, { ok: true, text: r.text, model: r.model })
+              } catch (e: any) {
+                return send(res, 200, { ok: false, msg: e.message || String(e) })
+              }
+            }
+            if (path === '/ai/recommend' && req.method === 'POST') {
+              let cfg
+              try { cfg = getAiConfig() } catch (e: any) {
+                return send(res, 200, { ok: false, msg: (e.message || e) + '。请在环境变量/.env 中配置 DEEPSEEK_API_KEY' })
+              }
+              let body: any = {}
+              try { body = JSON.parse((await readBody(req)) || '{}') } catch { /* 非法 JSON 按空处理 */ }
+              const { origin, destination, routes } = body
+              if (!Array.isArray(routes) || routes.length < 2) return send(res, 400, { ok: false, msg: '缺少路线对比数据' })
+              try {
+                const r = await recommendRoute({ origin, destination, routes }, cfg)
                 return send(res, 200, { ok: true, text: r.text, model: r.model })
               } catch (e: any) {
                 return send(res, 200, { ok: false, msg: e.message || String(e) })

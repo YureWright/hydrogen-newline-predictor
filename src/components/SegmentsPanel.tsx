@@ -5,6 +5,7 @@ import { ROAD_LEVEL_LABEL, expectedStopCount } from '../route/segment'
 import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Charts'
 import MarkdownLight from './MarkdownLight'
 import HydrogenHowItWorks from './HydrogenHowItWorks'
+import ReportPanel from './ReportPanel'
 
 /** 单次停车时长估计（s）：按段主导行为类型——收费站最久、路口/匝道/转弯依次递减；巡航/背景路口取 30s。
  * 传给物理模型做「停车附件/怠速耗电」与启停动能项（ml/physics.py stopSecondsPer）。 */
@@ -179,15 +180,16 @@ const PHASE_TO_STEP: Record<string, number> = {
   route: 0, dem: 1, 'osm-query': 2, 'osm-match': 2, weather: 3, compute: 4,
 }
 
-type ResultTab = 'overview' | 'table' | 'hydrogen' | 'ai'
+type ResultTab = 'overview' | 'table' | 'hydrogen' | 'ai' | 'report'
 const TAB_LABELS: { key: ResultTab; label: string; icon: string }[] = [
   { key: 'overview', label: '数据概览', icon: '📊' },
   { key: 'table', label: '数据表格', icon: '📋' },
   { key: 'hydrogen', label: '氢耗预测', icon: '⚡' },
   { key: 'ai', label: 'AI 评估', icon: '🤖' },
+{ key: 'report', label: '报告导出', icon: '📄' },
 ]
 
-export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight, onEnterAnalysis, isFullPage }: {
+export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight, onEnterAnalysis, isFullPage, originName, destinationName }: {
   origin: string
   destination: string
   routeIndex: number
@@ -195,6 +197,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
   onHighlight?: (coordsList: Array<Array<[number, number]>>) => void
   onEnterAnalysis?: () => void
   isFullPage?: boolean
+  /** 起终点显示名（报告导出用） */
+  originName?: string
+  destinationName?: string
 }) {
   const [stage, setStage] = useState<Stage>('idle')
   const [resultTab, setResultTab] = useState<ResultTab>('overview')
@@ -1416,6 +1421,18 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           </div>
         )}
       </div>}
+
+      {resultTab === 'report' && (
+        <ReportPanel
+          origin={origin}
+          destination={destination}
+          originName={originName ?? ''}
+          destinationName={destinationName ?? ''}
+          departureTime={departureTime}
+          vehicle={vehicle}
+          fixedLoadT={fixedLoadT}
+        />
+      )}
 
       {resultTab === 'ai' &&
       <div className="ai-card">

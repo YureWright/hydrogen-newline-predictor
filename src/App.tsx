@@ -161,6 +161,8 @@ export default function App() {
           key={`${selected}-${analysisSession}`}
           origin={from!.lng + ',' + from!.lat}
           destination={to!.lng + ',' + to!.lat}
+          originName={from!.name}
+          destinationName={to!.name}
           routeIndex={selected}
           candidate={routes[selected]}
           onHighlight={applyHighlight}
