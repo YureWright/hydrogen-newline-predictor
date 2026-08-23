@@ -2,7 +2,7 @@
 """物理氢耗模型引擎（PhysicsEngine）
 输入：SegmentData（与 ml/predict.py 同一数据接口）
   {distanceKm, avgSpeedKmh, gradePercent, elevationM, temperatureC,
-   windSpeedKmh, humidityPct, roadLevel, massKg, gainM}
+   windSpeedKmh, windDirDeg, windAffects, headingDeg, humidityPct, roadLevel, massKg, gainM}
 计算：四阻力 → 总力 → 轮边功率 → 驱动电功率(含附件) → 电堆/电池削峰 → 电堆效率 → 氢耗
 输出：每段含全部中间变量（英文 key，中文名见 VAR_CN）+ 总计
 参考：docs/物理氢耗模型_设计方案.html（附录 A 伪代码 / 附录 B 手算工作簿）
@@ -64,16 +64,30 @@ def predict_segment(seg):
     """对一段路做物理氢耗计算，返回该段全部中间变量 + 氢耗"""
     L = float(_get(seg, "distanceKm", 5.0))
     v_kmh = float(_get(seg, "avgSpeedKmh", 60.0))
-    grade = float(_get(seg, "gradePercent", 0.0))
+    grade_raw = seg.get("gradePercent")
+    grade_missing = grade_raw is None
+    grade = float(grade_raw) if not grade_missing else 0.0
     H = float(_get(seg, "elevationM", 100.0))
     T = float(_get(seg, "temperatureC", 20.0))
     m = float(_get(seg, "massKg", 30000.0))          # 前端已算：整备 9700 + 载重×1000
+    # 风：windSpeedKmh 是风速标量(≥0)，方向在 windDirDeg（来向，北=0 顺时针）；
+    # 逆风分量 = 风速×cos(风来向 − 车头航向)，顺风为负。缺方向/未达阈值(windAffects=false)则不计风阻，
+    # 避免把标量风速当成纯逆风而系统性高估。
+    w_kmh = float(_get(seg, "windSpeedKmh", 0.0))
+    wind_affects = bool(seg.get("windAffects", False))
+    wind_dir = seg.get("windDirDeg")
+    heading = seg.get("headingDeg")
 
     # ---- L2 阻力 ----
     v_mps = v_kmh / 3.6
+    if wind_affects and w_kmh > 0 and wind_dir is not None and heading is not None:
+        head_wind_mps = (w_kmh / 3.6) * math.cos(math.radians(float(wind_dir) - float(heading)))
+    else:
+        head_wind_mps = 0.0
+    v_eff = v_mps + head_wind_mps                     # 等效空气相对速度（逆风为正，顺风为负）
     rho = RHO0 * (1 - 2.25577e-5 * H) ** 4.25588     # 海拔空气密度
     F_roll = CRR * m * G
-    F_aero = 0.5 * rho * CD * A * v_mps * v_mps       # 用均速（无速度波动 σ 时）
+    F_aero = 0.5 * rho * CD * A * v_eff * abs(v_eff)  # 风阻：逆风增阻，顺风减阻（保号）
     theta = math.atan(grade / 100.0)                  # 坡度 %
     F_grade = m * G * math.sin(theta)                 # 上坡正 / 下坡负
     F_acc = 0.0                                       # 匀速巡航 a=0（接口预留）
@@ -83,16 +97,22 @@ def predict_segment(seg):
     P_wheel = F_total * v_mps / 1000.0                # kW（负=下坡回收）
     P_aux = max(P_AUX_MIN, min(P_AUX_MAX, P_AUX0 + K_T * abs(T - 20.0)))
     P_drive = P_wheel / ETA_MT + P_aux
-    P_fc = max(P_FC_MIN, min(P_FC_MAX, P_drive))      # 电堆削峰
-    P_bat = P_drive - P_fc                            # 电池补差（正=放电，负=充电）
+
+    if P_drive >= P_FC_MIN:
+        P_fc = min(P_FC_MAX, P_drive)                 # 正常驱动：电堆供电，超出高效区由电池补
+        P_bat = P_drive - P_fc
+    elif P_drive > 0:
+        P_fc = P_drive                                # 低功率驱动：电堆跟随，不强拉到最低稳定线
+        P_bat = 0.0
+    else:
+        P_fc = 0.0                                    # 下坡/减速再生：电堆关闭，不消耗氢气
+        P_bat = max(P_drive, -P_FC_MAX)               # 再生回收，电池充电功率受限
 
     # ---- L4/L5 效率与氢耗 ----
     t_h = L / v_kmh if v_kmh > 0 else 0.0             # 小时
     eta_fc = ETA_FC                                    # 简化（可扩展极化曲线/温度修正）
     E_fc = P_fc * t_h                                 # kWh
     m_H2 = (E_fc / (eta_fc * LHV)) if eta_fc > 0 else 0.0
-
-    per100 = m_H2 / L * 100.0 if L > 0 else 0.0
 
     return {
       "index": seg.get("index", 0),
@@ -122,7 +142,9 @@ def predict_segment(seg):
       "m_H2": round(m_H2, 4),
       # 结果（与 ML 输出同字段，方便前端复用）
       "h2_per_km_kg": round(m_H2 / L, 4) if L > 0 else 0,
+      "h2_per_100km_kg": round(m_H2 / L * 100.0, 2) if L > 0 else 0,
       "h2_kg": round(m_H2, 3),
+      "grade_missing": grade_missing,
     }
 
 def main():

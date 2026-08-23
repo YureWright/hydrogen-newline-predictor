@@ -32,7 +32,7 @@ def aggregate(d, mass_key):
     lat=d["lat_纬度"].values/1e6; lon=d["lon_经度"].values/1e6
     t=pd.to_datetime(d.iloc[:,0],errors="coerce").values
     v=d["canData_speed_车速"].astype(float).values/10.0
-    a=d["H49Data_longitudinal_acc_纵向加速度"].astype(float).values
+    a=np.diff(v, prepend=v[0])/3.6/60.0  # 加速度由速度差分得到（H49Data_longitudinal_acc 列实为经度错位）
     g=d["grade_pct"].astype(float).values; e=d["elev_m"].values
     tc=d["temp_c"].astype(float).values; wd=d["wind_kmh"].astype(float).values; hu=d["hum_pct"].astype(float).values
     lv=d["road_level"].values

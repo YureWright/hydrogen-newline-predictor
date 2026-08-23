@@ -75,6 +75,19 @@ const EMPTY_SEGMENTS: SegmentData[] = []
 /** H49 整备质量 kg（官方自重 <10t，取 9.7t） */
 const CURB_KG = 9700
 
+/** 段行进航向角（0~360，北=0 顺时针）：取折线首尾两点的大圆方位角，供物理模型算逆风分量。
+ *  坐标为 WGS-84 [lng,lat]；点数不足返回 null（物理模型据此不计风向）。 */
+function segHeadingDeg(coords?: Array<[number, number]>): number | null {
+  if (!coords || coords.length < 2) return null
+  const [lng1, lat1] = coords[0]
+  const [lng2, lat2] = coords[coords.length - 1]
+  const rad = Math.PI / 180
+  const p1 = lat1 * rad, p2 = lat2 * rad, dl = (lng2 - lng1) * rad
+  const y = Math.sin(dl) * Math.cos(p2)
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
+  return (Math.atan2(y, x) / rad + 360) % 360
+}
+
 const PHASE_TEXT: Record<string, string> = {
   route: '获取路线分段…',
   dem: '下载高程瓦片…',
@@ -439,6 +452,9 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, avgSpeedKmh: s.avgSpeedKmh,
           gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
           windSpeedKmh: s.windSpeedKmh, humidityPct: s.humidityPct, roadLevel: s.roadLevel, durationH: s.durationH,
+          // 风向 + 段航向 + 是否达风阻阈值：物理模型据此算逆风/顺风分量（缺则不计风阻）
+          windDirDeg: s.windDirDeg ?? null, windAffects: s.windAffects ?? false,
+          headingDeg: segHeadingDeg(s.coordsWgs84),
           massKg: Math.round(CURB_KG + loadT * 1000),
           gainM: s.elevationGainM ?? 0,
         }
@@ -455,7 +471,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
       if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
     }
-  }, [data, departureTime, hydroModel])
+  }, [data, departureTime, hydroModel, loadTAtKm])
 
   // 活跃结果（both 模式用物理模型 segments 画折线）
   const activeHydro = useMemo<typeof hydroResult>(() => {
