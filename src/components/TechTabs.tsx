@@ -167,10 +167,9 @@ export function MLTab() {
             </Sub>
             <Sub title="2.6 质量特征：行程级能量平衡反推（ml/mass_est.py）">
               <p>训练数据没有载重列，但有<b>三驱动电机电流/电压</b>（官方换算：电流 offset −1000A、电压 ×0.1，负电流=再生回收）。用<b>整趟行程的能量守恒</b>反推质量——电机输出的驱动电能 = 克服四阻力的功；空调等附件走并联支路、不经驱动电机，天然不进该方程：</p>
-              <Tex block math="E_{drive} = m\,g\sum_i(\sin	heta_i + C_{rr}\cos	heta_i)v_i\Delta t_i + \sum_i	frac12
-ho C_dA v_i^3\Delta t_i" />
-              <Tex block math="\Rightarrow\quad m = rac{E_{drive} - E_{aero}}{g\sum_i(\sin	heta_i + C_{rr}\cos	heta_i)\,v_i\Delta t_i}" />
-              <p>动能项 <Tex math="\sum m a v\Delta t = 	frac12m(v_{end}^2-v_{start}^2)pprox 0" />（起终点速度相近，闭合行程消去）；只在驱动点（P_elec&gt;5kW）积分，随机噪声被整行程平均掉。实测：车辆1 解出 3 趟（中位 32.0t）、车辆2 解出 14 趟（中位 36.1t，范围 11.3~55.5t 覆盖空/满载）；解不出的行程用该车中位填充。系统偏差（η/Crr/CdA 假设 + CAN 换算）用官方锚点（满载 49t）校准。</p>
+              <Tex block math="E_{drive} = m\,g\sum_i(\sin\theta_i + C_{rr}\cos\theta_i)v_i\Delta t_i + \sum_i\frac12\rho\,C_dA\,v_i^3\Delta t_i" />
+              <Tex block math="\Rightarrow\quad m = \frac{E_{drive} - E_{aero}}{g\sum_i(\sin\theta_i + C_{rr}\cos\theta_i)\,v_i\Delta t_i}" />
+              <p>动能项 <Tex math="\sum m a v\Delta t = \frac12m(v_{end}^2-v_{start}^2)\approx 0" />（起终点速度相近，闭合行程消去）；只在驱动点（P_elec&gt;5kW）积分，随机噪声被整行程平均掉。实测：车辆1 解出 3 趟（中位 32.0t）、车辆2 解出 14 趟（中位 36.1t，范围 11.3~55.5t 覆盖空/满载）；解不出的行程用该车中位填充。系统偏差（η/Crr/CdA 假设 + CAN 换算）用官方锚点（满载 49t）校准。</p>
               <p><b>效果</b>：加入质量特征后按行程分组 CV R² 0.378 → <b>0.384</b>（RMSE 0.0483→0.0481）；载重响应方向正确——同一路段满载 49t 预测 6.54、空载 10t 预测 5.79 kg/100km（满载高 13%）。预测时用户输入载重，总质量 = 整备 9.7t + 载重。</p>
               <p><b>为什么不用考虑「氢气变少」</b>：H49 储氢约 56~80 kg（70MPa），占空载总重 &lt;0.8%、满载 &lt;0.2%；跑完 1000km 烧掉约 70kg 氢，总重变化 &lt;1%——比载重差异（10~40t）小两个数量级，动态减重对氢耗的影响可忽略，故质量特征用固定值即可。</p>
             </Sub>
