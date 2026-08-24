@@ -366,6 +366,7 @@ export function PhysicsTab() {
               <Tex block math="\rho(H)=\rho_0\left(1-2.25577\times10^{-5}H\right)^{4.25588},\qquad F_{total}=F_{roll}+F_{aero}+F_{grade}+F_{acc}" />
               <p><b>② 启停能耗（L2b，2026-08-23 新增）</b>：路段按<b>期望停车次数 N</b> 计入启停——每次启停加速注入动能 ½δmv²（经电机传动链损耗 ÷η_mt），制动可回收 ½δmv²·η_regen·η_mt（低速城市启停回收低，η_regen=0.30，机械制动为主）；停车等待时附件功率持续消耗、电堆保持最低稳定运行（富余充电池）。N=0（纯巡航段）时该项恒为 0，与旧模型逐位一致：</p>
               <Tex block math="E_{stop}^{ke}=N\cdot\tfrac12\,\delta\,m\,v^2\left(\tfrac1{\eta_{mt}}-\eta_{regen}\,\eta_{mt}\right),\qquad E_{stop}^{idle}=P_{fc}^{stop}\cdot N\cdot t_{stop},\qquad P_{fc}^{stop}=\max\!\left(P_{fc}^{min},\,P_{aux}(T)\right)" />
+              <p className="hw-note">物理约束（2026-08-24）：① 有效停车速度按道路等级封顶（市区 30 / 县乡 35 / 国省道 50 / 快速 70 / 高速 80 km/h）——城区走走停停时车不会在两停点间加速到段均速，避免动能项虚高；② 停车次数 ≤10 次/km（最短停车间距约 100m）；③ 停车总时长 ≤ 行驶时长；④ 单段氢耗率硬上限 25 kg/100km（文献极端值约 20，留余量）。</p>
               <p><b>③ 动力总成（L3）</b>：轮边功率 → 驱动电功率（含附件与电机传动效率）→ 电堆 / 电池削峰分配：</p>
               <Tex block math="P_{wheel}=F_{total}\,v,\qquad P_{aux}=\mathrm{clip}\!\left(3+0.15\,|T-20|,\;2,\;8\right)\ \mathrm{kW}" />
               <Tex block math="P_{drive}=\begin{cases}P_{wheel}/\eta_{mt}+P_{aux} & P_{wheel}\ge 0\text{（驱动）}\\ P_{wheel}\,\eta_{mt}+P_{aux} & P_{wheel}&lt;0\text{（再生，链路损耗回收变少）}\end{cases},\qquad P_{fc}=\begin{cases}\min(P_{drive},180) & P_{drive}\ge 30\\ 30 & 0&lt;P_{drive}&lt;30\\ 30 & P_{drive}\le 0\text{(再生)}\end{cases}\ \mathrm{kW},\qquad P_{bat}=\mathrm{clip}\!\left(P_{drive}-P_{fc},\,-150,\,150\right)\ \mathrm{kW}" />

@@ -222,8 +222,9 @@ export default function ReportPanel({ origin, destination, originName, destinati
         pdf.setPage(p)
         pdf.setFontSize(8)
         pdf.setTextColor(160)
-        pdf.text(`第 ${p} / ${totalPages} 页`, pageW - margin, pageH - 4, { align: 'right' })
-        pdf.text('氢能重卡路线氢耗预测系统', margin, pageH - 4)
+        // jsPDF 默认字体(helvetica)不支持中文，页脚用 ASCII 避免乱码
+        pdf.text('Page ' + p + ' / ' + totalPages, pageW - margin, pageH - 4, { align: 'right' })
+        pdf.text('Hydrogen Truck Route H2 Prediction System', margin, pageH - 4)
       }
       pdf.save(`氢耗预测报告_${originName}_${destinationName}.pdf`)
       pushLog('✅ PDF 已导出（' + totalPages + ' 页，A4 横向，白底专业排版）', 'ok')

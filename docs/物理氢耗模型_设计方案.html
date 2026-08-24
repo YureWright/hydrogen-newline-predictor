@@ -428,6 +428,7 @@ ight),\qquad E_{stop}^{idle} \;=\; P_{fc}^{stop}\,N\,t_{stop},\qquad E_{fc} \;=\
 <tr><td><span class="mi" data-k="1">\eta_{regen}</span></td><td>启停再生回收比例 <b>0.30</b>——低速城市启停回收低、机械制动为主（区别于 4.4 高速下坡回收的 0.6~0.7）</td></tr>
 <tr><td><span class="mi" data-k="1">P_{fc}^{stop}</span></td><td>停车时电堆最低稳定运行 <span class="mi" data-k="1">\max(P_{fc}^{min},\,P_{aux}(T))</span>，富余功率充电池（避免关停-重启损耗）</td></tr>
 <tr><td>回归保证</td><td><b>N=0（纯巡航段）时 E_stop≡0</b>——手算工作簿三路段（附录 B）数字不变（合计 2.040 kg），旧模型是它 N=0 的特例</td></tr>
+<tr><td>物理约束（2026-08-24）</td><td>① 有效停车速度按道路等级封顶：市区 30 / 县乡 35 / 国省道 50 / 快速 70 / 高速 80 km/h（城区走走停停不会在两停点间加速到段均速）；② 停车次数 ≤10 次/km；③ 停车总时长 ≤ 行驶时长；④ 单段氢耗率硬上限 25 kg/100km</td></tr>
 </table></div>
 </section>
 <section id="s5">
