@@ -6,6 +6,7 @@ import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Chart
 import MarkdownLight from './MarkdownLight'
 import HydrogenHowItWorks from './HydrogenHowItWorks'
 import ReportPanel from './ReportPanel'
+import { fetchJson } from '../lib/fetchJson'
 
 /** 单次停车时长估计（s）：按段主导行为类型——收费站最久、路口/匝道/转弯依次递减；巡航/背景路口取 30s。
  * 传给物理模型做「停车附件/怠速耗电」与启停动能项（ml/physics.py stopSecondsPer）。 */
@@ -578,12 +579,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           eta_fc: vehicle.etaFc, p_aux0: vehicle.pAux0, k_t: vehicle.kT,
         }
       })
-      const r = await fetch('/api/predict-hydrogen', {
+      const j = await fetchJson<typeof hydroResult & { ok?: boolean; msg?: string }>('/api/predict-hydrogen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segments: slim, departureTime, model: hydroModel }),
       })
-      const j = await r.json() as typeof hydroResult & { ok?: boolean; msg?: string }
       if (j.ok) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
       else { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroError(j.msg || '预测失败'); setHydroStage('error') }
     } catch (e: any) {
@@ -715,12 +715,11 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     setAiError('')
     setAiText('')
     try {
-      const r = await fetch('/api/ai/evaluate', {
+      const j = await fetchJson<AiResponse>('/api/ai/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(aiPayload),
       })
-      const j = (await r.json()) as AiResponse
       if (j.ok && j.text) { setAiText(j.text); setAiModel(j.model || '') }
       else setAiError(j.msg || 'AI 评估失败')
     } catch (e: any) {

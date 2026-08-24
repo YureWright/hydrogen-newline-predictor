@@ -18,6 +18,7 @@ import MarkdownLight from './MarkdownLight'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import MapView from './MapView'
+import { fetchJson } from '../lib/fetchJson'
 
 /* ================= 费用假设（界面明示，可在此调整） ================= */
 export const COST_ASSUMPTIONS = {
@@ -144,12 +145,10 @@ function calcCost(c: RouteCandidate, physics: any): RouteReport['cost'] {
 async function waitJob(jobId: string, onStatus?: (j: any) => void): Promise<{ segments: SegmentData[] }> {
   for (let i = 0; i < 400; i++) {
     await new Promise((r) => setTimeout(r, 1500))
-    const r = await fetch('/api/segments/status?jobId=' + encodeURIComponent(jobId))
-    const j = await r.json()
+    const j = await fetchJson<any>('/api/segments/status?jobId=' + encodeURIComponent(jobId), undefined, 2, 600)
     if (onStatus) onStatus(j)
     if (j.ok && j.status === 'done') {
-      const rr = await fetch('/api/segments/result?jobId=' + encodeURIComponent(jobId))
-      const jj = await rr.json()
+      const jj = await fetchJson<any>('/api/segments/result?jobId=' + encodeURIComponent(jobId), undefined, 3, 800)
       if (jj.ok && Array.isArray(jj.segments)) return { segments: jj.segments as SegmentData[] }
       throw new Error(jj.msg || '获取路段结果失败')
     }
@@ -240,8 +239,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
     setStage('running'); setErr('')
     try {
       // 1) 候选路线（最多 3 条）
-      const rr = await fetch('/api/route?origin=' + encodeURIComponent(origin) + '&destination=' + encodeURIComponent(destination))
-      const rj = await rr.json()
+      const rj = await fetchJson<any>('/api/route?origin=' + encodeURIComponent(origin) + '&destination=' + encodeURIComponent(destination))
       if (!rj.ok || !rj.routes || rj.routes.length === 0) throw new Error(rj.msg || '路线查询失败')
       const cands = (rj.routes as RouteCandidate[]).slice(0, 3)
       const out: RouteReport[] = []
@@ -250,11 +248,10 @@ export default function ReportPanel({ origin, destination, originName, destinati
       for (let i = 0; i < cands.length; i++) {
         setProgress({ route: i + 1, total: cands.length, phase: '路段测算（DEM/OSM/天气）' })
         pushLog(`📦 路线 ${i + 1}/${cands.length}：开始路段测算（DEM 高程 / OSM 真实路网 / 沿线天气）`)
-        const s = await fetch('/api/segments/start', {
+        const sj = await fetchJson<any>('/api/segments/start', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ origin, destination, index: i, departureTime }),
         })
-        const sj = await s.json()
         if (!sj.ok || !sj.jobId) throw new Error(sj.msg || '路段测算启动失败')
         let lastJobKey = ''
         const { segments } = await waitJob(sj.jobId, (j) => {
@@ -275,11 +272,10 @@ export default function ReportPanel({ origin, destination, originName, destinati
         setProgress({ route: i + 1, total: cands.length, phase: '氢耗预测（机器学习 + 物理模型）' })
         pushLog(`⚡ 路线 ${i + 1}：双引擎氢耗预测（机器学习 + 物理模型）`)
         const slim = segments.map((seg) => buildSlim(seg, vehicle, fixedLoadT))
-        const pr = await fetch('/api/predict-hydrogen', {
+        const pj = await fetchJson<any>('/api/predict-hydrogen', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ segments: slim, departureTime, model: 'both' }),
         })
-        const pj = await pr.json()
         if (!pj.ok) throw new Error(pj.msg || '氢耗预测失败')
         out.push({ index: i, candidate: cands[i], segments, ml: pj.ml, physics: pj.physics, cost: calcCost(cands[i], pj.physics) })
         pushLog(`  ✅ 路线 ${i + 1} 氢耗预测完成（ML ${(pj.ml?.total_h2_kg ?? 0).toFixed(2)}kg / 物理 ${(pj.physics?.total_h2_kg ?? 0).toFixed(2)}kg）`, 'ok')
@@ -290,7 +286,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
       pushLog('🤖 AI 路线推荐（DeepSeek 比较三条路线 + 费用构成）')
       let ai: ReportData['ai'] = null
       try {
-        const ar = await fetch('/api/ai/recommend', {
+        const ar = await fetchJson<any>('/api/ai/recommend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             origin: originName, destination: destinationName,
