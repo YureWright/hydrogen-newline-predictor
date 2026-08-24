@@ -1642,7 +1642,7 @@ body::before {
 
 
 /* ================================================================
-   REPORT EXPORT — 报告导出（三路线对比，2026-08-23 新增）
+   REPORT EXPORT — 报告导出（三路线对比）
    ================================================================ */
 .report-export { padding: 8px 2px 20px; }
 .report-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin-bottom: 12px; }
@@ -1664,7 +1664,38 @@ body::before {
 .report-logs .log-info { color: var(--txt-2); }
 .report-logs .log-ok { color: #3ddc97; }
 .report-logs .log-warn { color: #ffb547; }
-.report-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 18px; }
+
+/* --- 封面区 --- */
+.report-cover { text-align: center; padding: 32px 20px 24px; border-bottom: 2px solid var(--line-2); margin-bottom: 20px; }
+.cover-title { font-size: 26px; font-weight: 700; color: var(--txt); letter-spacing: 2px; margin-bottom: 8px; }
+.cover-route { font-size: 18px; color: var(--cyan); margin-bottom: 14px; }
+.cover-meta { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; font-size: 12px; color: var(--txt-2); }
+
+/* --- 车辆参数 & 费用假设 --- */
+.report-params { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+.params-col h4 { margin: 0 0 8px; font-size: 14px; color: var(--txt); }
+.params-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.params-table td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); color: var(--txt-2); }
+.params-table td:first-child { color: var(--txt); font-weight: 500; width: 45%; }
+.params-table td:last-child { text-align: right; }
+
+/* --- 章节标题 --- */
+.report-section-title { font-size: 16px; font-weight: 600; color: var(--txt); margin: 22px 0 12px; padding-left: 12px; border-left: 3px solid var(--cyan); }
+
+/* --- 路线概览卡片 --- */
+.report-summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.summary-card { border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 14px; background: rgba(255,255,255,0.02); }
+.summary-card.card-best { border-color: rgba(58,227,255,0.4); background: rgba(58,227,255,0.04); }
+.card-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 2px solid var(--line-2); }
+.card-route { font-size: 15px; font-weight: 700; }
+.card-badge { background: linear-gradient(135deg, #3ae3ff, #4d8dff); color: #000; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.card-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.metric { text-align: center; }
+.metric-val { display: block; font-size: 18px; font-weight: 700; color: var(--txt); }
+.metric-lbl { display: block; font-size: 10px; color: var(--txt-2); margin-top: 2px; }
+.card-delta { text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600; }
+
+/* --- 地图 --- */
 .report-map {
   background: rgba(255,255,255,0.03); border: 1px solid var(--line-2); border-radius: var(--r-md);
   padding: 12px 14px; margin-bottom: 18px;
@@ -1672,9 +1703,27 @@ body::before {
 .report-map h4 { margin: 0 0 8px; font-size: 15px; color: var(--txt); }
 .report-map-canvas { height: 380px; border-radius: 10px; overflow: hidden; }
 .report-map .leaflet-container { background: var(--bg-3); height: 380px; width: 100%; }
-.report-map .report-note { margin-top: 6px; }
+
+/* --- 图表 --- */
+.report-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 18px; }
 .report-chart { background: rgba(255,255,255,0.03); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 12px 14px; }
 .report-chart h4 { margin: 0 0 8px; font-size: 14px; color: var(--txt); }
+
+/* --- 费用对比可视化 --- */
+.report-cost-bars { margin-bottom: 20px; display: flex; flex-direction: column; gap: 18px; }
+.cost-row { display: flex; gap: 12px; align-items: flex-start; }
+.cost-label { width: 56px; font-size: 13px; font-weight: 700; flex-shrink: 0; padding-top: 6px; }
+.cost-pair { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.cost-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.cost-type { width: 32px; font-size: 11px; color: var(--txt-2); flex-shrink: 0; }
+.cost-bar { flex: 1; height: 26px; background: rgba(255,255,255,0.04); border-radius: 4px; position: relative; display: flex; align-items: center; }
+.cost-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; min-width: 20px; transition: width .5s; }
+.cost-fill.cost-h2 { background: linear-gradient(90deg, rgba(58,227,255,0.35), rgba(77,141,255,0.45)); }
+.cost-fill.cost-diesel { background: linear-gradient(90deg, rgba(255,160,60,0.35), rgba(255,96,114,0.45)); }
+.cost-detail { font-size: 10px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cost-total { font-size: 12px; font-weight: 700; color: var(--txt); white-space: nowrap; margin-left: 6px; }
+
+/* --- 数据总表 --- */
 .report-table-wrap { overflow-x: auto; margin-bottom: 18px; }
 .report-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .report-table th, .report-table td { border: 1px solid var(--line-2); padding: 7px 10px; white-space: nowrap; text-align: right; }
@@ -1683,25 +1732,96 @@ body::before {
 .row-best td { background: rgba(58,227,255,0.10); }
 .report-table .pos { color: #3ddc97; }
 .report-table .neg { color: #ff6072; }
-.report-foot { color: var(--txt-2); font-size: 12px; margin-top: 6px; }
+.report-foot { color: var(--txt-2); font-size: 11px; margin-top: 6px; }
 .report-warn { color: #ffb547; font-size: 12px; margin: 8px 0 0; }
+
+/* --- Top5 氢耗路段 --- */
+.report-top-segs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.top-seg-col h5 { margin: 0 0 8px; font-size: 13px; }
+.top-seg-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.top-seg-table th, .top-seg-table td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: right; }
+.top-seg-table th { color: var(--txt-2); font-weight: 500; font-size: 10px; }
+.top-seg-table td:first-child, .top-seg-table th:first-child { text-align: left; }
+
+/* --- AI 推荐 --- */
+.report-ai { margin-bottom: 18px; }
 .report-ai h4 { margin: 0 0 8px; font-size: 15px; color: var(--txt); }
 .report-ai-model { color: var(--txt-2); font-size: 11px; margin-top: 6px; }
 
-/* PDF 导出：只打印报告区域（浏览器「另存为 PDF」） */
+/* --- 报告尾页 --- */
+.report-footer-block { padding-top: 16px; text-align: center; font-size: 11px; color: var(--txt-2); }
+.footer-line { height: 1px; background: var(--line-2); margin-bottom: 14px; }
+.footer-meta { margin-top: 6px; font-size: 10px; color: rgba(255,255,255,0.3); }
+
+/* ================================================================
+   PDF 导出 — capturing 白底专业主题（html2canvas 截图用，非 print CSS）
+   ================================================================ */
+.report-export.capturing { background: #ffffff !important; color: #1a1a2e !important; padding: 24px 28px; }
+.report-export.capturing .btn-report-pdf { display: none !important; }
+.report-export.capturing .report-table-wrap { overflow: visible; max-width: none; }
+
+.report-export.capturing .cover-title { color: #0f172a; }
+.report-export.capturing .cover-route { color: #1e6091; }
+.report-export.capturing .cover-meta span { color: #64748b; }
+.report-export.capturing .report-cover { border-bottom-color: #e2e8f0; }
+
+.report-export.capturing .report-section-title { color: #0f172a; border-left-color: #1e6091; }
+
+.report-export.capturing .params-col h4 { color: #0f172a; }
+.report-export.capturing .params-table td { color: #334155; border-bottom-color: #e2e8f0; }
+.report-export.capturing .params-table td:first-child { color: #0f172a; }
+
+.report-export.capturing .summary-card { background: #f8fafc; border-color: #e2e8f0; }
+.report-export.capturing .summary-card.card-best { background: #eff6ff; border-color: #93c5fd; }
+.report-export.capturing .card-header { border-bottom-color: #e2e8f0; }
+.report-export.capturing .card-badge { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; }
+.report-export.capturing .metric-val { color: #0f172a; }
+.report-export.capturing .metric-lbl { color: #64748b; }
+
+.report-export.capturing .report-map { background: #f8fafc; border-color: #e2e8f0; }
+.report-export.capturing .report-map h4 { color: #0f172a; }
+.report-export.capturing .report-chart { background: #f8fafc; border-color: #e2e8f0; }
+.report-export.capturing .report-chart h4 { color: #0f172a; }
+
+.report-export.capturing .cost-bar { background: #f1f5f9; }
+.report-export.capturing .cost-fill.cost-h2 { background: linear-gradient(90deg, #93c5fd, #60a5fa); }
+.report-export.capturing .cost-fill.cost-diesel { background: linear-gradient(90deg, #fdba74, #fb923c); }
+.report-export.capturing .cost-detail { color: #1e293b; }
+.report-export.capturing .cost-total { color: #0f172a; }
+.report-export.capturing .cost-label { color: #334155; }
+.report-export.capturing .cost-type { color: #64748b; }
+
+.report-export.capturing .report-table th { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+.report-export.capturing .report-table td { color: #334155; border-color: #e2e8f0; }
+.report-export.capturing .report-table td:first-child { color: #0f172a; }
+.report-export.capturing .row-best td { background: #eff6ff; }
+.report-export.capturing .report-table .pos { color: #16a34a; }
+.report-export.capturing .report-table .neg { color: #dc2626; }
+.report-export.capturing .report-foot { color: #64748b; }
+.report-export.capturing .report-warn { color: #d97706; }
+
+.report-export.capturing .top-seg-table th { color: #64748b; }
+.report-export.capturing .top-seg-table td { color: #334155; border-bottom-color: #e2e8f0; }
+.report-export.capturing .top-seg-col h5 { color: #1e6091; }
+
+.report-export.capturing .report-ai { color: #334155; }
+.report-export.capturing .report-ai h4 { color: #0f172a; }
+.report-export.capturing .ai-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+.report-export.capturing .report-ai-model { color: #94a3b8; }
+
+.report-export.capturing .report-footer-block { color: #64748b; }
+.report-export.capturing .footer-line { background: #e2e8f0; }
+.report-export.capturing .footer-meta { color: #94a3b8; }
+
+.report-export.capturing .chart-svg text { fill: #64748b !important; }
+.report-export.capturing .chart-svg line[stroke] { stroke: rgba(0,0,0,0.08) !important; }
+
+/* 浏览器打印（备用） */
 @media print {
   @page { size: A4 landscape; margin: 10mm; }
   body { background: #fff !important; }
   body * { visibility: hidden; }
   .report-export, .report-export * { visibility: visible; }
-  .report-export { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; background: #fff !important; }
-  .report-export h3, .report-export h4, .report-export th, .report-export td { color: #111 !important; }
-  .report-export .report-sub, .report-export .report-note, .report-export .report-foot, .report-export .report-ai-model { color: #444 !important; }
-  .report-export .report-table th, .report-export .report-table td { border-color: #999; }
+  .report-export { position: absolute; left: 0; top: 0; width: 100%; }
   .report-head .btn-primary { display: none; }
-  .report-export.capturing .btn-report-pdf { display: none !important; }
-  .report-export.capturing .report-table-wrap { overflow: visible; max-width: none; }
-  .report-export.capturing .report-table { width: max-content; min-width: 100%; }
-  .report-charts { break-inside: avoid; }
-  .report-chart { border-color: #ccc; background: #fff; }
 }
