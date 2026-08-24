@@ -70,7 +70,7 @@ node server.js     # 生产服务（先 build；可用 PM2 守护）
 ```
 
 ### 部署
-一键部署脚本 `deploy.sh`（git pull → npm install → Python venv → 构建 → PM2 平滑重启），详见 `DEPLOY.md`。已部署演示环境：http://4.230.10.113:5174（Azure Linux VM，需在 NSG 放行 TCP 5174）。
+一键部署脚本 `deploy.sh`（git pull → npm install → Python venv → 构建 → PM2 平滑重启），详见 `DEPLOY.md`。已部署演示环境：http://4.230.10.113:5174
 
 ---
 
@@ -148,7 +148,7 @@ DEM 高程剖面按国标四档：平原（自然坡度≤3°）、微丘（3°~
 - 天气：和风天气 QWeather / 高德天气 / OpenWeatherMap（可选）
 - 氢耗建模数据：两辆 H49 重卡实车 60s 数据（含 GPS，仅本地使用，.gitignore 覆盖不提交）；训练模型与工况片段库（无坐标）随仓库提交
 - 加氢站：公开分页接口采集 571 座（采集于 2026-08-15，状态为快照）
-- 本仓库不包含任何账号/口令/Token（Key 通过环境变量注入）
+
 
 ### 氢耗建模知识库
 
