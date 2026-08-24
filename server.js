@@ -4,6 +4,7 @@
 import { createServer as createViteServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
 import { readFileSync, existsSync, statSync } from 'node:fs'
+import { createGzip } from 'node:zlib'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,6 +22,47 @@ const MIME = {
   '.svg': 'image/svg+xml', '.gif': 'image/gif', '.webp': 'image/webp',
   '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
   '.ttf': 'font/ttf', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
+}
+
+/** gzip 压缩中间件：客户端接受 gzip 且响应为文本类（html/json/js/css/md/txt/svg）时压缩。
+ * 长路线预测/报告 JSON 响应可达数 MB，不压缩在跨国不稳定的链路上极易被截断
+ * （前端表现为 Failed to fetch / Unexpected end of JSON input）。gzip 后体积缩小 10~20 倍。 */
+function maybeGzip(req, res, next) {
+  const accept = String(req.headers['accept-encoding'] || '')
+  if (req.method === 'HEAD' || !/\bgzip\b/i.test(accept)) return next()
+  const origWrite = res.write.bind(res)
+  const origEnd = res.end.bind(res)
+  let gzip = null
+  const ensure = () => {
+    if (gzip) return gzip
+    const ct = String(res.getHeader('Content-Type') || '')
+    // 图片/音频/视频/字体本身已压缩，再 gzip 只会更慢
+    if (/^(image|audio|video|font)\//.test(ct)) return null
+    gzip = createGzip()
+    res.setHeader('Content-Encoding', 'gzip')
+    res.removeHeader('Content-Length')
+    gzip.on('data', (c) => { try { origWrite(c) } catch (e) {} })
+    gzip.on('end', () => { try { origEnd() } catch (e) {} })
+    gzip.on('error', () => { try { origEnd() } catch (e) {} })
+    return gzip
+  }
+  res.write = function (chunk, ...rest) {
+    const g = ensure()
+    if (g) { try { g.write(chunk) } catch (e) { return origWrite(chunk, ...rest) } return true }
+    return origWrite(chunk, ...rest)
+  }
+  res.end = function (chunk, ...rest) {
+    const g = ensure()
+    if (g) {
+      try {
+        if (chunk !== undefined && chunk !== null) g.write(chunk)
+        g.end()
+      } catch (e) { try { origEnd(chunk, ...rest) } catch (e2) {} }
+      return this
+    }
+    return origEnd(chunk, ...rest)
+  }
+  return next()
 }
 
 /** 静态文件 + SPA 回退（带目录穿越防护） */
@@ -59,13 +101,15 @@ const server = createHttpServer((req, res) => {
   // 客户端中途断开时吞掉 req/res 错误，避免 unhandled 'error' 崩溃（write EOF / ECONNRESET）
   req.on('error', () => {})
   res.on('error', () => {})
-  const urlPath = (req.url || '/').split('?')[0]
-  if (urlPath.startsWith('/api/')) {
-    // API 交给 vite 中间件；没命中则 404
-    vite.middlewares.handle(req, res, () => { res.statusCode = 404; res.end('not found') })
-    return
-  }
-  serveStatic(req, res)
+  maybeGzip(req, res, () => {
+    const urlPath = (req.url || '/').split('?')[0]
+    if (urlPath.startsWith('/api/')) {
+      // API 交给 vite 中间件；没命中则 404
+      vite.middlewares.handle(req, res, () => { res.statusCode = 404; res.end('not found') })
+      return
+    }
+    serveStatic(req, res)
+  })
 })
 
 // 畸形请求 / 客户端断开兜底：吞掉 socket 错误，防止未处理 'error' 事件击穿进程
