@@ -587,7 +587,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       if (j.ok) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroResult(j); setHydroStage('done'); setHydroStep(3) }
       else { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0; setHydroError(j.msg || '预测失败'); setHydroStage('error') }
     } catch (e: any) {
-      setHydroError('预测失败：' + (e.message || e)); setHydroStage('error'); setHydroStep(0)
+      setHydroError('预测失败：' + (e.message || e) + '（若是 Failed to fetch / Unexpected end of JSON input，多为服务端短暂不可用——正在重启或超时，请稍后重试）'); setHydroStage('error'); setHydroStep(0)
       if (hydroTimerRef.current) { window.clearInterval(hydroTimerRef.current); hydroTimerRef.current = 0 }
     }
   }, [data, departureTime, hydroModel, loadTAtKm, vehicle])
@@ -724,7 +724,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
       if (j.ok && j.text) { setAiText(j.text); setAiModel(j.model || '') }
       else setAiError(j.msg || 'AI 评估失败')
     } catch (e: any) {
-      setAiError('AI 评估失败：' + (e.message || e))
+      setAiError('AI 评估失败：' + (e.message || e) + '（若是 Failed to fetch / JSON 截断，多为服务端短暂不可用或接口超时，请稍后重试）')
     } finally {
       setAiLoading(false)
     }

@@ -56,12 +56,21 @@ interface DemJob {
 const demJobs = new Map<string, DemJob>()
 let demJobSeq = 0
 /** 已结束的任务保留时长：结果可重复获取（刷新页面不丢），过期后清理避免长跑 dev server 堆积 */
-const DEM_JOB_TTL_MS = 30 * 60 * 1000
+const DEM_JOB_TTL_MS = 10 * 60 * 1000
 
 function sweepDemJobs() {
   const now = Date.now()
   for (const [id, j] of demJobs) {
     if (j.status !== 'running' && now - j.createdAt > DEM_JOB_TTL_MS) demJobs.delete(id)
+  }
+  // 已完成任务数上限：大路线段数据（含坐标）驻留内存很贵，超过 12 个就清理最老的
+  const done = [...demJobs.entries()]
+    .filter(([, j]) => j.status !== 'running')
+    .sort((a, b) => a[1].createdAt - b[1].createdAt)
+  const MAX_FINISHED_JOBS = 12
+  while (done.length > MAX_FINISHED_JOBS) {
+    const [id] = done.shift()!
+    demJobs.delete(id)
   }
 }
 
