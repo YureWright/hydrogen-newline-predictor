@@ -3,7 +3,7 @@
 // 运行：先 npm run build，再 node server.js（可用 PM2 守护）。
 import { createServer as createViteServer } from 'vite'
 import { createServer as createHttpServer } from 'node:http'
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, appendFile } from 'node:fs'
 import { createGzip } from 'node:zlib'
 import { extname, join, dirname, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +22,19 @@ const MIME = {
   '.svg': 'image/svg+xml', '.gif': 'image/gif', '.webp': 'image/webp',
   '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
   '.ttf': 'font/ttf', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
+}
+
+/** 访问日志：记录时间 / 来源 IP / 方法 / 路径 / 状态码 / UA，写入 data/access.log（*.log 已被 gitignore）。
+ * 无反向代理时 req.socket.remoteAddress 即客户端公网 IP，可用于判断访客地域（如评审 IP 归属）。 */
+function logAccess(req, res, urlPath) {
+  res.on('finish', () => {
+    try {
+      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '-'
+      const ua = (req.headers['user-agent'] || '').slice(0, 120).replace(/"/g, "'")
+      const line = new Date().toISOString() + ' ' + ip + ' ' + req.method + ' ' + urlPath + ' ' + res.statusCode + ' "' + ua + '"\n'
+      appendFile(join(__dirname, 'data', 'access.log'), line, () => {})
+    } catch (e) {}
+  })
 }
 
 /** gzip 压缩中间件：客户端接受 gzip 且响应为文本类（html/json/js/css/md/txt/svg）时压缩。
@@ -101,8 +114,9 @@ const server = createHttpServer((req, res) => {
   // 客户端中途断开时吞掉 req/res 错误，避免 unhandled 'error' 崩溃（write EOF / ECONNRESET）
   req.on('error', () => {})
   res.on('error', () => {})
+  const urlPath = (req.url || '/').split('?')[0]
+  logAccess(req, res, urlPath)
   maybeGzip(req, res, () => {
-    const urlPath = (req.url || '/').split('?')[0]
     if (urlPath.startsWith('/api/')) {
       // API 交给 vite 中间件；没命中则 404
       vite.middlewares.handle(req, res, () => { res.statusCode = 404; res.end('not found') })
