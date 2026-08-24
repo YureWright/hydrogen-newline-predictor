@@ -135,6 +135,9 @@ export default function App() {
               {loading ? '查询中…' : '查询路线'}
             </button>
           </div>
+          <div className="server-hint">
+            ⚠️ 演示服务器配置较小：建议输入<b>较近的两个地点</b>（如「北京市清华大学」→「北京市北京大学」）。较远地点测算耗时较长，过程偶发报错属正常——<b>可刷新重试或改选更近路线</b>；想完整体验，请到 GitHub 仓库 <code>YureWright/hydrogen-newline-predictor</code> 本地部署。
+          </div>
           {error && <div className="error">{error}</div>}
           {note && <div className="note">{note}</div>}
           {from && to && <div className="coord-line">起点 {from.name}（{from.lng.toFixed(3)},{from.lat.toFixed(3)}） → 终点 {to.name}（{to.lng.toFixed(3)},{to.lat.toFixed(3)}）</div>}
