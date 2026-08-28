@@ -381,6 +381,63 @@ export default defineConfig({
               sweepDemJobs()
               return send(res, 200, { ok: true })
             }
+            // ===== 可插拔模型 / 评测集 API（2026-08-28；写操作需上传口令） =====
+            const checkUploadAuth = () => {
+              const tk = process.env.UPLOAD_TOKEN || ''
+              if (!tk) return true
+              return (req.headers['x-upload-token'] || '') === tk
+            }
+            const runPyJson = (script: string, input: any): Promise<any> =>
+              new Promise((resolve) => {
+                const py = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
+                const child = spawn(py, [script], { cwd: join(__dirname, 'ml') })
+                let out = '', err = ''
+                child.stdout.on('data', (d: Buffer) => { out += d.toString('utf8') })
+                child.stderr.on('data', (d: Buffer) => { err += d.toString('utf8') })
+                child.on('close', (code: number) => {
+                  try { resolve(JSON.parse(out)) }
+                  catch { resolve({ ok: false, msg: '脚本输出异常: ' + (err.slice(0, 200) || 'code ' + code) }) }
+                })
+                child.on('error', (e: Error) => resolve({ ok: false, msg: '脚本启动失败: ' + e.message }))
+                child.stdin.write(JSON.stringify(input)); child.stdin.end()
+              })
+            // 排行榜缓存（histgb 全量评测约 1~2 分钟，避免前端反复点击重跑）
+            const leaderboardCache = new Map<string, { t: number; rows: any }>()
+
+            if (path === '/models' && req.method === 'GET') {
+              return send(res, 200, await runPyJson('model_api.py', { op: 'list' }))
+            }
+            if (path === '/models/import' && req.method === 'POST') {
+              if (!checkUploadAuth()) return send(res, 401, { ok: false, needToken: true, msg: '需要上传口令（服务器已开启上传保护）' })
+              let body: any = {}; try { body = JSON.parse((await readBody(req)) || '{}') } catch {}
+              return send(res, 200, await runPyJson('model_api.py', { op: 'import_zip', data: body.data || '' }))
+            }
+            if (path === '/evalsets' && req.method === 'GET') {
+              return send(res, 200, await runPyJson('eval_api.py', { op: 'list' }))
+            }
+            if (path === '/evalsets/create' && req.method === 'POST') {
+              if (!checkUploadAuth()) return send(res, 401, { ok: false, needToken: true, msg: '需要上传口令（服务器已开启上传保护）' })
+              let body: any = {}; try { body = JSON.parse((await readBody(req)) || '{}') } catch {}
+              return send(res, 200, await runPyJson('eval_api.py', { op: 'create', id: body.id, name: body.name, csv: body.csv, source: body.source || '' }))
+            }
+            if (path === '/evalsets/append' && req.method === 'POST') {
+              if (!checkUploadAuth()) return send(res, 401, { ok: false, needToken: true, msg: '需要上传口令（服务器已开启上传保护）' })
+              let body: any = {}; try { body = JSON.parse((await readBody(req)) || '{}') } catch {}
+              return send(res, 200, await runPyJson('eval_api.py', { op: 'append', id: body.id, csv: body.csv }))
+            }
+            if (path === '/evalsets/leaderboard' && req.method === 'GET') {
+              const id = url.searchParams.get('id') || ''
+              const hit = leaderboardCache.get(id)
+              if (hit && Date.now() - hit.t < 5 * 60 * 1000) return send(res, 200, { ok: true, rows: hit.rows, cached: true })
+              const j = await runPyJson('eval_api.py', { op: 'leaderboard', id })
+              if (j.ok) leaderboardCache.set(id, { t: Date.now(), rows: j.rows })
+              return send(res, 200, j)
+            }
+            if (path === '/evalsets/download' && req.method === 'GET') {
+              const id = url.searchParams.get('id') || ''
+              return send(res, 200, await runPyJson('eval_api.py', { op: 'download', id }))
+            }
+
             return send(res, 404, { ok: false, msg: 'unknown api: ' + path })
           } catch (e: any) {
             return send(res, 500, { ok: false, msg: 'server error: ' + (e.message || e) })

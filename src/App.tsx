@@ -3,9 +3,10 @@ import MapView, { type MapPoint } from './components/MapView'
 import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
 import LandingPage from './components/LandingPage'
+import ModelLab from './components/ModelLab'
 import type { RouteCandidate, H2Station } from './route/types'
 
-type AppView = 'landing' | 'predict'
+type AppView = 'landing' | 'predict' | 'lab'
 type PredictStep = 'query' | 'analysis'
 
 interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
@@ -37,6 +38,8 @@ export default function App() {
     sessionStorage.setItem('h2-skip-landing', '1')
     setView('predict')
   }, [])
+
+  const enterLab = useCallback(() => setView('lab'), [])
 
   const applyHighlight = useCallback((list: Array<Array<[number, number]>>) => {
     setHighlight((prev) => (prev.length === 0 && list.length === 0 ? prev : list))
@@ -88,7 +91,22 @@ export default function App() {
   const goHome = useCallback(() => { sessionStorage.removeItem('h2-skip-landing'); setView('landing') }, [])
 
   if (view === 'landing') {
-    return <LandingPage onStart={enterPredict} />
+    return <LandingPage onStart={enterPredict} onOpenLab={enterLab} />
+  }
+
+  if (view === 'lab') {
+    return (
+      <div className="app app-query">
+        <div className="query-topbar">
+          <span className="topbar-title">模型工坊 / 评测中心</span>
+          <span className="topbar-sub">可插拔模型 · 评测集 · 排行榜</span>
+          <button className="topbar-btn" onClick={goHome}>← 首页</button>
+        </div>
+        <main className="main main-query" style={{ maxWidth: 1200 }}>
+          <ModelLab />
+        </main>
+      </div>
+    )
   }
 
   const hasRoute = from && to && routes.length > 0

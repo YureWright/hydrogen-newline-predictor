@@ -22,9 +22,11 @@
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import zipfile
 
 # stdout/stderr 统一 UTF-8（避免 Windows GBK 控制台打印中文/符号崩）
 if hasattr(sys.stdout, "reconfigure"):
@@ -237,6 +239,100 @@ def import_model(src_dir):
         shutil.rmtree(dst)
         return False, f'试工未通过，已回滚: {msg}'
     return True, f'模型 {mid} 导入成功（试工{msg}）'
+
+
+# ---------------- 安全导入（zip 上传用） ----------------
+ID_RE = re.compile(r'^[A-Za-z0-9_\-]{1,48}$')
+
+
+def _sanitize_id(mid):
+    """模型 id 只允许字母/数字/下划线/短横线，防止路径穿越。"""
+    mid = (mid or '').strip()
+    return mid if ID_RE.match(mid) else None
+
+
+def _safe_extract(zf, dst):
+    """安全解压：拒绝绝对路径、..、软链；确保所有文件都落在 dst 内。"""
+    for info in zf.infolist():
+        name = info.filename
+        if name.startswith('/') or '\\' in name or '..' in name.split('/'):
+            raise ValueError(f'非法压缩包条目: {name!r}')
+        target = os.path.abspath(os.path.join(dst, name))
+        if not target.startswith(os.path.abspath(dst) + os.sep) and target != os.path.abspath(dst):
+            raise ValueError(f'压缩包条目越界: {name!r}')
+        if info.is_dir():
+            os.makedirs(target, exist_ok=True)
+            continue
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with zf.open(info) as src, open(target, 'wb') as fh:
+            shutil.copyfileobj(src, fh)
+        # 拒绝软链（zip 里 symlink 的 external_attr 高位）
+        if (info.external_attr >> 16) & 0o170000 == 0o120000:
+            raise ValueError(f'压缩包含软链，拒绝: {name!r}')
+
+
+def import_model_zip(zip_path, max_size_mb=50, allow_env=False):
+    """从 zip 安全导入模型：解压到临时目录 → 校验 → 试工 → 移入 data/models/<id>。
+
+    - 文件过大拒绝；解压用 _safe_extract 防 zip-slip；
+    - meta.id 必须合法且与目录一致；
+    - 试工运行 predict.py 时**剥离环境变量**（allow_env=False，避免读到服务器 .env 密钥）。
+    """
+    if not os.path.exists(zip_path):
+        return False, '压缩包不存在'
+    if os.path.getsize(zip_path) > max_size_mb * 1024 * 1024:
+        return False, f'压缩包超过 {max_size_mb}MB 上限'
+    tmp = os.path.join(PROJECT_ROOT, 'data', 'models', '.tmp_import_' + str(os.getpid()))
+    if os.path.exists(tmp):
+        shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp)
+    try:
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                _safe_extract(zf, tmp)
+        except zipfile.BadZipFile:
+            return False, '不是合法的 zip 文件'
+        meta_path = os.path.join(tmp, 'meta.json')
+        if not os.path.exists(meta_path):
+            return False, '压缩包缺少 meta.json'
+        with open(meta_path, encoding='utf-8') as f:
+            meta = json.load(f)
+        mid = _sanitize_id(meta.get('id'))
+        if not mid:
+            return False, 'meta.id 非法（只允许字母/数字/下划线/短横线，≤48字符）'
+        if mid in BUILTIN_MODELS:
+            return False, f'模型 id {mid} 与内置模型冲突'
+        dst = os.path.join(MODELS_DIR, mid)
+        if os.path.exists(dst):
+            return False, f'模型 {mid} 已存在（如需覆盖请先删除）'
+        if not os.path.exists(os.path.join(tmp, ENTRY)):
+            return False, f'压缩包缺少入口脚本 {ENTRY}'
+        # 试工（剥离环境变量）
+        old_env = os.environ.copy()
+        if not allow_env:
+            os.environ.clear()
+        try:
+            ok, msg = smoke_test_from_dir(tmp, mid)
+        finally:
+            os.environ.clear(); os.environ.update(old_env)
+        if not ok:
+            return False, f'试工未通过，已回滚: {msg}'
+        os.makedirs(dst)
+        for name in os.listdir(tmp):
+            shutil.move(os.path.join(tmp, name), os.path.join(dst, name))
+        return True, f'模型 {mid} 导入成功（试工{msg}）'
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def smoke_test_from_dir(model_dir, mid):
+    """对指定目录（临时解压处）跑试工，用于导入前验证。"""
+    vals, err = _run_script(os.path.join(model_dir, ENTRY), model_dir, SMOKE_SEGMENTS)
+    if err:
+        return False, err
+    total = sum(v['h2_kg'] for v in vals)
+    km = sum(s['distanceKm'] for s in SMOKE_SEGMENTS)
+    return True, f'通过：{len(vals)} 段全部输出合理，合计 {total:.3f} kg / {km:.1f} km'
 
 
 # ---------------- CLI ----------------
