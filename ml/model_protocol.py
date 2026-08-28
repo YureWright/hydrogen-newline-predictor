@@ -113,15 +113,15 @@ def list_models():
 
 
 # ---------------- 统一调用（唯一入口：predict.py, stdin/stdout JSON） ----------------
-def _run_script(script, cwd, segments):
+def _run_script(script, cwd, segments, timeout=TIMEOUT_S):
     payload = json.dumps({'segments': segments}, ensure_ascii=False)
     try:
         proc = subprocess.run(
             [sys.executable, script], input=payload, capture_output=True,
-            text=True, timeout=TIMEOUT_S, cwd=cwd, encoding='utf-8', errors='replace',
+            text=True, timeout=timeout, cwd=cwd, encoding='utf-8', errors='replace',
         )
     except subprocess.TimeoutExpired:
-        return None, f'模型执行超时（>{TIMEOUT_S}s）'
+        return None, f'模型执行超时（>{timeout}s）'
     if proc.returncode != 0:
         return None, f'模型退出码 {proc.returncode}: {proc.stderr[:300]}'
     try:
@@ -134,13 +134,13 @@ def _run_script(script, cwd, segments):
     return validate_h2(rows, segments)
 
 
-def run_model(model_id, segments):
+def run_model(model_id, segments, timeout=TIMEOUT_S):
     """喂 segments → 调 predict.py → 校验输出 → 返回 [{index, h2_kg}, ...]"""
     if model_id in BUILTIN_MODELS:
         b = BUILTIN_MODELS[model_id]
         script = os.path.join(PROJECT_ROOT, b['script'])
         cwd = os.path.join(PROJECT_ROOT, 'ml')
-        return _run_script(script, cwd, segments)
+        return _run_script(script, cwd, segments, timeout)
     meta, err = load_meta(model_id)
     if err:
         return None, err
