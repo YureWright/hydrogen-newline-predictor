@@ -60,6 +60,7 @@ export const DOC_GROUPS: DocGroup[] = [
     { id: 'seg-research', title: '切分算法调研', globKey: DOCS + '/segmentation-research.md', kind: 'md' },
     { id: 'phy-research', title: '物理模型调研', globKey: DOCS + '/physics-model-research.md', kind: 'md' },
     { id: 'hybrid-design', title: '物理+数据驱动融合模型 · 初步设计（待开发）', globKey: DOCS + '/物理数据驱动融合模型_初步设计.md', kind: 'md', hint: '可解释隐藏层 = 物理量：输入→电堆/电机/电池/附件功率→氢耗；文献调研 + 设计 + 路线图' },
+    { id: 'truck-speed', title: '重卡车速对齐方案（货车系数）', globKey: DOCS + '/重卡车速对齐方案.md', kind: 'md', hint: '预测速度对齐训练数据重卡画像；将来接入高德货车路径规划服务替换系数' },
   ] },
   { group: '知识库 · 总览与科普', items: [
     { id: 'kb00', title: '00 · 总览与阅读入口', globKey: KB + '/00_总览与阅读入口.md', kind: 'md' },

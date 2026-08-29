@@ -58,6 +58,31 @@ export const CRUISE_SPEED_BY_LEVEL: Record<RoadLevel, number> = {
   other: 50,
 }
 
+/** 重卡速度系数：高德轿车速度 × 系数 → 重卡速度（按道路等级，基于两辆 H49 实车数据标定）
+ * 训练数据真实重卡速度分布(km/h)：高速 P50 75/P75 82/P90 87（峰值~100）、国道 68、省道 59、城市 34。
+ * 高德轿车高速典型 100~120，故高速系数取 0.75、封顶 90，其余等级类推。
+ * ⚠️ 临时方案：将来接入高德货车路径规划服务（v4/v5 direction/truck，收费接口需工单开通）后，
+ * 本系数将被真实重卡时长/速度替换（见 docs/重卡车速对齐方案.md）。 */
+export const TRUCK_SPEED_FACTOR: Record<RoadLevel, number> = {
+  highway: 0.75, expressway: 0.75, national: 0.8, provincial: 0.8, county: 0.8, city: 0.85, other: 0.8,
+}
+/** 重卡速度上限 km/h（按道路等级，参考训练数据观测上限） */
+export const TRUCK_SPEED_MAX: Record<RoadLevel, number> = {
+  highway: 90, expressway: 85, national: 80, provincial: 70, county: 70, city: 60, other: 80,
+}
+/** 轿车速度 → 重卡速度（系数 + 封顶 + 下限 5） */
+export function truckSpeedKmh(carSpeedKmh: number, roadLevel: RoadLevel): number {
+  const f = TRUCK_SPEED_FACTOR[roadLevel] ?? 0.8
+  const max = TRUCK_SPEED_MAX[roadLevel] ?? 80
+  return Math.min(max, Math.max(5, carSpeedKmh * f))
+}
+/** 路线级轿车速度 → 重卡速度（按高速占比选系数；用于路线卡片展示/费用估算，段级请用 truckSpeedKmh） */
+export function truckSpeedKmhRoute(carSpeedKmh: number, highwayRatio: number): number {
+  const f = highwayRatio >= 0.5 ? TRUCK_SPEED_FACTOR.highway : 0.8
+  const max = highwayRatio >= 0.5 ? TRUCK_SPEED_MAX.highway : 80
+  return Math.min(max, Math.max(5, carSpeedKmh * f))
+}
+
 /** tmcs 列表 → 距离加权主导路况（status 缺失/未知占比最高时可能返回 unknown） */
 export function dominantTrafficStatus(
   tmcs: AmapRawTmcs[] | undefined,
@@ -538,9 +563,11 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
     const roadName = extractRoadName(step.instruction) || (step.road || '').replace(/[向朝][东南西北].*$/, '').trim()
     const roadLevel = inferRoadLevel(roadName, step.instruction, Number(step.toll_distance) || 0)
     const trafficStatus = dominantTrafficStatus(step.tmcs)
-    const avgSpeed = durationS > 0
-      ? round1((distanceM / 1000) / (durationS / 3600))
-      : CRUISE_SPEED_BY_LEVEL[roadLevel]
+    // 高德 duration 是轿车通行时间：先折算轿车速度，再按道路等级乘重卡系数（对齐训练数据重卡速度画像）
+    const carSpeed = durationS > 0 ? (distanceM / 1000) / (durationS / 3600) : CRUISE_SPEED_BY_LEVEL[roadLevel]
+    const avgSpeed = durationS > 0 ? truckSpeedKmh(carSpeed, roadLevel) : carSpeed
+    // 重卡速度对应的段时长（= 高德轿车时长 ÷ 系数；兜底巡航场景保持原值）
+    const effDurationS = durationS > 0 && avgSpeed > 0 ? ((distanceM / 1000) / avgSpeed) * 3600 : durationS
     const coordsGcj = decodePolyline(step.polyline ?? '')
     const coordsWgs84 = coordsGcj.map(([lng, lat]) => gcj02ToWgs84(lng, lat))
     const motion = detectMotionBehavior(step.instruction, roadLevel, coordsWgs84, trafficStatus)
@@ -553,14 +580,14 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
     if (isPlazaRun && segments.length > 0) {
       const last = segments[segments.length - 1]
       last.distanceKm = round2(last.distanceKm + distanceM / 1000)
-      const durH = durationS > 0 ? durationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
+      const durH = effDurationS > 0 ? effDurationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
       last.durationH = round2(last.durationH + durH)
       last.coordsWgs84 = last.coordsWgs84.concat(coordsWgs84)
       if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
       continue // 不 push 新段；lastBehavior 保持同类事件
     }
     const pieces = splitLongEventStep({
-      index: i, roadName, roadLevel, distanceM, durationS, avgSpeed,
+      index: i, roadName, roadLevel, distanceM, durationS: effDurationS, avgSpeed,
       trafficStatus, coordsWgs84, motion,
     })
     for (const piece of pieces) {

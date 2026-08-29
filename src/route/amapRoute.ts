@@ -4,7 +4,7 @@ import type {
   RouteCandidate, RoutePlan, SegmentData,
 } from './types'
 import { avgSpeedKmh, extractRoadsFromSteps, highwayRatio, round1, round2, sumTraffic } from './parse'
-import { buildSegments } from './segment'
+import { buildSegments, truckSpeedKmhRoute } from './segment'
 
 /** 读取高德 Key（从环境变量，不硬编码） */
 export function getAmapKey(): string {
@@ -71,13 +71,17 @@ export function pathToCandidate(path: AmapRawPath): RouteCandidate {
   const tmcsAll: AmapRawTmcs[] = []
   for (const s of steps) if (s.tmcs?.length) tmcsAll.push(...s.tmcs)
   const traffic = sumTraffic(tmcsAll, distanceM / 1000)
+  const hr = highwayRatio(tollDistanceM, distanceM)
+  // 高德 duration 是轿车通行时间：路线级均速按高速占比乘重卡系数，时长同步拉长（与段级 truckSpeedKmh 口径一致）
+  const truckAvg = truckSpeedKmhRoute(avgSpeedKmh(distanceM, durationS), hr)
+  const truckDurH = truckAvg > 0 ? round2((distanceM / 1000) / truckAvg) : round2(durationS / 3600)
   return {
     distanceKm: round1(distanceM / 1000),
-    durationH: round2(durationS / 3600),
+    durationH: truckDurH,
     tollsYuan: Number(path.tolls) || 0,
     tollDistanceKm: round1(tollDistanceM / 1000),
-    highwayRatio: highwayRatio(tollDistanceM, distanceM),
-    avgSpeedKmh: avgSpeedKmh(distanceM, durationS),
+    highwayRatio: hr,
+    avgSpeedKmh: truckAvg,
     traffic,
     polyline: steps.map((s) => s.polyline ?? '').filter(Boolean).join(';'),
     topRoads: extractRoadsFromSteps(steps),
