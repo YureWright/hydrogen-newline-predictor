@@ -51,6 +51,8 @@ interface ReportData {
   destinationName: string
   routes: RouteReport[]
   ai: { text: string; model: string } | null
+  /** AI 推荐失败的真实原因（后端 msg），供界面展示而非笼统提示 */
+  aiError?: string
   generatedAt: string
 }
 
@@ -285,6 +287,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
       setProgress({ route: cands.length, total: cands.length, phase: 'AI 路线推荐' })
       pushLog('🤖 AI 路线推荐（DeepSeek 比较三条路线 + 费用构成）')
       let ai: ReportData['ai'] = null
+      let aiError = ''
       try {
         const ar = await fetchJson<any>('/api/ai/recommend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -302,9 +305,10 @@ export default function ReportPanel({ origin, destination, originName, destinati
         })
         const aj = await ar.json()
         if (aj.ok && aj.text) ai = { text: aj.text, model: aj.model }
-      } catch { /* AI 失败不阻断报告 */ }
+        else aiError = aj?.msg || 'AI 服务返回失败'
+      } catch (e: any) { /* AI 失败不阻断报告 */ aiError = (e?.message || 'AI 请求异常（网络/超时）') }
 
-      setReport({ originName, destinationName, routes: out, ai, generatedAt: new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) })
+      setReport({ originName, destinationName, routes: out, ai, aiError, generatedAt: new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) })
       setStage('done')
       pushLog('✅ 报告生成完成，可查看图表 / 总表 / AI 推荐，并导出 PDF', 'ok')
     } catch (e: any) {
@@ -595,7 +599,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
             {report.ai ? (
               <div className="ai-box"><MarkdownLight text={report.ai.text} /><p className="report-ai-model">模型：{report.ai.model}</p></div>
             ) : (
-              <p className="report-note">⚠️ AI 推荐生成失败（可能未配置 DEEPSEEK_API_KEY 或服务超时），请参考上表 ⭐ 最低费用路线。</p>
+              <p className="report-note">⚠️ AI 推荐生成失败：{report.aiError || '可能未配置 DEEPSEEK_API_KEY 或服务超时'}。请参考上表 ⭐ 最低费用路线。</p>
             )}
           </div>
 

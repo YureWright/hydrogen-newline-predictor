@@ -76,37 +76,49 @@ function buildPrompt(input: RouteEvalInput): string {
   return lines.join('\n')
 }
 
+/** 统一调用 DeepSeek（OpenAI 兼容端点），兼容推理模型：
+ * deepseek-v4-flash 是推理模型——推理过程占用 reasoning_content，与正文 content 共用 max_tokens 预算；
+ * 推理过长会把预算吃光导致 content 为空。故首轮给 4096，若因 length 截断(content 空)自动重试给 8192。 */
+async function chatCompletion(
+  config: AiConfig,
+  model: string,
+  messages: Array<{ role: 'system' | 'user'; content: string }>,
+): Promise<{ text: string; model: string }> {
+  const baseUrl = (config.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')
+  let lastJson: any = null
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.3,
+        max_tokens: attempt === 0 ? 4096 : 8192,
+      }),
+      signal: AbortSignal.timeout(90000),
+    })
+    if (!r.ok) {
+      const t = await r.text()
+      throw new Error('AI 请求失败 HTTP ' + r.status + ': ' + t.slice(0, 300))
+    }
+    lastJson = await r.json()
+    const text: string = lastJson.choices?.[0]?.message?.content ?? ''
+    if (text) return { text, model }
+    // content 为空：若因推理过长被截断(length)则重试一次；非截断为空则直接报错
+    if (lastJson.choices?.[0]?.finish_reason !== 'length') break
+  }
+  throw new Error('AI 返回内容为空：' + JSON.stringify(lastJson).slice(0, 200))
+}
+
 export async function evaluateRoute(
   input: RouteEvalInput,
   config: AiConfig,
 ): Promise<{ text: string; model: string }> {
-  const baseUrl = (config.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')
-  const model = config.model || 'deepseek-v4-flash'
-  const r = await fetch(baseUrl + '/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + config.apiKey,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildPrompt(input) },
-      ],
-      temperature: 0.3,
-      max_tokens: 1200,
-    }),
-    signal: AbortSignal.timeout(60000),
-  })
-  if (!r.ok) {
-    const t = await r.text()
-    throw new Error('AI 请求失败 HTTP ' + r.status + ': ' + t.slice(0, 300))
-  }
-  const j: any = await r.json()
-  const text = j.choices?.[0]?.message?.content ?? ''
-  if (!text) throw new Error('AI 返回内容为空：' + JSON.stringify(j).slice(0, 200))
-  return { text, model }
+  return chatCompletion(config, config.model || 'deepseek-v4-flash', [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: buildPrompt(input) },
+  ])
 }
 
 /* ================= 报告：三路线对比 + AI 推荐（2026-08-23 新增） ================= */
@@ -157,31 +169,8 @@ export async function recommendRoute(
   input: RouteRecommendInput,
   config: AiConfig,
 ): Promise<{ text: string; model: string }> {
-  const baseUrl = (config.baseUrl || 'https://api.deepseek.com').replace(/\/$/, '')
-  const model = config.model || 'deepseek-v4-flash'
-  const r = await fetch(baseUrl + '/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + config.apiKey,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: RECOMMEND_SYSTEM_PROMPT },
-        { role: 'user', content: buildRecommendPrompt(input) },
-      ],
-      temperature: 0.3,
-      max_tokens: 1200,
-    }),
-    signal: AbortSignal.timeout(60000),
-  })
-  if (!r.ok) {
-    const t = await r.text()
-    throw new Error('AI 请求失败 HTTP ' + r.status + ': ' + t.slice(0, 300))
-  }
-  const j: any = await r.json()
-  const text = j.choices?.[0]?.message?.content ?? ''
-  if (!text) throw new Error('AI 返回内容为空：' + JSON.stringify(j).slice(0, 200))
-  return { text, model }
+  return chatCompletion(config, config.model || 'deepseek-v4-flash', [
+    { role: 'system', content: RECOMMEND_SYSTEM_PROMPT },
+    { role: 'user', content: buildRecommendPrompt(input) },
+  ])
 }
