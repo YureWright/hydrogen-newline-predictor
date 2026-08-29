@@ -192,7 +192,40 @@ export default function ModelLab() {
             </table>
           </div>
           <div className="report-section-title">导入模型（zip）</div>
-          <p className="report-note">格式：压缩包内含 <code>meta.json</code> + <code>predict.py</code>（stdin 读 segments JSON → stdout 写每段 h2_kg）。模板见 <code>ml/model_templates/baseline_constant/</code>，协议详见文档库《模型 & 评测集协议》。导入时自动用小仿真表试工，不过不通过。</p>
+          <div className="protocol-box">
+            <p className="report-note"><b>模型 = 一个 zip 压缩包</b>，里面必须包含两个文件（放在压缩包根目录）：</p>
+            <pre className="protocol-code">{`模型包.zip
+├── meta.json     # 报名表（必填）
+└── predict.py    # 唯一入口（必填）`}</pre>
+            <p className="report-note"><b>① meta.json（报名表）</b></p>
+            <pre className="protocol-code">{`{
+  "id": "my_model",   // 必填：模型唯一编号（字母/数字/下划线/短横线，≤48字符，与目录名一致）
+  "name": "我的模型",  // 必填：显示名称
+  "version": "1.0.0", // 建议
+  "description": "……",
+  "training": { "data": "训练数据说明" }
+}`}</pre>
+            <p className="report-note"><b>② predict.py（唯一入口）</b>：从 <code>stdin</code> 读 JSON、向 <code>stdout</code> 写 JSON——模型内部随便怎么算，最后每段给一个 <code>h2_kg</code>（kg/段）：</p>
+            <pre className="protocol-code">{`输入（stdin）:
+{"segments":[{"index":0,"distanceKm":10.0,"avgSpeedKmh":80,"gradePercent":0.5,
+  "elevationM":1200,"temperatureC":25,"windSpeedKmh":10,"humidityPct":40,
+  "roadLevel":"highway","durationH":0.125,"massKg":49000,"stopCount":0}, ...]}
+
+输出（stdout）——每段必须一个 h2_kg:
+{"segments":[{"index":0,"h2_kg":0.236}, ...]}`}</pre>
+            <pre className="protocol-code">{`# 最小可用 predict.py（照这个改）:
+import json, sys
+def main():
+    payload = json.loads(sys.stdin.read())
+    out = []
+    for i, s in enumerate(payload.get('segments', [])):
+        dist = s.get('distanceKm', 1.0)
+        out.append({'index': s.get('index', i), 'h2_kg': round(0.045 * dist, 4)})
+    print(json.dumps({'segments': out}, ensure_ascii=False))
+if __name__ == '__main__':
+    main()`}</pre>
+            <p className="report-note"><b>③ 导入</b>：把 <code>meta.json</code> + <code>predict.py</code> 打成 zip 上传。系统自动：校验 meta → 用内置仿真表<b>试工</b> → 每段输出合理才算成功；失败会回滚并告诉原因。📎 模板：仓库 <code>ml/model_templates/baseline_constant/</code>。</p>
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <input ref={modelZipRef} type="file" accept=".zip" />
             <button className="btn-primary" onClick={importModel} disabled={!!busy}>⬆ 导入并试工</button>
@@ -217,7 +250,24 @@ export default function ModelLab() {
             </table>
           </div>
           <div className="report-section-title">新建评测集</div>
-          <p className="report-note">CSV 必须含列：distanceKm, avgSpeedKmh, gradePercent, elevationM, temperatureC, windSpeedKmh, humidityPct, roadLevel, durationH, massKg, h2_kg（协议详见文档库）。</p>
+          <div className="protocol-box">
+            <p className="report-note"><b>评测集 = 一张 CSV 表格</b>，每行一条"段"记录，必须含以下列（缺一不可）：</p>
+            <div className="report-table-wrap" style={{ margin: '6px 0' }}>
+              <table className="report-table">
+                <thead><tr><th>列名</th><th>含义</th><th>单位</th></tr></thead>
+                <tbody>
+                  {[['distanceKm','段里程','km'],['avgSpeedKmh','段均速','km/h'],['gradePercent','坡度','%（上坡+）'],['elevationM','海拔','m'],['temperatureC','温度','℃'],['windSpeedKmh','风速','km/h'],['humidityPct','湿度','%'],['roadLevel','道路等级','highway/national/provincial/expressway/city/county/other'],['durationH','段时长','h'],['massKg','总质量','kg'],['h2_kg','真实氢耗(ground truth)','kg/段']].map(([k,cn,u]) => (
+                    <tr key={k}><td><code>{k}</code></td><td>{cn}</td><td>{u}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="report-note">可选列（缺省给默认）：<code>windDirDeg</code>、<code>windDirText</code>、<code>windAffects</code>、<code>gainM</code>、<code>stopCount</code>、<code>stopSecondsPer</code>、<code>vehicle</code>、<code>time</code>。</p>
+            <pre className="protocol-code">{`# CSV 示例（表头 + 一行）:
+distanceKm,avgSpeedKmh,gradePercent,elevationM,temperatureC,windSpeedKmh,humidityPct,roadLevel,durationH,massKg,h2_kg
+1.333,80,0.5,1200,25,10,40,highway,0.016667,30000,0.065`}</pre>
+            <p className="report-note"><b>流程</b>：新建（填 id/名称 + 上传 CSV，校验通过即建成）→ 追加（选评测集 + 上传 CSV）→ 排行榜（选评测集，全部模型跑一遍出排名）→ 下载（导出表格）。</p>
+          </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <input id="evalId" placeholder="评测集 id（字母数字下划线）" style={{ padding: 8, borderRadius: 8, border: '1px solid var(--line-2)', background: 'var(--bg-3)', color: 'var(--txt)' }} />
             <input id="evalName" placeholder="名称" style={{ padding: 8, borderRadius: 8, border: '1px solid var(--line-2)', background: 'var(--bg-3)', color: 'var(--txt)' }} />

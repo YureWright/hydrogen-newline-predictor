@@ -1274,11 +1274,12 @@ body::before {
   animation: rise 0.9s 0.3s cubic-bezier(0.22,1,0.36,1) both;
 }
 .landing-btn-lg {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 18px 34px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-width: 196px;
+  padding: 17px 22px;
   border-radius: 16px;
   cursor: pointer;
-  font-size: 20px; font-weight: 600; font-family: inherit;
+  font-size: 18px; font-weight: 600; font-family: inherit;
   letter-spacing: 1px; color: #fff;
   background: rgba(255,255,255,0.10);
   border: 1px solid rgba(255,255,255,0.22);
@@ -1752,6 +1753,17 @@ body::before {
 /* --- AI 推荐 --- */
 .report-ai { margin-bottom: 18px; }
 .report-ai h4 { margin: 0 0 8px; font-size: 15px; color: var(--txt); }
+.protocol-box {
+  margin: 8px 0 18px; padding: 14px 16px;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--line-2); border-radius: var(--r-md);
+}
+.protocol-box .report-note { margin: 6px 0; }
+.protocol-code {
+  display: block; overflow-x: auto; margin: 8px 0;
+  padding: 10px 12px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.6;
+  background: rgba(0,0,0,0.25); border: 1px solid var(--line); border-radius: 8px; color: #d7e0f0;
+  white-space: pre;
+}
 .report-ai-model { color: var(--txt-2); font-size: 11px; margin-top: 6px; }
 
 /* --- 报告尾页 --- */
