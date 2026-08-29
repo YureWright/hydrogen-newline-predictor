@@ -46,32 +46,32 @@ def num(name):
     if not cols: raise KeyError(name)
     return pd.to_numeric(df[cols[0]], errors='coerce')
 
-# ---------- 真实 Z ----------
-v_kmh = num('canData_speed_车速') / 10.0
-a = v_kmh.diff().fillna(0.0) / 3.6 / 60.0
-fcA_c, fcB_c = num('celDataExt_fuelcell_output_cur_A'), num('celDataExt_fuelcell_output_cur_B')
-fcA_v, fcB_v = num('celDataExt_fuelCell_output_vol_A'), num('celDataExt_fuelCell_output_vol_B')
+# ---------- 真实 Z（按官方《数据计算方法》换算） ----------
+v_kmh = num('canData_speed_车速') * 0.1                      # km/h
+a = v_kmh.diff().fillna(0.0) / 3.6 / 60.0                     # m/s²
+fcA_c, fcB_c = num('celDataExt_fuelcell_output_cur_A') * 0.1, num('celDataExt_fuelcell_output_cur_B') * 0.1
+fcA_v, fcB_v = num('celDataExt_fuelCell_output_vol_A') * 0.1, num('celDataExt_fuelCell_output_vol_B') * 0.1
 I_FC = fcA_c + fcB_c
 V_FC = (fcA_v + fcB_v) / 2.0
-P_FC = fcA_c * fcA_v + fcB_c * fcB_v
-mL_c, mR_c, mM_c = num('H49Data_back_bridge_motor_cur_L'), num('H49Data_back_bridge_motor_cur_R'), num('H49Data_mid_bridge_motor_cur')
-mL_v, mR_v, mM_v = num('H49Data_back_bridge_motor_vol_L'), num('H49Data_back_bridge_motor_vol_R'), num('H49Data_mid_bridge_motor_vol')
-P_mot = mL_c*mL_v + mR_c*mR_v + mM_c*mM_v
-P_aux = (num('H49Data_acm_airpump_cur')*num('H49Data_acm_airpump_vol')
-       + num('H49Data_edhv_fan_cur')*num('H49Data_edhv_fan_vol')
-       + num('H49Data_ehps_fuelpump_cur')*num('H49Data_ehps_fuelpump_vol')
-       + num('H49Data_wpump_cur_540v')*num('H49Data_wpump_vol_540v')
-       + num('H49Data_air_compressor_power'))
-P_batt = num('canData_battCur_总电流') * num('canData_battVol_总电压')
+P_FC = (fcA_c*fcA_v + fcB_c*fcB_v) / 1000.0                   # kW
+mL_c, mR_c, mM_c = num('H49Data_back_bridge_motor_cur_L')-1000, num('H49Data_back_bridge_motor_cur_R')-1000, num('H49Data_mid_bridge_motor_cur')-1000
+mL_v, mR_v, mM_v = num('H49Data_back_bridge_motor_vol_L')*0.1, num('H49Data_back_bridge_motor_vol_R')*0.1, num('H49Data_mid_bridge_motor_vol')*0.1
+P_mot = (mL_c*mL_v + mR_c*mR_v + mM_c*mM_v) / 1000.0
+P_aux = (num('H49Data_acm_airpump_cur')*0.1 * num('H49Data_acm_airpump_vol')*0.1
+       + num('H49Data_edhv_fan_cur')*0.1 * num('H49Data_edhv_fan_vol')*0.1
+       + num('H49Data_ehps_fuelpump_cur')*0.1 * num('H49Data_ehps_fuelpump_vol')*0.1
+       + num('H49Data_wpump_cur_540v')*0.1 * num('H49Data_wpump_vol_540v')*0.1
+       + num('H49Data_air_compressor_power')*0.1) / 1000.0
+P_batt = (num('canData_battCur_总电流')*0.1 - 3000.0) * (num('canData_battVol_总电压')*0.1) / 1000.0
 SOC = num('canData_battSoc_电池SOC')
-T_stack = (num('celDataExt_volpile_output_temp_A') + num('celDataExt_volpile_output_temp_B')) / 2.0
-T_bottle = pd.concat([num('celDataExt_h2_bottle_temp_%d' % i) for i in range(1, 7)], axis=1).mean(axis=1)
+T_stack = (num('celDataExt_volpile_output_temp_A') - 40.0 + num('celDataExt_volpile_output_temp_B') - 40.0) / 2.0
+T_bottle = pd.concat([num('celDataExt_h2_bottle_temp_%d' % i) / 10.0 for i in range(1, 7)], axis=1).mean(axis=1)
 P_veh = P_mot + P_aux
 ZREAL = pd.DataFrame({
     'v_kmh': v_kmh, 'acc_mps2': a,
-    'I_FC_A': I_FC, 'V_FC': V_FC, 'P_FC_kW': P_FC/1000.0,
-    'P_mot_kW': P_mot/1000.0, 'P_aux_kW': P_aux/1000.0,
-    'P_batt_kW': P_batt/1000.0, 'P_veh_kW': P_veh/1000.0,
+    'I_FC_A': I_FC, 'V_FC': V_FC, 'P_FC_kW': P_FC,
+    'P_mot_kW': P_mot, 'P_aux_kW': P_aux,
+    'P_batt_kW': P_batt, 'P_veh_kW': P_veh,
     'SOC': SOC, 'T_stack_C': T_stack, 'T_bottle_C': T_bottle,
 })
 ZCOLS = list(ZREAL.columns)
@@ -116,28 +116,18 @@ seg = pd.DataFrame(rows)
 seg = seg[(seg['h2_per_km'] > 0.02) & (seg['h2_per_km'] < 0.5)]
 print('段数:', len(seg))
 
-# ---------- 物理模型 → 仿真 Z ----------
-V_BUS = 650.0   # 母线电压假设(V)：I_FC = P_fc/V_bus
-T_STACK_OFFSET = 25.0  # 电堆温升假设(℃)：T_stack ≈ 环境+25
-SOC_ASSUME = 50.0      # SOC 常数假设(物理模型未跟踪 SOC)
+# ---------- 驱动循环物理仿真 → 仿真 Z（训练段用真实 v(t) 轨迹） ----------
+import physics_cycle
 ZSIM = pd.DataFrame(index=seg.index, columns=ZCOLS, dtype=float)
 for i, r in seg.iterrows():
-    phys = physics.predict_segment({
-        'distanceKm': r['len_km'], 'avgSpeedKmh': r['v_mean'],
-        'gradePercent': float(r['grade_mean']) if pd.notna(r['grade_mean']) else None,
-        'elevationM': r['elev_mean'], 'temperatureC': r['temp_mean'],
-        'massKg': 30000.0, 'windSpeedKmh': r['wind_mean'],
-        'windAffects': False, 'roadLevel': r['road_level'],
-    })
-    P_fc = float(phys['P_fc']); P_bat = float(phys['P_bat']); P_aux = float(phys['P_aux'])
-    P_drive = float(phys['P_drive']); P_mot = P_drive - P_aux
-    ZSIM.loc[i] = {
-        'v_kmh': r['v_mean'], 'acc_mps2': 0.0,
-        'I_FC_A': P_fc * 1000.0 / V_BUS, 'V_FC': V_BUS, 'P_FC_kW': P_fc,
-        'P_mot_kW': P_mot, 'P_aux_kW': P_aux, 'P_batt_kW': P_bat,
-        'P_veh_kW': P_drive, 'SOC': SOC_ASSUME,
-        'T_stack_C': r['temp_mean'] + T_STACK_OFFSET, 'T_bottle_C': r['temp_mean'],
-    }
+    z = physics_cycle.cycle_z(r['v_series'], r['g_series'], r['temp_mean'], mass_kg=30000.0)
+    for k in ZCOLS:
+        ZSIM.loc[i, k] = z[k]
+
+print('\n===== 仿真Z(驱动循环) vs 真实Z 逐特征 Pearson r =====')
+for k in ZCOLS:
+    rr = np.corrcoef(seg[k], ZSIM[k])[0, 1]
+    print(f'  {k:12s} r={rr:+.3f}')
 
 # ---------- 校准(微调等价)：每个 Z 特征学 Z_real ≈ a·Z_sim + b ----------
 def fit_calibration(Zr, Zs):
@@ -187,8 +177,8 @@ for name, arr in scen.items():
 # ---------- 全量校准参数（上线用） ----------
 ab_full = fit_calibration(seg[ZCOLS], ZSIM)
 json.dump({'method': 'per-feature affine Z_sim->Z_real (Ridge 微调等价)',
-           'assumptions': {'V_BUS': V_BUS, 'T_STACK_OFFSET': T_STACK_OFFSET, 'SOC_ASSUME': SOC_ASSUME,
-                           'acc_mps2': '0 (物理模型巡航假设)', 'T_bottle': '=环境温度'},
+           'sim': 'drive-cycle physics (physics_cycle.py, 真实v(t)轨迹)',
+           'assumptions': '见 ml/physics_cycle.py CALIB（热模型/附件/母线450V）',
            'calib': ab_full,
            'fit_on': 'all training segments (real+sim Z)'},
           open(os.path.join(HERE, 'z_calibration.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
