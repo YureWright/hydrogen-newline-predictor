@@ -289,7 +289,7 @@ export default function ReportPanel({ origin, destination, originName, destinati
       let ai: ReportData['ai'] = null
       let aiError = ''
       try {
-        const ar = await fetchJson<any>('/api/ai/recommend', {
+        const aj = await fetchJson<any>('/api/ai/recommend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             origin: originName, destination: destinationName,
@@ -303,7 +303,6 @@ export default function ReportPanel({ origin, destination, originName, destinati
             })),
           }),
         })
-        const aj = await ar.json()
         if (aj.ok && aj.text) ai = { text: aj.text, model: aj.model }
         else aiError = aj?.msg || 'AI 服务返回失败'
       } catch (e: any) { /* AI 失败不阻断报告 */ aiError = (e?.message || 'AI 请求异常（网络/超时）') }
