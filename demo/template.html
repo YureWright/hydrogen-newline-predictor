@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>氢能重卡新线路氢耗预测 · 离线演示（武汉 → 恩施野三关）</title>
+<style>
+  :root{
+    --cyan:#3ae3ff; --blue:#4d8dff; --violet:#a473ff; --bg:#0a0f1e; --panel:#121a30;
+    --panel2:#0e1526; --line:rgba(255,255,255,.08); --txt:#e8f0ff; --txt2:#9fb0d0;
+    --green:#3ddc84; --red:#ff6072; --amber:#ffb020;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--txt); min-height:100vh;}
+  .wrap{max-width:1180px; margin:0 auto; padding:20px}
+  /* ===== 首页 ===== */
+  #landing{position:fixed; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(1200px 600px at 50% 20%, rgba(77,141,255,.18), transparent 60%), var(--bg); text-align:center; padding:20px}
+  #landing h1{font-size:clamp(26px,4.5vw,46px); font-weight:700; letter-spacing:2px; margin-bottom:10px;
+    background:linear-gradient(90deg,var(--cyan),var(--blue),var(--violet)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  #landing .sub{color:var(--txt2); font-size:15px; letter-spacing:1px; margin-bottom:6px}
+  #landing .route{font-size:19px; margin:18px 0 8px; color:#fff}
+  #landing .route b{color:var(--cyan)}
+  #landing .tag{margin-top:6px; font-size:12px; color:var(--txt2); border:1px solid var(--line); border-radius:999px; padding:4px 14px; background:rgba(255,255,255,.04)}
+  .btn{display:inline-flex; align-items:center; gap:8px; margin-top:26px; padding:14px 34px; font-size:17px; font-weight:600; color:#fff; cursor:pointer;
+    border:none; border-radius:14px; background:linear-gradient(120deg, rgba(58,227,255,.5), rgba(77,141,255,.45), rgba(164,115,255,.4));
+    box-shadow:0 8px 30px rgba(58,227,255,.25); transition:transform .2s}
+  .btn:hover{transform:translateY(-2px)}
+  .offline-badge{position:fixed; top:14px; right:14px; z-index:200; font-size:11px; color:var(--green); border:1px solid rgba(61,220,132,.4); border-radius:999px; padding:4px 12px; background:rgba(61,220,132,.08)}
+  /* ===== 进度 ===== */
+  #progressPanel{display:none; max-width:760px; margin:40px auto; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px}
+  #progressPanel h3{margin-bottom:14px; font-size:16px}
+  .bar{height:10px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden}
+  .bar i{display:block; height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,var(--cyan),var(--blue),var(--violet)); transition:width .4s}
+  #logs{margin-top:16px; max-height:300px; overflow:auto; font-size:13px; line-height:1.9; color:var(--txt2); font-family:ui-monospace,Consolas,monospace}
+  #logs .ok{color:var(--green)} #logs .warn{color:var(--amber)}
+  /* ===== 结果 ===== */
+  #result{display:none}
+  .topbar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+  .topbar h2{font-size:20px}
+  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px}
+  .tab{padding:9px 18px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--txt2); cursor:pointer; font-size:14px}
+  .tab.on{background:linear-gradient(120deg,rgba(58,227,255,.25),rgba(164,115,255,.2)); color:#fff; border-color:rgba(58,227,255,.4)}
+  .panel{display:none}
+  .panel.on{display:block}
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px}
+  .card h4{margin-bottom:12px; font-size:15px}
+  .metric{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed rgba(255,255,255,.06); font-size:13px}
+  .metric span{color:var(--txt2)} .metric b{color:#fff}
+  .best{border-color:rgba(61,220,132,.5); box-shadow:0 0 0 1px rgba(61,220,132,.25)}
+  table{width:100%; border-collapse:collapse; font-size:12.5px}
+  th,td{padding:7px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap}
+  th{color:var(--txt2); font-weight:600; cursor:pointer; user-select:none; background:rgba(255,255,255,.03)}
+  th:hover{color:#fff}
+  td{color:var(--txt)}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .tbl-wrap{overflow:auto; max-height:520px; border:1px solid var(--line); border-radius:10px; background:var(--panel)}
+  .map{width:100%; border-radius:12px; border:1px solid var(--line); display:block}
+  .chart-box{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:14px}
+  .chart-box h5{font-size:13px; color:var(--txt2); margin-bottom:8px; font-weight:500}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:14px}
+  .report-note{color:var(--amber); font-size:13px; margin-top:10px}
+  .ai-box{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; line-height:1.8; font-size:14px}
+  .ai-box h3{margin:10px 0 6px; color:var(--cyan)}
+  .ai-box ul{margin:6px 0 6px 18px}
+  .ai-model{color:var(--txt2); font-size:12px; margin-top:8px}
+  .foot{margin-top:24px; text-align:center; color:var(--txt2); font-size:12px; border-top:1px solid var(--line); padding-top:14px}
+  .seg-select{margin-bottom:10px; font-size:13px; color:var(--txt2)}
+  .seg-select select{background:var(--panel2); color:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 10px; margin-left:8px}
+  @media (max-width:700px){ .wrap{padding:12px} .card-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="offline-badge">⚡ 离线演示 · 数据已预缓存</div>
+
+<!-- ============ 首页 ============ -->
+<div id="landing">
+  <h1>氢能重卡新线路氢耗预测系统</h1>
+  <div class="sub">T05 · 浦发杯 · 氢能黑客松 · 离线完整演示</div>
+  <div class="route">路线：<b>武汉市</b> → <b>恩施野三关</b>（约 415 km，山区高速）</div>
+  <div class="tag">已提前缓存：路线规划 / 路段数据 / DEM高程 / OSM路网 / 沿线天气 / 双引擎氢耗 / 报告与AI推荐</div>
+  <button class="btn" onclick="startDemo()">▶ 开始演示（回放完整流程）</button>
+</div>
+
+<!-- ============ 进度 ============ -->
+<div id="progressPanel">
+  <h3>⏳ 正在运行氢耗预测流程…</h3>
+  <div class="bar"><i id="barFill"></i></div>
+  <div id="logs"></div>
+</div>
+
+<!-- ============ 结果 ============ -->
+<div id="result">
+  <div class="wrap">
+    <div class="topbar">
+      <h2>武汉 → 恩施野三关</h2>
+      <span class="tag">3 条候选路线 · 双引擎预测 · AI 推荐</span>
+    </div>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-t="overview">🗺️ 路线概览</button>
+      <button class="tab" data-t="segments">📋 路段数据</button>
+      <button class="tab" data-t="charts">📈 氢耗曲线</button>
+      <button class="tab" data-t="report">📄 报告与AI推荐</button>
+    </div>
+
+    <!-- 路线概览 -->
+    <div class="panel on" id="p-overview">
+      <img class="map" src="__MAP__" alt="路线地图">
+      <div style="height:16px"></div>
+      <div class="card-grid" id="routeCards"></div>
+    </div>
+
+    <!-- 路段数据 -->
+    <div class="panel" id="p-segments">
+      <div class="seg-select">路线：
+        <select id="segRoute" onchange="renderSegTable()">
+          <option value="0">路线 1</option><option value="1">路线 2</option><option value="2">路线 3</option>
+        </select>
+        <span style="margin-left:12px">模型：
+        <select id="segModel" onchange="renderSegTable()">
+          <option value="physics">物理模型</option><option value="ml">机器学习</option>
+        </select></span>
+        <span style="margin-left:12px">点击表头排序</span>
+      </div>
+      <div class="tbl-wrap"><table id="segTable"></table></div>
+    </div>
+
+    <!-- 氢耗曲线 -->
+    <div class="panel" id="p-charts">
+      <div class="grid2" id="chartBoxes"></div>
+    </div>
+
+    <!-- 报告 -->
+    <div class="panel" id="p-report">
+      <div id="reportTable"></div>
+      <div style="height:14px"></div>
+      <div id="aiBox"></div>
+    </div>
+
+    <div class="foot">本页面为离线演示：全部数据已预缓存（含路线、路段、天气、双引擎氢耗、AI 推荐），断网可完整演示。数据为真实产品在该路线上的运行结果。</div>
+  </div>
+</div>
+
+<script>
+/*__DATA__*/
+const ROUTE_COLORS = ['#3ae3ff','#4d8dff','#a473ff'];
+const LV_CN = { highway:'高速', expressway:'快速路', national:'国道', provincial:'省道', county:'县乡道', city:'城市', other:'其他' };
+const TR_CN = { smooth:'畅通', slow:'缓行', congested:'拥堵', severe:'严重', unknown:'未知' };
+const BEH_CN = { cruise:'巡航', toll:'收费站', intersection:'红绿灯', ramp:'匝道', turn:'转弯', serviceArea:'服务区', urbanStopStart:'城市起停' };
+const TER_CN = { plain:'平原', hilly:'微丘', heavyHilly:'重丘', mountain:'山岭' };
+
+const steps = [
+  ['① 路线规划','调用高德驾车API，返回 3 条候选路线…'],
+  ['② 路线分段','按导航指令+路况切分路段（A1 分段切片）…'],
+  ['③ DEM 高程','SRTM 高程采样，逐段计算坡度/海拔/地形…'],
+  ['④ OSM 路网','真实路网匹配，校准道路等级…'],
+  ['⑤ 沿线天气','QWeather 按出发时间匹配温度/风/湿度/降水…'],
+  ['⑥ 氢耗预测','机器学习 + 物理模型 双引擎逐段计算…'],
+  ['⑦ 费用估算','燃料/过路费/司机/其他 + 柴油对比…'],
+  ['⑧ AI 推荐','DeepSeek 大模型比较三条路线并给出推荐…'],
+];
+function startDemo(){
+  document.getElementById('landing').style.display='none';
+  document.getElementById('progressPanel').style.display='block';
+  const logEl=document.getElementById('logs'), fill=document.getElementById('barFill');
+  logEl.innerHTML='';
+  let i=0;
+  const tick=()=>{
+    if(i>=steps.length){ finishDemo(); return }
+    const [t,d]=steps[i];
+    logEl.innerHTML+=`<div>${t} <span class="txt">${d}</span></div>`;
+    logEl.scrollTop=logEl.scrollHeight;
+    fill.style.width=Math.round((i+1)/steps.length*100)+'%';
+    i++;
+    setTimeout(tick, 900 + Math.random()*700);
+  };
+  // 前几步后追加细节日志
+  setTimeout(()=>{ const l=logEl; l.innerHTML+=`<div class="ok">  · 3 条候选路线：414.7km / 428.5km / 467.7km</div>`; l.scrollTop=l.scrollHeight }, 2000);
+  setTimeout(()=>{ const l=logEl; l.innerHTML+=`<div class="ok">  · 路线1 分段 275 段（高速占比 82%）</div>`; l.scrollTop=l.scrollHeight }, 3600);
+  setTimeout(()=>{ const l=logEl; l.innerHTML+=`<div class="ok">  · 天气匹配：275/275 段（QWeather）</div>`; l.scrollTop=l.scrollHeight }, 6000);
+  tick();
+}
+function finishDemo(){
+  document.getElementById('progressPanel').style.display='none';
+  document.getElementById('result').style.display='block';
+  renderOverview(); renderSegTable(); renderCharts(); renderReport();
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+}
+document.querySelectorAll('#tabs .tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#tabs .tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); document.getElementById('p-'+b.dataset.t).classList.add('on');
+}));
+
+/* ===== 概览 ===== */
+function renderOverview(){
+  const best = DATA.routes.reduce((a,b)=>b.cost.totalYuan<a.cost.totalYuan?b:a, DATA.routes[0]);
+  document.getElementById('routeCards').innerHTML = DATA.routes.map((r,i)=>{
+    const c=r.candidate, isBest=r===best;
+    return `<div class="card${isBest?' best':''}">
+      <h4 style="color:${ROUTE_COLORS[i]}">路线 ${i+1}${isBest?' ⭐ 推荐(费用最低)':''}</h4>
+      <div class="metric"><span>里程</span><b>${c.distanceKm.toFixed(1)} km</b></div>
+      <div class="metric"><span>预计时长</span><b>${c.durationH.toFixed(1)} h</b></div>
+      <div class="metric"><span>均速</span><b>${c.avgSpeedKmh.toFixed(1)} km/h</b></div>
+      <div class="metric"><span>高速占比</span><b>${(c.highwayRatio*100).toFixed(0)}%</b></div>
+      <div class="metric"><span>过路费</span><b>${c.tollsYuan.toFixed(0)} 元</b></div>
+      <div class="metric"><span>ML 氢耗</span><b>${(r.ml.total_h2_kg||0).toFixed(2)} kg（${(r.ml.per100km_kg||0).toFixed(2)} kg/100km）</b></div>
+      <div class="metric"><span>物理氢耗</span><b>${(r.physics.total_h2_kg||0).toFixed(2)} kg（${(r.physics.per100km_kg||0).toFixed(2)} kg/100km）</b></div>
+      <div class="metric"><span>氢能总费用</span><b>${r.cost.totalYuan.toFixed(0)} 元</b></div>
+      <div class="metric"><span>柴油总费用</span><b>${r.cost.dieselTotalYuan.toFixed(0)} 元</b></div>
+      <div class="metric"><span>较柴油</span><b style="color:${r.cost.deltaYuan<=0?'var(--green)':'var(--red)'}">${r.cost.deltaYuan>=0?'贵':'省'} ${Math.abs(r.cost.deltaYuan).toFixed(0)} 元</b></div>
+      <div class="metric"><span>主要道路</span><b>${(c.topRoads||[]).slice(0,2).join('、')||'—'}</b></div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== 路段表 ===== */
+let segSort={k:'index',d:0};
+function renderSegTable(){
+  const ri=+document.getElementById('segRoute').value, md=document.getElementById('segModel').value;
+  const r=DATA.routes[ri], segs=(md==='physics'?r.physics.segments:r.ml.segments);
+  const table=document.getElementById('segTable');
+  const cols=[['index','段'],['roadName','道路'],['roadLevel','等级'],['distanceKm','里程km'],['avgSpeedKmh','均速km/h'],
+    ['gradePercent','坡度%'],['elevationM','海拔m'],['temperatureC','温度℃'],['windSpeedKmh','风速km/h'],
+    ['humidityPct','湿度%'],['h2_per_km_kg','百公里kg/100km'],['h2_kg','氢耗kg'],['P_fc','电堆kW']];
+  const arr=[...segs];
+  const k=segSort.k;
+  arr.sort((a,b)=>{ const va=a[k],vb=b[k];
+    if(va==null||vb==null) return va==null?1:-1;
+    const r2=typeof va==='string'?String(va).localeCompare(String(vb),'zh'):(va-vb);
+    return segSort.d? -r2:r2; });
+  const hdr=cols.map(([key,label])=>`<th onclick="setSegSort('${key}')">${label}${segSort.k===key?(segSort.d?' ↓':' ↑'):''}</th>`).join('');
+  const body=arr.map(s=>`<tr>
+    <td class="mono">${s.index}</td><td>${s.roadName||''}</td><td>${LV_CN[s.roadLevel]||s.roadLevel||''}</td>
+    <td class="mono">${(s.distanceKm??0).toFixed(2)}</td><td class="mono">${(s.avgSpeedKmh??0).toFixed(1)}</td>
+    <td class="mono">${s.gradePercent==null?'—':s.gradePercent.toFixed(2)}</td><td class="mono">${s.elevationM==null?'—':s.elevationM.toFixed(0)}</td>
+    <td class="mono">${s.temperatureC==null?'—':s.temperatureC.toFixed(1)}</td><td class="mono">${s.windSpeedKmh==null?'—':s.windSpeedKmh.toFixed(0)}</td>
+    <td class="mono">${s.humidityPct==null?'—':s.humidityPct.toFixed(0)}</td>
+    <td class="mono"><b>${s.h2_per_km_kg==null?'—':(s.h2_per_km_kg*100).toFixed(2)}</b></td>
+    <td class="mono">${s.h2_kg==null?'—':s.h2_kg.toFixed(3)}</td>
+    <td class="mono">${s.P_fc==null?'—':s.P_fc.toFixed(1)}</td></tr>`).join('');
+  table.innerHTML=`<thead><tr>${hdr}</tr></thead><tbody>${body}</tbody>`;
+}
+function setSegSort(k){ if(segSort.k===k) segSort.d=!segSort.d; else {segSort={k,d:0}} renderSegTable(); }
+
+/* ===== 曲线 ===== */
+function svgChart(title, series, fmt){
+  const W=520,H=220,P=36;
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  series.forEach(s=>s.pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)}));
+  if(maxY===minY)maxY=minY+1;
+  const X=x=>P+(x-minX)/(maxX-minX)*(W-2*P), Y=y=>H-P-(y-minY)/(maxY-minY)*(H-2*P);
+  const paths=series.map(s=>{const d=s.pts.map((p,i)=>(i?'L':'M')+X(p.x).toFixed(1)+' '+Y(p.y).toFixed(1)).join(' ');return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.4" stroke-linejoin="round"/>`}).join('');
+  const grid=[0.25,0.5,0.75].map(f=>`<line x1="${P}" y1="${Y(minY+f*(maxY-minY))}" x2="${W-P}" y2="${Y(minY+f*(maxY-minY))}" stroke="rgba(255,255,255,.06)"/>`).join('');
+  return `<div class="chart-box"><h5>${title}</h5><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${grid}${paths}
+    <line x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}" stroke="rgba(255,255,255,.2)"/>
+    <line x1="${P}" y1="0" x2="${P}" y2="${H-P}" stroke="rgba(255,255,255,.2)"/>
+    <text x="${W-P}" y="${H-14}" fill="#9fb0d0" font-size="10" text-anchor="end">累计里程 km</text>
+    <text x="6" y="${H-P+14}" fill="#9fb0d0" font-size="10">${fmt}</text>
+  </svg></div>`;
+}
+function renderCharts(){
+  const cumH2=(segs)=>{let d=0,h=0;return segs.map(s=>{d+=s.distanceKm;h+=(s.h2_kg||0);return{x:d,y:h}})};
+  const perKm=(segs)=>{let d=0;return segs.map(s=>{d+=s.distanceKm;return{x:d,y:(s.h2_per_km_kg||0)*100}})};
+  const speed=(r)=>{let d=0;return r.segments.map(s=>{d+=s.distanceKm;return{x:d,y:s.avgSpeedKmh}})};
+  const pfc=(r)=>{let d=0;return r.physics.segments.map(s=>{d+=s.distanceKm;return{x:d,y:s.P_fc||0}})};
+  const box=document.getElementById('chartBoxes');
+  box.innerHTML=
+    svgChart('速度曲线（各段均速 km/h）', DATA.routes.map((r,i)=>({label:'路线'+(i+1),color:ROUTE_COLORS[i],pts:speed(r)})),'km/h')+
+    svgChart('机器学习氢耗曲线（累计 kg）', DATA.routes.map((r,i)=>({label:'路线'+(i+1),color:ROUTE_COLORS[i],pts:cumH2(r.ml.segments)})),'累计 kg')+
+    svgChart('物理模型氢耗曲线（累计 kg）', DATA.routes.map((r,i)=>({label:'路线'+(i+1),color:ROUTE_COLORS[i],pts:cumH2(r.physics.segments)})),'累计 kg')+
+    svgChart('电堆功率曲线（物理模型，kW）', DATA.routes.map((r,i)=>({label:'路线'+(i+1),color:ROUTE_COLORS[i],pts:pfc(r)})),'kW');
+}
+
+/* ===== 报告 ===== */
+function md(text){
+  return text.split(/\n/).map(line=>{
+    if(/^#{1,4}\s/.test(line)) return `<h3>${line.replace(/^#{1,4}\s/,'')}</h3>`;
+    if(/^\s*[-*]\s/.test(line)) return `<li>${line.replace(/^\s*[-*]\s/,'')}</li>`;
+    if(/^\s*\d+[.、]\s/.test(line)) return `<li>${line.replace(/^\s*\d+[.、]\s/,'')}</li>`;
+    if(line.trim()==='') return '';
+    return `<div>${line}</div>`;
+  }).join('');
+}
+function renderReport(){
+  const best=DATA.routes.reduce((a,b)=>b.cost.totalYuan<a.cost.totalYuan?b:a, DATA.routes[0]);
+  const rows=DATA.routes.map((r,i)=>`<tr class="${r===best?'best':''}">
+    <td><b>路线 ${i+1}</b>${r===best?' ⭐':''}</td>
+    <td>${r.candidate.distanceKm.toFixed(1)}</td><td>${r.candidate.durationH.toFixed(1)}</td>
+    <td>${(r.ml.total_h2_kg||0).toFixed(2)}</td><td>${(r.ml.per100km_kg||0).toFixed(2)}</td>
+    <td>${(r.physics.total_h2_kg||0).toFixed(2)}</td><td>${(r.physics.per100km_kg||0).toFixed(2)}</td>
+    <td>${r.cost.fuelYuan.toFixed(0)}</td><td>${r.cost.tollYuan.toFixed(0)}</td><td>${r.cost.driverYuan.toFixed(0)}</td><td>${r.cost.otherYuan.toFixed(0)}</td>
+    <td><b>${r.cost.totalYuan.toFixed(0)}</b></td><td>${r.cost.dieselTotalYuan.toFixed(0)}</td>
+    <td style="color:${r.cost.deltaYuan<=0?'var(--green)':'var(--red)'}">${r.cost.deltaYuan>=0?'+':''}${r.cost.deltaYuan.toFixed(0)}</td>
+  </tr>`).join('');
+  document.getElementById('reportTable').innerHTML=`<div class="tbl-wrap"><table>
+    <thead><tr><th>路线</th><th>里程km</th><th>时长h</th><th>ML氢耗kg</th><th>ML kg/100km</th>
+    <th>物理氢耗kg</th><th>物理 kg/100km</th><th>燃料费元</th><th>过路费元</th><th>司机元</th><th>其他元</th><th>总费用元</th><th>柴油总费用元</th><th>较柴油±元</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p class="report-note">⭐ = 总费用最低路线。燃料费 = 物理模型氢耗 × 35 元/kg；柴油 = 里程 × 30L/100km × 7.5 元/L。</p>`;
+  const ai=DATA.ai;
+  document.getElementById('aiBox').innerHTML = ai
+    ? `<div class="ai-box"><h4 style="margin-bottom:8px">🤖 AI 路线推荐</h4>${md(ai.text)}<p class="ai-model">模型：${ai.model}</p></div>`
+    : `<p class="report-note">⚠️ AI 推荐生成失败：${DATA.aiError||'未知'}。请参考上表 ⭐ 最低费用路线。</p>`;
+}
+</script>
+</body>
+</html>

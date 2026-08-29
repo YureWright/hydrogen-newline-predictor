@@ -18,6 +18,17 @@
 | 结论 | 当前数据下新路线预测最优 = 路线特征直接预测（HistGB≈0.42）= 信息上限；实测Z模型(0.73~0.87)不可部署新路线；物理模型定位为量级估算/交叉验证/物理解释；突破需企业控制策略/MATLAB模型 |
 | 产出 | `ml/hybrid_ridge_pipeline.py`(官方换算+驱动循环)、`ml/physics_cycle.py`、`ml/predict_z_mlp.py`、`ml/hybrid_residual.py`、`ml/z_calibration.json`；docs/物理数据驱动融合模型_初步设计.md 新增 §10 信息边界；WORKLOG 本条 |
 
+## 2026-08-29 · 离线演示页（武汉 → 恩施野三关，断网可完整演示）
+
+| 工作 | 说明 |
+| --- | --- |
+| 触发 | 比赛现场可能断网，需要"提前缓存一条路线全部数据 + 静态演示页" |
+| 捕获 | `scripts/capture_demo_snapshot.ts`：武汉→恩施野三关全链路（地理编码→3条候选→逐条分段+DEM/OSM/天气→双引擎预测→费用→AI推荐），落 `demo/snapshot.json`（3 路线、1140 段） |
+| 地图 | 高德静态图（v3 markers 可用、paths 权限受限）→ 用双 marker 颜色检测算仿射校正（缩放+平移）叠加路线，生成 `demo/route-map.png` |
+| 演示页 | `demo/demo.html` 单文件自包含（约 750KB）：零外部引用、内嵌快照+地图，模拟"路线规划→分段→DEM→OSM→天气→预测→报告→AI"全流程，含路线卡片/可排序路段表/4 张 SVG 曲线/报告总表/AI 推荐 |
+| 验证 | puppeteer 无头浏览器实测：3 卡片、275 段可排序、4 图 0 NaN、报告 3 行、AI 444 字、**0 报错** |
+| 产出 | demo/（demo.html、snapshot.json、route-map.png、template.html、map_meta.json）、scripts/capture_demo_snapshot.ts、scripts/build_demo_html.py；README 加"离线演示"说明；WORKLOG 本条 |
+
 ## 2026-08-29 · 重卡车速对齐（货车系数）+ 融合模型中间层降维定稿
 
 | 工作 | 说明 |
