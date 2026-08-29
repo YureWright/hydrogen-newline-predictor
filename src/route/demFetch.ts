@@ -25,7 +25,7 @@ import {
   decodePng, haversineM, resampleCoords, sampleElevationInTile,
   tileXY, type ProfilePoint,
 } from './dem'
-import { round1, round2 } from './parse'
+import { round2 } from './parse'
 import { buildIntersectionEvents, isEventBehavior } from './segment'
 
 export interface DemTile {
@@ -277,7 +277,7 @@ export function mergeContinuationFragments(segments: SegmentData[]): SegmentData
       last.distanceKm = round2(last.distanceKm + s.distanceKm)
       last.durationH = round2(last.durationH + s.durationH)
       last.coordsWgs84 = last.coordsWgs84.concat(s.coordsWgs84)
-      if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
+      if (last.durationH > 0) last.avgSpeedKmh = round2(last.distanceKm / last.durationH)
     } else {
       out.push({ ...s, coordsWgs84: [...s.coordsWgs84] })
     }

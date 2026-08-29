@@ -73,7 +73,7 @@ export function pathToCandidate(path: AmapRawPath): RouteCandidate {
   const traffic = sumTraffic(tmcsAll, distanceM / 1000)
   const hr = highwayRatio(tollDistanceM, distanceM)
   // 高德 duration 是轿车通行时间：路线级均速按高速占比乘重卡系数，时长同步拉长（与段级 truckSpeedKmh 口径一致）
-  const truckAvg = truckSpeedKmhRoute(avgSpeedKmh(distanceM, durationS), hr)
+  const truckAvg = round2(truckSpeedKmhRoute(avgSpeedKmh(distanceM, durationS), hr))
   const truckDurH = truckAvg > 0 ? round2((distanceM / 1000) / truckAvg) : round2(durationS / 3600)
   return {
     distanceKm: round1(distanceM / 1000),

@@ -74,13 +74,13 @@ export const TRUCK_SPEED_MAX: Record<RoadLevel, number> = {
 export function truckSpeedKmh(carSpeedKmh: number, roadLevel: RoadLevel): number {
   const f = TRUCK_SPEED_FACTOR[roadLevel] ?? 0.8
   const max = TRUCK_SPEED_MAX[roadLevel] ?? 80
-  return Math.min(max, Math.max(5, carSpeedKmh * f))
+  return round2(Math.min(max, Math.max(5, carSpeedKmh * f)))
 }
 /** 路线级轿车速度 → 重卡速度（按高速占比选系数；用于路线卡片展示/费用估算，段级请用 truckSpeedKmh） */
 export function truckSpeedKmhRoute(carSpeedKmh: number, highwayRatio: number): number {
   const f = highwayRatio >= 0.5 ? TRUCK_SPEED_FACTOR.highway : 0.8
   const max = highwayRatio >= 0.5 ? TRUCK_SPEED_MAX.highway : 80
-  return Math.min(max, Math.max(5, carSpeedKmh * f))
+  return round2(Math.min(max, Math.max(5, carSpeedKmh * f)))
 }
 
 /** tmcs 列表 → 距离加权主导路况（status 缺失/未知占比最高时可能返回 unknown） */
@@ -522,8 +522,8 @@ function splitLongEventStep(args: {
   const nSum = nh + nt
   const headDur = nSum > 0 ? durH * (nh / nSum) : durH * headFrac
   const tailDur = durH - headDur
-  const headSpeed = headDur > 0 ? round1(headKm / headDur) : avgSpeed
-  const tailSpeed = tailDur > 0 ? round1(tailKm / tailDur) : avgSpeed
+  const headSpeed = headDur > 0 ? round2(headKm / headDur) : avgSpeed
+  const tailSpeed = tailDur > 0 ? round2(tailKm / tailDur) : avgSpeed
   return [
     {
       ...base,
@@ -583,7 +583,7 @@ export function buildSegments(path: AmapRawPath): SegmentData[] {
       const durH = effDurationS > 0 ? effDurationS / 3600 : distanceM / 1000 / (avgSpeed || 1)
       last.durationH = round2(last.durationH + durH)
       last.coordsWgs84 = last.coordsWgs84.concat(coordsWgs84)
-      if (last.durationH > 0) last.avgSpeedKmh = round1(last.distanceKm / last.durationH)
+      if (last.durationH > 0) last.avgSpeedKmh = round2(last.distanceKm / last.durationH)
       continue // 不 push 新段；lastBehavior 保持同类事件
     }
     const pieces = splitLongEventStep({
