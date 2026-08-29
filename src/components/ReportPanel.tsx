@@ -324,8 +324,8 @@ export default function ReportPanel({ origin, destination, originName, destinati
     return { label: '路线' + (i + 1), color: ROUTE_COLORS[i], points: pts }
   })
   const cumH2 = (segs: any[]) => {
-    let cum = 0
-    return segs.map((s) => { cum += s.distanceKm; return { x: round1(cum), y: round2(s.h2_kg ?? 0) } })
+    let dist = 0, h2 = 0
+    return segs.map((s) => { dist += s.distanceKm; h2 += (s.h2_kg ?? 0); return { x: round1(dist), y: round2(h2) } })
   }
   const mlH2Series = (report?.routes ?? []).map((r, i) => ({ label: '路线' + (i + 1), color: ROUTE_COLORS[i], points: cumH2(r.ml?.segments ?? []) }))
   const phH2Series = (report?.routes ?? []).map((r, i) => ({ label: '路线' + (i + 1), color: ROUTE_COLORS[i], points: cumH2(r.physics?.segments ?? []) }))
