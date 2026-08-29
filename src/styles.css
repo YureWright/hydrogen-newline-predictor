@@ -1265,7 +1265,7 @@ body::before {
    内层只做 flex 布局 + rise 动画。 */
 .landing-center {
   position: absolute;
-  left: 50%; top: 82%;
+  left: 50%; top: 89%;
   transform: translate(-50%, -50%);
   z-index: 5;
 }
@@ -1361,7 +1361,7 @@ body::before {
   .landing-tag { display: none; }
   .landing-btns { flex-direction: column; width: 80%; }
   .landing-btn-sm { justify-content: center; padding: 11px 16px; font-size: 13px; }
-  .landing-center { top: 76%; }
+  .landing-center { top: 83%; }
   .landing-center-btns { flex-direction: column; width: 86%; gap: 14px; }
   .landing-btn-lg { justify-content: center; padding: 15px 22px; font-size: 17px; width: 100%; }
   .headlight-glow, .headlight-glow-2 { display: none; }
