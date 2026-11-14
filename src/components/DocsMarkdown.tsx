@@ -1,17 +1,38 @@
-/** 文档库 Markdown 渲染：标题/粗体/斜体/行内代码/列表/表格/代码块/引用/链接/段落（知识库与 docs 用） */
-import type { ReactNode } from 'react'
+/** 文档库 Markdown 渲染：标题/粗体/斜体/行内代码/列表/表格/代码块/引用/链接/段落 + KaTeX 公式（知识库与 docs 用） */
+import { useEffect, useRef, type ReactNode } from 'react'
+
+/** 块级公式：$$...$$ → KaTeX 居中渲染 */
+function MathBlock({ tex }: { tex: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const katex = (window as any).katex
+    if (ref.current && katex) katex.render(tex, ref.current, { throwOnError: false, displayMode: true })
+  }, [tex])
+  return <div ref={ref} className="doc-math" />
+}
+
+/** 行内公式：$...$ → KaTeX 行内渲染 */
+function MathInline({ tex }: { tex: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const katex = (window as any).katex
+    if (ref.current && katex) katex.render(tex, ref.current, { throwOnError: false, displayMode: false })
+  }, [tex])
+  return <span ref={ref} />
+}
 
 /** 行内解析：**粗体** *斜体* `代码` [文字](链接) 自动转义其余 HTML */
 function inline(text: string, keyBase: string): ReactNode[] {
   const tokens: ReactNode[] = []
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
+  const re = /(\$[^$\n]+\$|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
   let last = 0
   let m: RegExpExecArray | null
   let i = 0
   while ((m = re.exec(text))) {
     if (m.index > last) tokens.push(<span key={keyBase + '_t' + i++}>{esc(text.slice(last, m.index))}</span>)
     const tok = m[0]
-    if (tok.startsWith('**')) tokens.push(<strong key={keyBase + '_b' + i++}>{esc(tok.slice(2, -2))}</strong>)
+    if (tok.startsWith('$')) tokens.push(<MathInline key={keyBase + '_m' + i++} tex={tok.slice(1, -1)} />)
+    else if (tok.startsWith('**')) tokens.push(<strong key={keyBase + '_b' + i++}>{esc(tok.slice(2, -2))}</strong>)
     else if (tok.startsWith('*')) tokens.push(<em key={keyBase + '_e' + i++}>{esc(tok.slice(1, -1))}</em>)
     else if (tok.startsWith('`')) tokens.push(<code key={keyBase + '_c' + i++}>{esc(tok.slice(1, -1))}</code>)
     else {
@@ -51,6 +72,31 @@ export default function DocsMarkdown({ text }: { text: string }) {
       while (idx < lines.length && !/^```/.test(lines[idx].trim())) { buf.push(lines[idx]); idx++ }
       idx++
       out.push(<CodeBlock key={'code' + out.length} code={buf.join('\n')} />)
+      continue
+    }
+    // 块级公式：$$ ... $$（单行或多行）
+    if (/^\s*\$\$/.test(line)) {
+      const buf: string[] = []
+      const first = line.replace(/^\s*\$\$/, '')
+      if (/\$\$\s*$/.test(first)) {
+        // 单行 $$...$$
+        buf.push(first.replace(/\$\$\s*$/, ''))
+        idx++
+      } else {
+        if (first.trim()) buf.push(first)
+        idx++
+        while (idx < lines.length) {
+          const l = lines[idx]
+          if (/\$\$\s*$/.test(l)) {
+            buf.push(l.replace(/\$\$\s*$/, ''))
+            idx++
+            break
+          }
+          buf.push(l)
+          idx++
+        }
+      }
+      out.push(<MathBlock key={'math' + out.length} tex={buf.join('\n').trim()} />)
       continue
     }
     // 表格（连续 | 行，第二行是分隔）
