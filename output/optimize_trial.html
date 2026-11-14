@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>偏好驱动的路线优化 · 试水版</title>
+<style>
+body{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#0a0f1e;color:#e8f0ff;margin:0;padding:24px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:24px;background:linear-gradient(90deg,#3ae3ff,#4d8dff,#a473ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:#9fb0d0;font-size:13px;margin:6px 0 20px}
+.card{background:#121a30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;margin-bottom:16px}
+h2{font-size:17px;margin:0 0 12px}h3{font-size:14px;margin:0 0 10px;color:#9fb0d0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
+th{color:#9fb0d0;font-weight:600}
+.legend span{margin-right:16px;font-size:12px;color:#9fb0d0}
+svg{background:rgba(255,255,255,.02);border-radius:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.bar-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.bar-label{width:56px;color:#9fb0d0}.bar-track{flex:1;height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+.bar-track i{display:block;height:100%;background:linear-gradient(90deg,#3ae3ff,#4d8dff);border-radius:999px}
+.bar-val{width:52px;text-align:right;color:#9fb0d0}
+.note{color:#ffb020;font-size:12px;line-height:1.8}
+</style></head><body><div class="wrap">
+<h1>偏好驱动的路线优化 · 试水版</h1>
+<div class="sub">114.304569,30.593354 → 110.325928,30.612621 ｜ 氢耗用物理模型 ｜ 满载 49t ｜ Cd=0.27 ｜ 氢价 35 元/kg ｜ 司机 60 元/h ｜ 其他 0.5 元/km</div>
+
+<div class="card"><h2>① Pareto 前沿：多花多少钱，能省多少时间</h2>
+<div class="legend"><span style="color:#3ae3ff">● 路线 1</span><span style="color:#4d8dff">● 路线 2</span><span style="color:#a473ff">● 路线 3</span></div>
+<svg viewBox="0 0 720 360" style="width:100%;height:auto"><line x1="60" y1="240.0" x2="660" y2="240.0" stroke="rgba(255,255,255,.08)"/><line x1="60" y1="180.0" x2="660" y2="180.0" stroke="rgba(255,255,255,.08)"/><line x1="60" y1="120.0" x2="660" y2="120.0" stroke="rgba(255,255,255,.08)"/><line x1="60" y1="300" x2="660" y2="300" stroke="rgba(255,255,255,.25)"/><line x1="60" y1="60" x2="60" y2="300" stroke="rgba(255,255,255,.25)"/><circle cx="660.0" cy="300.0" r="6" fill="#3ae3ff" stroke="#fff" stroke-width="1.5"/><circle cx="660.0" cy="287.6" r="6" fill="#3ae3ff" stroke="#fff" stroke-width="1.5"/><circle cx="660.0" cy="275.2" r="6" fill="#3ae3ff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="251.1" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="227.3" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="203.4" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="179.5" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="131.7" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><circle cx="60.0" cy="60.0" r="6" fill="#4d8dff" stroke="#fff" stroke-width="1.5"/><text x="660.0" y="288.0" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=0</text><text x="660.0" y="275.6" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=50</text><text x="660.0" y="263.2" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=100</text><text x="60.0" y="239.1" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=200</text><text x="60.0" y="215.3" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=300</text><text x="60.0" y="191.4" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=400</text><text x="60.0" y="167.5" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=500</text><text x="60.0" y="119.7" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=700</text><text x="60.0" y="48.0" fill="#9fb0d0" font-size="11" text-anchor="middle">λ=1000</text><text x="660" y="346" fill="#9fb0d0" font-size="12" text-anchor="end">总时长 (h) →</text><text x="12" y="20" fill="#9fb0d0" font-size="12">↑ 总费用 (元)</text></svg>
+</div>
+
+<div class="card"><h2>② 各路线对比（λ=100 元/h）</h2>
+<table><thead><tr><th>路线</th><th>里程 km</th><th>总时长 h</th><th>总氢耗 kg</th><th>百公里 kg/100km</th><th>氢费 元</th><th>过路费 元</th><th>司机费 元</th><th>其他 元</th><th>总费用 元</th></tr></thead>
+<tbody><tr><td><b style="color:#3ae3ff">路线 1</b></td><td>414.7</td><td>6.35</td><td>41.64</td><td>10.04</td><td>1458</td><td>205</td><td>381</td><td>207</td><td><b>2885</b></td></tr><tr><td><b style="color:#4d8dff">路线 2</b></td><td>428.5</td><td>6.12</td><td>41.39</td><td>9.66</td><td>1449</td><td>248</td><td>367</td><td>214</td><td><b>2890</b></td></tr><tr><td><b style="color:#a473ff">路线 3</b></td><td>434.7</td><td>6.37</td><td>43.62</td><td>10.03</td><td>1527</td><td>249</td><td>382</td><td>217</td><td><b>3012</b></td></tr></tbody></table>
+</div>
+
+<div class="grid2">
+<div class="card"><h3>车速分布：λ=0（最省钱）</h3><div class="bar-row"><span class="bar-label">40 km/h</span><div class="bar-track"><i style="width:15.0%"></i></div><span class="bar-val">42 段</span></div><div class="bar-row"><span class="bar-label">50 km/h</span><div class="bar-track"><i style="width:2.9%"></i></div><span class="bar-val">8 段</span></div><div class="bar-row"><span class="bar-label">55 km/h</span><div class="bar-track"><i style="width:3.6%"></i></div><span class="bar-val">10 段</span></div><div class="bar-row"><span class="bar-label">60 km/h</span><div class="bar-track"><i style="width:23.6%"></i></div><span class="bar-val">66 段</span></div><div class="bar-row"><span class="bar-label">65 km/h</span><div class="bar-track"><i style="width:31.4%"></i></div><span class="bar-val">88 段</span></div><div class="bar-row"><span class="bar-label">70 km/h</span><div class="bar-track"><i style="width:10.0%"></i></div><span class="bar-val">28 段</span></div><div class="bar-row"><span class="bar-label">75 km/h</span><div class="bar-track"><i style="width:13.2%"></i></div><span class="bar-val">37 段</span></div><div class="bar-row"><span class="bar-label">90 km/h</span><div class="bar-track"><i style="width:0.4%"></i></div><span class="bar-val">1 段</span></div></div>
+<div class="card"><h3>车速分布：λ=1000（最赶时间）</h3><div class="bar-row"><span class="bar-label">40 km/h</span><div class="bar-track"><i style="width:6.0%"></i></div><span class="bar-val">26 段</span></div><div class="bar-row"><span class="bar-label">45 km/h</span><div class="bar-track"><i style="width:0.5%"></i></div><span class="bar-val">2 段</span></div><div class="bar-row"><span class="bar-label">50 km/h</span><div class="bar-track"><i style="width:0.2%"></i></div><span class="bar-val">1 段</span></div><div class="bar-row"><span class="bar-label">55 km/h</span><div class="bar-track"><i style="width:3.7%"></i></div><span class="bar-val">16 段</span></div><div class="bar-row"><span class="bar-label">60 km/h</span><div class="bar-track"><i style="width:13.5%"></i></div><span class="bar-val">58 段</span></div><div class="bar-row"><span class="bar-label">65 km/h</span><div class="bar-track"><i style="width:19.3%"></i></div><span class="bar-val">83 段</span></div><div class="bar-row"><span class="bar-label">70 km/h</span><div class="bar-track"><i style="width:2.3%"></i></div><span class="bar-val">10 段</span></div><div class="bar-row"><span class="bar-label">75 km/h</span><div class="bar-track"><i style="width:27.2%"></i></div><span class="bar-val">117 段</span></div><div class="bar-row"><span class="bar-label">80 km/h</span><div class="bar-track"><i style="width:27.2%"></i></div><span class="bar-val">117 段</span></div></div>
+</div>
+
+<div class="card"><h2>说明与边界</h2>
+<p class="note">1) 氢耗用物理模型计算（段均速 + 坡度 + 海拔 + 附件），不含机器学习；<br>
+2) 车速建议受"重卡限速 / 拥堵上限 / 坡度"约束，因此多数段建议车速会顶在上限；<br>
+3) 物理模型中 49t 重卡滚动阻力占主导，氢耗对车速不太敏感，所以"经济车速"接近限速上限；<br>
+4) 下一步：把速度并入 DP 做联合优化，并接入加氢/充电站可用性。</p>
+</div>
+</div></body></html>
