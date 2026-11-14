@@ -39,3 +39,6 @@ dev-server-*.log
 data/models/
 
 data/evalsets/
+data/charging_stations.geojson
+data/charging_stations.csv
+data/charging_crawl_state.json
