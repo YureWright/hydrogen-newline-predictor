@@ -17,14 +17,13 @@ const { fetchRoutePlan, fetchRouteWithSegments } = await import('../src/route/am
 const { enrichSegmentsWithDem } = await import('../src/route/demFetch')
 const { enrichSegmentsWithOsmRoads } = await import('../src/route/osmRoad')
 const { enrichSegmentsWithWeather } = await import('../src/route/weather')
-const { summarizeSegments, expectedStopCount } = await import('../src/route/segment')
+const { summarizeSegments } = await import('../src/route/segment')
 const { recommendRoute, getAiConfig } = await import('../src/route/ai')
 const COST = { h2Price: 35, dieselPrice: 7.5, dieselL100: 30, driverRate: 60, otherPerKm: 0.5 }
 const VEHICLE = { curbKg: 9700, crr: 0.009, cd: 0.35, frontArea: 7.5, etaMt: 0.9, pFcMin: 30, pFcMax: 180, pBatMax: 150, etaFc: 0.5, pAux0: 3.0, kT: 0.15 }
 const loadT = 30
 
 const log = (...a: any[]) => { console.log('[capture]', ...a) }
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 async function geocode(addr: string): Promise<string> {
   const url = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(addr)}&key=${KEY}`
   const r = await fetch(url); const j: any = await r.json()

@@ -61,6 +61,7 @@ export const DOC_GROUPS: DocGroup[] = [
     { id: 'phy-research', title: '物理模型调研', globKey: DOCS + '/physics-model-research.md', kind: 'md' },
     { id: 'hybrid-design', title: '物理+数据驱动融合模型 · 设计 + 信息边界实测', globKey: DOCS + '/物理数据驱动融合模型_初步设计.md', kind: 'md', hint: '可解释隐藏层 = 物理量；三条融合路径端到端实测（§10）：P_FC 为控制策略量不可由路线预测——信息边界结论' },
     { id: 'truck-speed', title: '重卡车速对齐方案（货车系数）', globKey: DOCS + '/重卡车速对齐方案.md', kind: 'md', hint: '预测速度对齐训练数据重卡画像；将来接入高德货车路径规划服务替换系数' },
+    { id: 'decision-opt', title: '智能决策与优化算法设计（偏好驱动）', globKey: DOCS + '/智能决策优化算法设计.md', kind: 'md', hint: '时间-费用偏好 → Pareto前沿 + 分段经济车速 + 氢电双补能DP + 动态重规划；含官网车辆参数与本地启动说明' },
   ] },
   { group: '知识库 · 总览与科普', items: [
     { id: 'kb00', title: '00 · 总览与阅读入口', globKey: KB + '/00_总览与阅读入口.md', kind: 'md' },
