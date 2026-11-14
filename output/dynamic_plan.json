@@ -1,0 +1,4036 @@
+{
+  "route": {
+    "distanceKm": 414.7,
+    "durationH": 6.7,
+    "tollsYuan": 205
+  },
+  "lambda": 100,
+  "vehicle": {
+    "massKg": 49000,
+    "crr": 0.009,
+    "cd": 0.27,
+    "frontArea": 7.5,
+    "etaMt": 0.9,
+    "pFcMin": 30,
+    "pFcMax": 180,
+    "pBatMax": 150,
+    "etaFc": 0.5,
+    "pAux0": 3,
+    "kT": 0.15,
+    "h2CapacityKg": 50,
+    "batCapacityKWh": 155,
+    "socMin": 10,
+    "socMax": 90,
+    "chargePowerKW": 120,
+    "chargePlugH": 0.15
+  },
+  "cost": {
+    "h2Price": 35,
+    "elecPrice": 1.2,
+    "driverRate": 60,
+    "otherPerKm": 0.5
+  },
+  "total": {
+    "km": 414.47000000000315,
+    "timeH": 6.049390873015881,
+    "energyKWh": 691.2099999999966,
+    "h2Kg": 41.47199600000015,
+    "h2Per100km": 10.00603083455976,
+    "planCost": 3394.70253968254,
+    "h2UsedKg": 34.094266661790776,
+    "batUsedKWh": 122.96394646314249,
+    "h2RefueledKg": 0,
+    "elecChargedKWh": 0,
+    "chargeH": 0,
+    "travelH": 6.049390873015881
+  },
+  "speedPlan": [
+    {
+      "index": 0,
+      "roadName": "",
+      "distanceKm": 0.12,
+      "speed": 40,
+      "gradePercent": -2.75,
+      "elevationM": 31,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "unknown",
+      "h2Kg": 0.005399999999999999
+    },
+    {
+      "index": 1,
+      "roadName": "江大道",
+      "distanceKm": 0.42,
+      "speed": 40,
+      "gradePercent": -0.78,
+      "elevationM": 26,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0189
+    },
+    {
+      "index": 2,
+      "roadName": "三阳路",
+      "distanceKm": 0.92,
+      "speed": 40,
+      "gradePercent": 1,
+      "elevationM": 37,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.16376
+    },
+    {
+      "index": 3,
+      "roadName": "解放大道辅路",
+      "distanceKm": 0.6,
+      "speed": 40,
+      "gradePercent": 1.55,
+      "elevationM": 39,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1362
+    },
+    {
+      "index": 4,
+      "roadName": "解放大道辅路",
+      "distanceKm": 0.6,
+      "speed": 40,
+      "gradePercent": -2.47,
+      "elevationM": 34,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.027
+    },
+    {
+      "index": 5,
+      "roadName": "解放大道辅路",
+      "distanceKm": 0.52,
+      "speed": 40,
+      "gradePercent": -0.6,
+      "elevationM": 27,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0234
+    },
+    {
+      "index": 6,
+      "roadName": "解放大道",
+      "distanceKm": 0.27,
+      "speed": 40,
+      "gradePercent": 1.53,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.060804000000000004
+    },
+    {
+      "index": 7,
+      "roadName": "解放大道",
+      "distanceKm": 0.63,
+      "speed": 40,
+      "gradePercent": 0.67,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.093618
+    },
+    {
+      "index": 8,
+      "roadName": "解放大道",
+      "distanceKm": 0.6,
+      "speed": 40,
+      "gradePercent": -0.91,
+      "elevationM": 34,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.027
+    },
+    {
+      "index": 9,
+      "roadName": "解放大道",
+      "distanceKm": 0.43,
+      "speed": 40,
+      "gradePercent": 1.12,
+      "elevationM": 31,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.081141
+    },
+    {
+      "index": 10,
+      "roadName": "解放大道",
+      "distanceKm": 0.6,
+      "speed": 40,
+      "gradePercent": -1.63,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.027
+    },
+    {
+      "index": 11,
+      "roadName": "解放大道",
+      "distanceKm": 0.44,
+      "speed": 40,
+      "gradePercent": 2.35,
+      "elevationM": 30,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.11
+    },
+    {
+      "index": 12,
+      "roadName": "解放大道",
+      "distanceKm": 0.17,
+      "speed": 40,
+      "gradePercent": -1.94,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0076500000000000005
+    },
+    {
+      "index": 13,
+      "roadName": "宝丰路高架",
+      "distanceKm": 0.24,
+      "speed": 40,
+      "gradePercent": 0.56,
+      "elevationM": 31,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.033288
+    },
+    {
+      "index": 14,
+      "roadName": "宝丰路高架",
+      "distanceKm": 1.4,
+      "speed": 40,
+      "gradePercent": -0.55,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.063
+    },
+    {
+      "index": 15,
+      "roadName": "宝丰路高架",
+      "distanceKm": 0.6,
+      "speed": 40,
+      "gradePercent": 0.44,
+      "elevationM": 26,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.07686
+    },
+    {
+      "index": 16,
+      "roadName": "宝丰路高架",
+      "distanceKm": 0.58,
+      "speed": 40,
+      "gradePercent": 0.44,
+      "elevationM": 27,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.07429799999999999
+    },
+    {
+      "index": 17,
+      "roadName": "江城大道",
+      "distanceKm": 0.73,
+      "speed": 40,
+      "gradePercent": -0.57,
+      "elevationM": 30,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "slow",
+      "h2Kg": 0.03285
+    },
+    {
+      "index": 18,
+      "roadName": "墨水湖立交",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": 0.34,
+      "elevationM": 29,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.07152
+    },
+    {
+      "index": 19,
+      "roadName": "墨水湖立交",
+      "distanceKm": 1.2,
+      "speed": 45,
+      "gradePercent": -0.38,
+      "elevationM": 25,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.06612
+    },
+    {
+      "index": 20,
+      "roadName": "墨水湖立交",
+      "distanceKm": 1.42,
+      "speed": 45,
+      "gradePercent": 0.51,
+      "elevationM": 29,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.190848
+    },
+    {
+      "index": 21,
+      "roadName": "墨水湖北路",
+      "distanceKm": 2.12,
+      "speed": 45,
+      "gradePercent": -0.2,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.150732
+    },
+    {
+      "index": 22,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 0.87,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10074
+    },
+    {
+      "index": 23,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 9.6,
+      "speed": 60,
+      "gradePercent": 0,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8687999999999999
+    },
+    {
+      "index": 24,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 1.2,
+      "speed": 60,
+      "gradePercent": -0.58,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.04656
+    },
+    {
+      "index": 25,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 2.2,
+      "speed": 60,
+      "gradePercent": 0.66,
+      "elevationM": 33,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.32824000000000003
+    },
+    {
+      "index": 26,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -0.8,
+      "elevationM": 35,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 27,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 1.24,
+      "speed": 60,
+      "gradePercent": 0.38,
+      "elevationM": 37,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.154132
+    },
+    {
+      "index": 28,
+      "roadName": "龙阳大道高架",
+      "distanceKm": 1.33,
+      "speed": 40,
+      "gradePercent": 0.34,
+      "elevationM": 42,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.15840300000000002
+    },
+    {
+      "index": 29,
+      "roadName": "G4京港澳高速",
+      "distanceKm": 0.57,
+      "speed": 40,
+      "gradePercent": -2.6,
+      "elevationM": 37,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.025649999999999996
+    },
+    {
+      "index": 30,
+      "roadName": "G4京港澳高速",
+      "distanceKm": 0.68,
+      "speed": 50,
+      "gradePercent": -0.49,
+      "elevationM": 25,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.031008000000000004
+    },
+    {
+      "index": 31,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.27,
+      "speed": 90,
+      "gradePercent": 0.29,
+      "elevationM": 25,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.032427000000000004
+    },
+    {
+      "index": 32,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 4.21,
+      "speed": 80,
+      "gradePercent": 0.43,
+      "elevationM": 37,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.558667
+    },
+    {
+      "index": 33,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.6,
+      "speed": 80,
+      "gradePercent": -0.83,
+      "elevationM": 38,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.036
+    },
+    {
+      "index": 34,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 80,
+      "gradePercent": 1.65,
+      "elevationM": 41,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1351
+    },
+    {
+      "index": 35,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 2.2,
+      "speed": 80,
+      "gradePercent": -0.98,
+      "elevationM": 39,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0495
+    },
+    {
+      "index": 36,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 80,
+      "gradePercent": 1.67,
+      "elevationM": 34,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.16212
+    },
+    {
+      "index": 37,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 80,
+      "gradePercent": 3.78,
+      "elevationM": 57,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.08106
+    },
+    {
+      "index": 38,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 80,
+      "gradePercent": -1.21,
+      "elevationM": 65,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0135
+    },
+    {
+      "index": 39,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 80,
+      "gradePercent": -3.08,
+      "elevationM": 51,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0135
+    },
+    {
+      "index": 40,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 80,
+      "gradePercent": -0.37,
+      "elevationM": 41,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.036899999999999995
+    },
+    {
+      "index": 41,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 80,
+      "gradePercent": 0.42,
+      "elevationM": 42,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10544
+    },
+    {
+      "index": 42,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 3,
+      "speed": 80,
+      "gradePercent": -0.71,
+      "elevationM": 29,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09359999999999999
+    },
+    {
+      "index": 43,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 80,
+      "gradePercent": 0.55,
+      "elevationM": 26,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10808000000000001
+    },
+    {
+      "index": 44,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.6,
+      "speed": 80,
+      "gradePercent": -0.37,
+      "elevationM": 24,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0984
+    },
+    {
+      "index": 45,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 2.8,
+      "speed": 80,
+      "gradePercent": 0.39,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.36176
+    },
+    {
+      "index": 46,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 80,
+      "gradePercent": -1.16,
+      "elevationM": 29,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0135
+    },
+    {
+      "index": 47,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 80,
+      "gradePercent": 1.91,
+      "elevationM": 31,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10808000000000001
+    },
+    {
+      "index": 48,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.61,
+      "speed": 80,
+      "gradePercent": -0.13,
+      "elevationM": 28,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.796669
+    },
+    {
+      "index": 49,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.61,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 29,
+      "temperatureC": 14,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.9158329999999999
+    },
+    {
+      "index": 50,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 29,
+      "temperatureC": 15,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8958320000000001
+    },
+    {
+      "index": 51,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.61,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 30,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.9158329999999999
+    },
+    {
+      "index": 52,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 31,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8967729999999999
+    },
+    {
+      "index": 53,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8967729999999999
+    },
+    {
+      "index": 54,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8967729999999999
+    },
+    {
+      "index": 55,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.01,
+      "elevationM": 33,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8967729999999999
+    },
+    {
+      "index": 56,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": -0.04,
+      "elevationM": 32,
+      "temperatureC": 14,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8553689999999999
+    },
+    {
+      "index": 57,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.61,
+      "speed": 80,
+      "gradePercent": 0.08,
+      "elevationM": 33,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.9773369999999999
+    },
+    {
+      "index": 58,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": -0.09,
+      "elevationM": 35,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8139649999999999
+    },
+    {
+      "index": 59,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": -0.02,
+      "elevationM": 26,
+      "temperatureC": 12,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.874189
+    },
+    {
+      "index": 60,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 80,
+      "gradePercent": 0.02,
+      "elevationM": 28,
+      "temperatureC": 12,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.908065
+    },
+    {
+      "index": 61,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.87,
+      "speed": 80,
+      "gradePercent": 0.02,
+      "elevationM": 29,
+      "temperatureC": 12,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.083955
+    },
+    {
+      "index": 62,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.4,
+      "speed": 75,
+      "gradePercent": 0.02,
+      "elevationM": 30,
+      "temperatureC": 12,
+      "windSpeedKmh": 3,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.89582
+    },
+    {
+      "index": 63,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.4,
+      "speed": 75,
+      "gradePercent": 0.02,
+      "elevationM": 32,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8948800000000001
+    },
+    {
+      "index": 64,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.8,
+      "speed": 75,
+      "gradePercent": 0.01,
+      "elevationM": 33,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.9241400000000001
+    },
+    {
+      "index": 65,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 75,
+      "gradePercent": -0.88,
+      "elevationM": 30,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0144
+    },
+    {
+      "index": 66,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.6,
+      "speed": 75,
+      "gradePercent": 0.32,
+      "elevationM": 31,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.19504
+    },
+    {
+      "index": 67,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 75,
+      "gradePercent": -0.83,
+      "elevationM": 30,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0144
+    },
+    {
+      "index": 68,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 2.59,
+      "speed": 75,
+      "gradePercent": 0.09,
+      "elevationM": 32,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.26262599999999997
+    },
+    {
+      "index": 69,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 75,
+      "gradePercent": 0.58,
+      "elevationM": 33,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.11528000000000001
+    },
+    {
+      "index": 70,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 75,
+      "gradePercent": -1.43,
+      "elevationM": 33,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0144
+    },
+    {
+      "index": 71,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.6,
+      "speed": 75,
+      "gradePercent": 0.77,
+      "elevationM": 35,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.23056000000000001
+    },
+    {
+      "index": 72,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.4,
+      "speed": 75,
+      "gradePercent": -0.01,
+      "elevationM": 35,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.8695
+    },
+    {
+      "index": 73,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 8.09,
+      "speed": 75,
+      "gradePercent": 0,
+      "elevationM": 38,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.755606
+    },
+    {
+      "index": 74,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.41,
+      "speed": 70,
+      "gradePercent": 0,
+      "elevationM": 36,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.868543
+    },
+    {
+      "index": 75,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.81,
+      "speed": 70,
+      "gradePercent": 0.06,
+      "elevationM": 41,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.959418
+    },
+    {
+      "index": 76,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 9.81,
+      "speed": 70,
+      "gradePercent": 0.07,
+      "elevationM": 48,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.968247
+    },
+    {
+      "index": 77,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 3,
+      "speed": 70,
+      "gradePercent": 0.6,
+      "elevationM": 63,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.4377
+    },
+    {
+      "index": 78,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -0.93,
+      "elevationM": 66,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 79,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 0.98,
+      "elevationM": 66,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 80,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -1.63,
+      "elevationM": 62,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 81,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 70,
+      "gradePercent": 1.45,
+      "elevationM": 69,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.18528
+    },
+    {
+      "index": 82,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 70,
+      "gradePercent": -1.08,
+      "elevationM": 71,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.03084
+    },
+    {
+      "index": 83,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 2.6,
+      "speed": 70,
+      "gradePercent": 1.72,
+      "elevationM": 89,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.40144
+    },
+    {
+      "index": 84,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -2.11,
+      "elevationM": 101,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 85,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 70,
+      "gradePercent": 2.2,
+      "elevationM": 104,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.18528
+    },
+    {
+      "index": 86,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -0.35,
+      "elevationM": 117,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.036719999999999996
+    },
+    {
+      "index": 87,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.4,
+      "speed": 70,
+      "gradePercent": 1.54,
+      "elevationM": 127,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.21616
+    },
+    {
+      "index": 88,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 3.2,
+      "speed": 70,
+      "gradePercent": -1.99,
+      "elevationM": 106,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.08224000000000001
+    },
+    {
+      "index": 89,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 5.01,
+      "speed": 70,
+      "gradePercent": 0.54,
+      "elevationM": 86,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.703905
+    },
+    {
+      "index": 90,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 70,
+      "gradePercent": 3.26,
+      "elevationM": 122,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.18528
+    },
+    {
+      "index": 91,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 5.81,
+      "speed": 70,
+      "gradePercent": 0.77,
+      "elevationM": 161,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.897064
+    },
+    {
+      "index": 92,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": 2.23,
+      "elevationM": 196,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.12352000000000002
+    },
+    {
+      "index": 93,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -1.26,
+      "elevationM": 201,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 94,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -6.04,
+      "elevationM": 175,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 95,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 70,
+      "gradePercent": -2.76,
+      "elevationM": 141,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.03084
+    },
+    {
+      "index": 96,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.57,
+      "speed": 70,
+      "gradePercent": -0.02,
+      "elevationM": 124,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.05164199999999999
+    },
+    {
+      "index": 97,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.43,
+      "speed": 40,
+      "gradePercent": -2.42,
+      "elevationM": 104,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.06434999999999999
+    },
+    {
+      "index": 98,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 1.27,
+      "elevationM": 92,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 99,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 3.71,
+      "elevationM": 114,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 100,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 60,
+      "gradePercent": -1.83,
+      "elevationM": 111,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.036
+    },
+    {
+      "index": 101,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -4.23,
+      "elevationM": 85,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 102,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 60,
+      "gradePercent": -1.32,
+      "elevationM": 68,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.024
+    },
+    {
+      "index": 103,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 2.99,
+      "elevationM": 70,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 104,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -7.88,
+      "elevationM": 53,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 105,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 7.85,
+      "elevationM": 48,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 106,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.31,
+      "speed": 60,
+      "gradePercent": 8.48,
+      "elevationM": 95,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.055862
+    },
+    {
+      "index": 107,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -3.38,
+      "elevationM": 91,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 108,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -3.05,
+      "elevationM": 69,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 109,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.4,
+      "speed": 70,
+      "gradePercent": 1.11,
+      "elevationM": 71,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.21616
+    },
+    {
+      "index": 110,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.72,
+      "speed": 70,
+      "gradePercent": 8.03,
+      "elevationM": 103,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.111168
+    },
+    {
+      "index": 111,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -5.99,
+      "elevationM": 117,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 112,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": 1.02,
+      "elevationM": 106,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.12352000000000002
+    },
+    {
+      "index": 113,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": 2.04,
+      "elevationM": 116,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.12352000000000002
+    },
+    {
+      "index": 114,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.97,
+      "speed": 70,
+      "gradePercent": 3.97,
+      "elevationM": 144,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.149768
+    },
+    {
+      "index": 115,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 34.76,
+      "elevationM": 270,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 116,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -38.76,
+      "elevationM": 260,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 117,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 2.57,
+      "elevationM": 154,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 118,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 0.81,
+      "elevationM": 155,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09816
+    },
+    {
+      "index": 119,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.31,
+      "speed": 65,
+      "gradePercent": 10.26,
+      "elevationM": 176,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.051553
+    },
+    {
+      "index": 120,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 18.9,
+      "elevationM": 280,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 121,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -16.6,
+      "elevationM": 282,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 122,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -1.98,
+      "elevationM": 189,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 123,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 65,
+      "gradePercent": 3.08,
+      "elevationM": 209,
+      "temperatureC": 12,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1663
+    },
+    {
+      "index": 124,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.28,
+      "speed": 65,
+      "gradePercent": 7.71,
+      "elevationM": 232,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.04656400000000001
+    },
+    {
+      "index": 125,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 27.14,
+      "elevationM": 351,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 126,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -14.46,
+      "elevationM": 364,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 127,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -14.68,
+      "elevationM": 235,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 128,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -4.6,
+      "elevationM": 200,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 129,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": 4.53,
+      "elevationM": 193,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.12352000000000002
+    },
+    {
+      "index": 130,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -1.05,
+      "elevationM": 214,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 131,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 6.39,
+      "elevationM": 231,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 132,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.47,
+      "speed": 70,
+      "gradePercent": 4.78,
+      "elevationM": 257,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.072568
+    },
+    {
+      "index": 133,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 5.79,
+      "elevationM": 313,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 134,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -12.8,
+      "elevationM": 252,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 135,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -5.3,
+      "elevationM": 211,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 136,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -1.85,
+      "elevationM": 191,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 137,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -3.19,
+      "elevationM": 179,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 138,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 0.97,
+      "elevationM": 171,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 139,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -2.69,
+      "elevationM": 156,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 140,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -2.36,
+      "elevationM": 134,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 141,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -0.85,
+      "elevationM": 141,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 142,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.52,
+      "speed": 70,
+      "gradePercent": 8.17,
+      "elevationM": 147,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.08028800000000001
+    },
+    {
+      "index": 143,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 11.81,
+      "elevationM": 229,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 144,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -13.21,
+      "elevationM": 171,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 145,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 60,
+      "gradePercent": 4.73,
+      "elevationM": 186,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1802
+    },
+    {
+      "index": 146,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 1.4,
+      "elevationM": 208,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 147,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.66,
+      "speed": 60,
+      "gradePercent": 7.29,
+      "elevationM": 243,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.11893200000000001
+    },
+    {
+      "index": 148,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 11,
+      "elevationM": 326,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 149,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -16.3,
+      "elevationM": 263,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 150,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -1.36,
+      "elevationM": 224,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 151,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 4.53,
+      "elevationM": 240,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 152,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 3.22,
+      "elevationM": 270,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 153,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.4,
+      "speed": 65,
+      "gradePercent": -4.43,
+      "elevationM": 238,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.038779999999999995
+    },
+    {
+      "index": 154,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 0.84,
+      "elevationM": 211,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09971999999999999
+    },
+    {
+      "index": 155,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -2.2,
+      "elevationM": 208,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 156,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 1.68,
+      "elevationM": 201,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 157,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 65,
+      "gradePercent": 2.87,
+      "elevationM": 231,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.19956
+    },
+    {
+      "index": 158,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.42,
+      "speed": 65,
+      "gradePercent": 8.48,
+      "elevationM": 265,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.069846
+    },
+    {
+      "index": 159,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 15.33,
+      "elevationM": 344,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 160,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -21.2,
+      "elevationM": 299,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 161,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -4.02,
+      "elevationM": 232,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 162,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 2.97,
+      "elevationM": 226,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 163,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -0.72,
+      "elevationM": 235,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 164,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 0.76,
+      "elevationM": 246,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09545999999999999
+    },
+    {
+      "index": 165,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 0.12,
+      "elevationM": 244,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.061259999999999995
+    },
+    {
+      "index": 166,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 6.47,
+      "elevationM": 260,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 167,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 65,
+      "gradePercent": 1.03,
+      "elevationM": 292,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.13304000000000002
+    },
+    {
+      "index": 168,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 1.96,
+      "elevationM": 306,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 169,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 6.75,
+      "elevationM": 324,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 170,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.53,
+      "speed": 65,
+      "gradePercent": 18.41,
+      "elevationM": 377,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.08813900000000001
+    },
+    {
+      "index": 171,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 43.61,
+      "elevationM": 559,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 172,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 49.17,
+      "elevationM": 870,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 173,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -29.05,
+      "elevationM": 895,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 174,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -7.22,
+      "elevationM": 814,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 175,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -31.41,
+      "elevationM": 681,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 176,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -53.12,
+      "elevationM": 457,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 177,
+      "roadName": "扁担垭隧道",
+      "distanceKm": 0.33,
+      "speed": 60,
+      "gradePercent": 67.23,
+      "elevationM": 385,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.059466000000000005
+    },
+    {
+      "index": 178,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 24.43,
+      "elevationM": 579,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 179,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 70,
+      "gradePercent": 21.95,
+      "elevationM": 754,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1544
+    },
+    {
+      "index": 180,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": -6.71,
+      "elevationM": 840,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01542
+    },
+    {
+      "index": 181,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 22.95,
+      "elevationM": 889,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 182,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 46.37,
+      "elevationM": 1095,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 183,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 4.03,
+      "elevationM": 1260,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 184,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 70,
+      "gradePercent": -43.05,
+      "elevationM": 1079,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.020560000000000002
+    },
+    {
+      "index": 185,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.51,
+      "speed": 70,
+      "gradePercent": -53.41,
+      "elevationM": 754,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.013107
+    },
+    {
+      "index": 186,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 42.02,
+      "elevationM": 794,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 187,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -35.68,
+      "elevationM": 803,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 188,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -12.72,
+      "elevationM": 607,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 189,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 7.93,
+      "elevationM": 629,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 190,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 2.32,
+      "elevationM": 657,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 191,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 9.88,
+      "elevationM": 694,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 192,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -4.43,
+      "elevationM": 691,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 193,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 4.47,
+      "elevationM": 718,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 194,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 5.29,
+      "elevationM": 721,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 195,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.35,
+      "speed": 60,
+      "gradePercent": 6.29,
+      "elevationM": 765,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.06307
+    },
+    {
+      "index": 196,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.29,
+      "speed": 65,
+      "gradePercent": 8.45,
+      "elevationM": 798,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.048227
+    },
+    {
+      "index": 197,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": 6.64,
+      "elevationM": 843,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.14412
+    },
+    {
+      "index": 198,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": -6.62,
+      "elevationM": 800,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.024
+    },
+    {
+      "index": 199,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": 4.59,
+      "elevationM": 817,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.14412
+    },
+    {
+      "index": 200,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 45,
+      "gradePercent": 3.88,
+      "elevationM": 848,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.28824
+    },
+    {
+      "index": 201,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 45,
+      "gradePercent": 1.69,
+      "elevationM": 878,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.19168000000000002
+    },
+    {
+      "index": 202,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 2,
+      "speed": 45,
+      "gradePercent": 4.15,
+      "elevationM": 929,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.4804
+    },
+    {
+      "index": 203,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": -1.5,
+      "elevationM": 969,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.024
+    },
+    {
+      "index": 204,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 45,
+      "gradePercent": 4.18,
+      "elevationM": 974,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.14412
+    },
+    {
+      "index": 205,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.61,
+      "speed": 45,
+      "gradePercent": 4.15,
+      "elevationM": 992,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.14652199999999999
+    },
+    {
+      "index": 206,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 42.78,
+      "elevationM": 1132,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 207,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -7.6,
+      "elevationM": 1237,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 208,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 3.43,
+      "elevationM": 1218,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 209,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -1.83,
+      "elevationM": 1215,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 210,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 24.98,
+      "elevationM": 1341,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 211,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -12.27,
+      "elevationM": 1343,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 212,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 17.93,
+      "elevationM": 1356,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 213,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -5.58,
+      "elevationM": 1410,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 214,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -3.67,
+      "elevationM": 1360,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 215,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -16.71,
+      "elevationM": 1301,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 216,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -7.47,
+      "elevationM": 1234,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 217,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -8.85,
+      "elevationM": 1215,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 218,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -24.9,
+      "elevationM": 1082,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 219,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 65,
+      "gradePercent": -17.37,
+      "elevationM": 943,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.02216
+    },
+    {
+      "index": 220,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -7.27,
+      "elevationM": 844,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 221,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -3.74,
+      "elevationM": 822,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 222,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 65,
+      "gradePercent": -4.65,
+      "elevationM": 780,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0277
+    },
+    {
+      "index": 223,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -1.31,
+      "elevationM": 760,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 224,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -6.43,
+      "elevationM": 735,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 225,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 2.1,
+      "elevationM": 727,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 226,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -3.77,
+      "elevationM": 718,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 227,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -5.95,
+      "elevationM": 685,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 228,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -0.72,
+      "elevationM": 664,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 229,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -5.38,
+      "elevationM": 648,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 230,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.2,
+      "speed": 65,
+      "gradePercent": -1.72,
+      "elevationM": 619,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.03324
+    },
+    {
+      "index": 231,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -5.88,
+      "elevationM": 593,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 232,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 1.46,
+      "elevationM": 582,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 233,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -5.86,
+      "elevationM": 566,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 234,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.8,
+      "speed": 65,
+      "gradePercent": -0.56,
+      "elevationM": 554,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.03304000000000001
+    },
+    {
+      "index": 235,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 1.34,
+      "elevationM": 551,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 236,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -4.17,
+      "elevationM": 538,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 237,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1,
+      "speed": 65,
+      "gradePercent": 0.36,
+      "elevationM": 530,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1233
+    },
+    {
+      "index": 238,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -3.49,
+      "elevationM": 523,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 239,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 7.75,
+      "elevationM": 525,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 240,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 2.15,
+      "elevationM": 553,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 241,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 3.13,
+      "elevationM": 583,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 242,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -4.42,
+      "elevationM": 576,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 243,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 4.24,
+      "elevationM": 585,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 244,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 8.2,
+      "elevationM": 615,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 245,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -13.19,
+      "elevationM": 621,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 246,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 0.11,
+      "elevationM": 519,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0606
+    },
+    {
+      "index": 247,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.26,
+      "speed": 65,
+      "gradePercent": 49.51,
+      "elevationM": 634,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.043238000000000006
+    },
+    {
+      "index": 248,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 25.53,
+      "elevationM": 794,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 249,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -26.07,
+      "elevationM": 769,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.01662
+    },
+    {
+      "index": 250,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": -0.38,
+      "elevationM": 616,
+      "temperatureC": 12,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.034379999999999994
+    },
+    {
+      "index": 251,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 65,
+      "gradePercent": 9.21,
+      "elevationM": 724,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09978
+    },
+    {
+      "index": 252,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.67,
+      "speed": 65,
+      "gradePercent": 5.73,
+      "elevationM": 737,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.111421
+    },
+    {
+      "index": 253,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -14.83,
+      "elevationM": 778,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "slow",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 254,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 18.02,
+      "elevationM": 703,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "slow",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 255,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 6.37,
+      "elevationM": 813,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "slow",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 256,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.43,
+      "speed": 60,
+      "gradePercent": 3.62,
+      "elevationM": 832,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "slow",
+      "h2Kg": 0.077486
+    },
+    {
+      "index": 257,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 36.19,
+      "elevationM": 977,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 258,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 35.49,
+      "elevationM": 1197,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 259,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -22.66,
+      "elevationM": 1234,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 260,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 25.52,
+      "elevationM": 1223,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 261,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -22.81,
+      "elevationM": 1226,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 262,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -44.75,
+      "elevationM": 1046,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 263,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -44.66,
+      "elevationM": 683,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 264,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 56.68,
+      "elevationM": 849,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 265,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": 2.22,
+      "elevationM": 964,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.10812
+    },
+    {
+      "index": 266,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 60,
+      "gradePercent": -11.9,
+      "elevationM": 916,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 267,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.39,
+      "speed": 60,
+      "gradePercent": 28.31,
+      "elevationM": 957,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.07027800000000001
+    },
+    {
+      "index": 268,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 16.76,
+      "elevationM": 1091,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 269,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 1.42,
+      "elevationM": 1136,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 270,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 0.6,
+      "speed": 70,
+      "gradePercent": 9.43,
+      "elevationM": 1182,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.09264
+    },
+    {
+      "index": 271,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.02,
+      "speed": 70,
+      "gradePercent": 9.51,
+      "elevationM": 1232,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.15748800000000002
+    },
+    {
+      "index": 272,
+      "roadName": "G50沪渝高速",
+      "distanceKm": 1.29,
+      "speed": 45,
+      "gradePercent": -14.88,
+      "elevationM": 1174,
+      "temperatureC": 13,
+      "windSpeedKmh": 10,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.0516
+    },
+    {
+      "index": 273,
+      "roadName": "野三关互通",
+      "distanceKm": 0.59,
+      "speed": 40,
+      "gradePercent": 1.87,
+      "elevationM": 1091,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.1475
+    },
+    {
+      "index": 274,
+      "roadName": "野三关互通",
+      "distanceKm": 0.07,
+      "speed": 40,
+      "gradePercent": 0.66,
+      "elevationM": 1095,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.010339000000000001
+    },
+    {
+      "index": 275,
+      "roadName": "隧道",
+      "distanceKm": 0.4,
+      "speed": 40,
+      "gradePercent": -3.48,
+      "elevationM": 1086,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018
+    },
+    {
+      "index": 276,
+      "roadName": "",
+      "distanceKm": 0.16,
+      "speed": 40,
+      "gradePercent": 7.64,
+      "elevationM": 1088,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.04
+    },
+    {
+      "index": 277,
+      "roadName": "",
+      "distanceKm": 0.41,
+      "speed": 40,
+      "gradePercent": -3.39,
+      "elevationM": 1084,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.018449999999999998
+    },
+    {
+      "index": 278,
+      "roadName": "",
+      "distanceKm": 0.66,
+      "speed": 40,
+      "gradePercent": 3.84,
+      "elevationM": 1099,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "unknown",
+      "h2Kg": 0.165
+    },
+    {
+      "index": 279,
+      "roadName": "将军路",
+      "distanceKm": 0.2,
+      "speed": 40,
+      "gradePercent": 3.82,
+      "elevationM": 1109,
+      "temperatureC": 13,
+      "windSpeedKmh": 7,
+      "trafficStatus": "smooth",
+      "h2Kg": 0.05
+    }
+  ],
+  "stations": [
+    {
+      "s": 0.5560300528029777,
+      "name": "昆仑网电汽车充电站(城发新能源花鸟市场超充站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.974080021520767
+    },
+    {
+      "s": 2.2181910992024205,
+      "name": "长峡快道(湖北汽车充电站长峡快道菱角湖公园站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.750833324425538
+    },
+    {
+      "s": 3.5475413703379015,
+      "name": "滴滴充电汽车充电站(BP快速充电站武汉江汉大润发)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.16882185606811062
+    },
+    {
+      "s": 4.58045781254267,
+      "name": "峰泊北湖西路充电站(暂停营业)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.861648842131455
+    },
+    {
+      "s": 6.5620922677268885,
+      "name": "壳牌充电超级充电站(壳牌武汉中央商务区地面快充站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.657564207948921
+    },
+    {
+      "s": 7.576213961949745,
+      "name": "星星充电汽车充电站(硚口越秀星汇维港充电-·)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.17016353000405765
+    },
+    {
+      "s": 8.641920359486088,
+      "name": "国家电网汽车充电站(武汉汉阳区琴台大道古琴台公共停车场充电站江城充)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.7187237988141404
+    },
+    {
+      "s": 9.740272119245956,
+      "name": "汽车充电站(紫电星空汉阳大道)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.926946489119735
+    },
+    {
+      "s": 13.120915504776008,
+      "name": "电能侠汽车充电站(电能侠-武汉汉阳玫瑰体育公园站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.754800946908772
+    },
+    {
+      "s": 15.005474145978038,
+      "name": "电能侠汽车充电站(武汉汉阳龙阳湖公园站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.7789723062156626
+    },
+    {
+      "s": 16.882265153773112,
+      "name": "武汉能源汽车充电站(国家电网新能投英才公园充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.8158193141541545
+    },
+    {
+      "s": 18.067699686280548,
+      "name": "国家电网汽车充电站(湖北省武汉市汉阳经开区南太子湖超级充换电服务中心二期)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.57982853951896
+    },
+    {
+      "s": 20.181805324603197,
+      "name": "星星充电汽车充电站(星星充电-晶泰科技综合能源超充示范站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.589072532788965
+    },
+    {
+      "s": 21.23524526817774,
+      "name": "国家电网汽车充电站",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.6638797708581246
+    },
+    {
+      "s": 22.72701049739702,
+      "name": "国家电网汽车充电站(湖北省武汉市沌口开发区飞斯汽车服务公司充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.951048457318221
+    },
+    {
+      "s": 29.276717739473355,
+      "name": "汽车充电站(国家电网汽车充电站东风·凤凰城东薛峰国网充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.53300395590811
+    },
+    {
+      "s": 31.75679641841037,
+      "name": "武汉绿动氢能能源技术有限公司",
+      "types": [
+        "h2"
+      ],
+      "detourKm": 8.808457227959778
+    },
+    {
+      "s": 38.86515683230247,
+      "name": "新电途汽车充电站(超算星球武汉蔡甸奓山超充站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.5366290792465531
+    },
+    {
+      "s": 64.21008421930199,
+      "name": "世动云充汽车充电站(世动云充汉川市马口镇城市酒店充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.1329530794137241
+    },
+    {
+      "s": 89.43122221622826,
+      "name": "汽车充电站(G50仙桃服务区光储充)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.2516082377906238
+    },
+    {
+      "s": 91.37051291443997,
+      "name": "星星充电汽车充电站(道达尔充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.932211448425068
+    },
+    {
+      "s": 92.80228777469279,
+      "name": "滴滴充电充电站(黄金建材市场快充站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.7892359021737179
+    },
+    {
+      "s": 93.81188378918262,
+      "name": "国家电网汽车充电站(湖北省荆州仙桃市绿洲新城停车场充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.425548759212942
+    },
+    {
+      "s": 94.99039811236277,
+      "name": "国家电网汽车充电站(湖北省荆州仙桃市检修建设工区充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.515434854013325
+    },
+    {
+      "s": 96.10286886185794,
+      "name": "中国石化汽车充电站(仙桃市沔州大道)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.077926040666167
+    },
+    {
+      "s": 97.12669316171495,
+      "name": "小鹏超级充电站(小鹏S4超快充仙桃吾悦广场站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.654517387919461
+    },
+    {
+      "s": 98.13160808010701,
+      "name": "特斯拉超级充电站(仙桃市中百广场)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.3190347101328284
+    },
+    {
+      "s": 99.17202369327323,
+      "name": "蔚来能源超级充电站(G50沪渝高速仙桃中石化中南)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.341050377243673
+    },
+    {
+      "s": 100.34075144024614,
+      "name": "达克云充电站(新农贸站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.464632415786537
+    },
+    {
+      "s": 110.19061035675632,
+      "name": "鄂发投(仙桃)智慧能源超充站",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.2858123160676538
+    },
+    {
+      "s": 112.99885574287191,
+      "name": "排湖汽车充电站(暂停营业)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.1869357044297155
+    },
+    {
+      "s": 116.76129429106992,
+      "name": "汽车充电站(石化易电仙桃市城发投石化有限责任公司仙桃胡场站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.000348285090175
+    },
+    {
+      "s": 120.15695630376614,
+      "name": "世动云充汽车充电站(世动云充仙桃市三伏潭镇乐轩酒店充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.2178172430137353
+    },
+    {
+      "s": 121.45295313155194,
+      "name": "三伏潭镇沟一村充电桩",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.122639584402083
+    },
+    {
+      "s": 129.28004180373424,
+      "name": "汽车充电站(苏湾村充电桩)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.8907022113491907
+    },
+    {
+      "s": 132.93466374451378,
+      "name": "中国石化汽车充电站(珠玑重卡充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.2917701167311009
+    },
+    {
+      "s": 135.13177618199407,
+      "name": "达克云汽车充电站(毛嘴香舍菲尔服饰充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.7129982664615957
+    },
+    {
+      "s": 137.6250208992683,
+      "name": "国家电网汽车充电站(湖北省荆州仙桃市毛嘴大道直流充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.9060350673696864
+    },
+    {
+      "s": 140.57012676971559,
+      "name": "云快充汽车充电站(慧东充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 4.875433172683406
+    },
+    {
+      "s": 147.64032506308143,
+      "name": "蔚景云汽车充电站(火车站超级快速充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.7922137130125897
+    },
+    {
+      "s": 149.37643890260205,
+      "name": "昆仑网电汽车充电站(昆仑网电潜江新天地充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.393746403583258
+    },
+    {
+      "s": 150.46279048285294,
+      "name": "昆仑网电汽车充电站(昆仑网电潜江杰座充电站)",
+      "types": [
+        "elec",
+        "h2"
+      ],
+      "detourKm": 2.3687987073902854
+    },
+    {
+      "s": 151.696570801554,
+      "name": "中国石化汽车充电站(中国石化章华花苑酒店充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.3783384156852145
+    },
+    {
+      "s": 152.78958858860423,
+      "name": "中国石化汽车充电站(中国石化市民之家充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.76627069952793
+    },
+    {
+      "s": 166.60912884278306,
+      "name": "国家电网汽车充电站(湖北省荆州潜江市后湖直流充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.627532715405456
+    },
+    {
+      "s": 176.37453738172886,
+      "name": "国家电网汽车充电站(湖北省荆州潜江市浩口直流充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.7294082117486695
+    },
+    {
+      "s": 185.53422541376392,
+      "name": "国家电网汽车充电站(湖北省荆州潜江市浩口镇靖荣亲亲超市充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.238737666123984
+    },
+    {
+      "s": 194.5543770803373,
+      "name": "楚道易能超级充电站(荆州东服务区北区2号充电站·华为超充技术支持)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.27411310491430707
+    },
+    {
+      "s": 201.55182307624688,
+      "name": "世动云充汽车充电站(世动云充沙市区观音档镇观音垱农村充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.3824309767426115
+    },
+    {
+      "s": 205.9951532082192,
+      "name": "骐骥换电站(荆州东方大道站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.2165861773190465
+    },
+    {
+      "s": 210.82750401667732,
+      "name": "昆仑网电汽车充电站(中石油荆州中环城市花园充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.5467463345870107
+    },
+    {
+      "s": 213.84582765459868,
+      "name": "中国石化汽车充电站(中国石化海洋世界充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.5919250241401155
+    },
+    {
+      "s": 218.31469898474472,
+      "name": "中国石化汽车充电站(中心医院充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.549573051706034
+    },
+    {
+      "s": 219.41804363765,
+      "name": "荆州停车(荆州火车站北广场充电站直连)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.7073225660564137
+    },
+    {
+      "s": 220.54563053544416,
+      "name": "中国石化汽车充电站(中国石化竹叶山汽车城充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.0978593442025624
+    },
+    {
+      "s": 267.97883252356064,
+      "name": "中国石化汽车充电站(中国石化枝江城北充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.1322902786488744
+    },
+    {
+      "s": 288.9804759484694,
+      "name": "汽车充电站(楚天新能源枝江西服务区站)",
+      "types": [
+        "elec",
+        "h2"
+      ],
+      "detourKm": 0.12262694779359633
+    },
+    {
+      "s": 300.4245014007488,
+      "name": "理想汽车超级充电站(理想5C超充站沪渝高速猇亭服务区上海方向)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.25831373413927805
+    },
+    {
+      "s": 302.1632893587222,
+      "name": "中国石化汽车充电站(本部长江充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 3.340179409640399
+    },
+    {
+      "s": 336.21453505830203,
+      "name": "国家电网汽车充电站(沪渝高速高家堰服务区充电站扩建重庆方向)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.0853825222711658
+    },
+    {
+      "s": 340.6586911761978,
+      "name": "汽车充电站(中国石化高家堰充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.2131499603100195
+    },
+    {
+      "s": 359.73025191060253,
+      "name": "国家电网汽车充电站(湖北省宜昌市长阳县贺家坪镇川渝宾馆充电站直流)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 2.080228923983092
+    },
+    {
+      "s": 394.2831013212943,
+      "name": "中国石化汽车充电站(中国石化榔坪充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 0.8771180954144742
+    },
+    {
+      "s": 412.6920488948925,
+      "name": "中国石化汽车充电站(中国石化野三关充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 5.103974042753071
+    },
+    {
+      "s": 413.87540523482267,
+      "name": "旭电通汽车充电站(硒巷公寓充电站大型车专用充电站)",
+      "types": [
+        "elec"
+      ],
+      "detourKm": 1.317176616485601
+    }
+  ],
+  "stops": [],
+  "replan": {
+    "event": {
+      "atKm": 165.8,
+      "lengthKm": 50,
+      "type": "拥堵",
+      "effect": "限速降 30%"
+    },
+    "affectedSegments": 11,
+    "before": {
+      "timeH": 6.05,
+      "h2Kg": 41.47,
+      "energyKWh": 691.2
+    },
+    "after": {
+      "timeH": 6.39,
+      "h2Kg": 41.26,
+      "energyKWh": 687.8
+    },
+    "delta": {
+      "timeMin": 20.6,
+      "h2Kg": -0.21
+    },
+    "changed": [
+      {
+        "index": 59,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 80,
+        "newSpeed": 55,
+        "km": 9.41
+      },
+      {
+        "index": 60,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 80,
+        "newSpeed": 55,
+        "km": 9.41
+      },
+      {
+        "index": 61,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 80,
+        "newSpeed": 55,
+        "km": 0.87
+      },
+      {
+        "index": 62,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 9.4
+      },
+      {
+        "index": 63,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 9.4
+      },
+      {
+        "index": 64,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 9.8
+      },
+      {
+        "index": 65,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 0.6
+      },
+      {
+        "index": 66,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 1.6
+      },
+      {
+        "index": 67,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 0.6
+      },
+      {
+        "index": 68,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 2.59
+      },
+      {
+        "index": 69,
+        "roadName": "G50沪渝高速",
+        "oldSpeed": 75,
+        "newSpeed": 50,
+        "km": 0.8
+      }
+    ]
+  }
+}
