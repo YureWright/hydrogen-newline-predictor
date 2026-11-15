@@ -43,6 +43,7 @@ const V = {
 }
 const COST = { h2Price: 35, elecPrice: 1.2, driverRate: 60, otherPerKm: 0.5 }
 const LAMBDA = Number(process.argv.find((a) => a.startsWith('--lambda'))?.split('=')[1] ?? 100)
+const OUT_ARG = process.argv.find((a) => a.startsWith('--out='))?.split('=')[1] || 'output/dynamic_plan.json'
 
 const SPEEDS = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
 const log = (...a: any[]) => console.log('[plan]', ...a)
@@ -136,7 +137,7 @@ async function main() {
   const meta: Array<{ seg: number; v: number }> = []
   segs.forEach((s, si) => {
     const level = String(s.roadLevel || 'other') as any
-    const cap = Math.min(TRUCK_SPEED_MAX[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
+    const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
     SPEEDS.filter((v) => v <= cap).forEach((v) => {
       batch.push({
         distanceKm: s.distanceKm, avgSpeedKmh: v, gradePercent: s.gradePercent, elevationM: s.elevationM,
@@ -251,7 +252,7 @@ async function main() {
 
   const chargeTime = (kwh: number) => kwh / V.chargePowerKW + V.chargePlugH
   const travelTime = (i: number, j: number) => nodeE[j].t - nodeE[i].t
-  const detourTime = (i: number, j: number, via: any) => (via.detourKm / 40) * 2 // 往返绕行
+  const detourTime = (via: any) => (via.detourKm / 40) * 2 // 往返绕行
 
   for (let i = 0; i < N - 1; i++) {
     for (let h = 0; h < hLevels; h++) {
@@ -271,7 +272,7 @@ async function main() {
             const socNow = V.socMin + soc * SOC_STEP
             const h2After = Math.min(V.h2CapacityKg, h2 + dh)
             const socAfter = Math.min(V.socMax, socNow + (de / V.batCapacityKWh) * 100)
-            const addTime = chargeTime(de) + (node.types.has('elec') && de > 0 ? detourTime(i, i, node) : 0)
+            const addTime = chargeTime(de) + (node.types.has('elec') && de > 0 ? detourTime(node) : 0)
             // 前往后续站点（最多跳过 2 个）
             for (let j = i + 1; j < Math.min(N, i + 4); j++) {
               const need = nodeE[j].e - nodeE[i].e
@@ -330,7 +331,6 @@ async function main() {
     const a = dpPath[k - 1], b = dpPath[k]
     const p = prev[b.i][b.h][b.soc]
     if (!p) continue
-    const h2After = Math.min(V.h2CapacityKg, (V.h2CapacityKg - p.h * H_STEP) + p.dh)
     const socAfter = Math.min(V.socMax, V.socMin + p.soc * SOC_STEP + (p.de / V.batCapacityKWh) * 100)
     const need = nodeE[b.i].e - nodeE[a.i].e
     const availBat = Math.max(0, (socAfter - V.socMin) / 100 * V.batCapacityKWh)
@@ -357,7 +357,7 @@ async function main() {
     affectedIdx.forEach((si) => {
       const s = planSegs[si]
       const level = String(s.roadLevel || 'other') as any
-      const cap = Math.min(TRUCK_SPEED_MAX[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * 0.7
+      const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * 0.7
       SPEEDS.filter((v) => v <= cap).forEach((v) => {
         reBatch.push({
           distanceKm: s.distanceKm, avgSpeedKmh: v, gradePercent: s.gradePercent, elevationM: s.elevationM,
@@ -422,12 +422,12 @@ async function main() {
     stops,
     replan,
   }
-  const outDir = path.join(ROOT, 'output')
-  fs.mkdirSync(outDir, { recursive: true })
-  fs.writeFileSync(path.join(outDir, 'dynamic_plan.json'), JSON.stringify(out, null, 2))
+  const outPath = path.isAbsolute(OUT_ARG) ? OUT_ARG : path.join(ROOT, OUT_ARG)
+  fs.mkdirSync(path.dirname(outPath), { recursive: true })
+  fs.writeFileSync(outPath, JSON.stringify(out, null, 2))
   log(`完成：${totalKm.toFixed(1)}km，计划成本 ${bestCost.toFixed(0)} 元，补能 ${stops.length} 次`)
   if (replan) log(`动态重规划：40% 处拥堵 → 时间 +${replan.delta.timeMin} 分钟，氢耗 ${replan.delta.h2Kg >= 0 ? '+' : ''}${replan.delta.h2Kg}kg`)
-  log('输出: output/dynamic_plan.json')
+  log('输出:', outPath)
 }
 
 main().catch((e) => { console.error('[plan] 失败:', e?.message || e); process.exit(1) })

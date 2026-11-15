@@ -74,6 +74,63 @@ function sweepDemJobs() {
   }
 }
 
+/* ===== 动态规划任务（路线 + 车速 + 氢电双补能 DP） ===== */
+interface PlanJob {
+  id: string
+  status: 'running' | 'done' | 'error'
+  phase: string
+  createdAt: number
+  result?: unknown
+  error?: string
+}
+const planJobs = new Map<string, PlanJob>()
+let planJobSeq = 0
+const PLAN_JOB_TTL_MS = 15 * 60 * 1000
+function sweepPlanJobs() {
+  const now = Date.now()
+  for (const [id, j] of planJobs) {
+    if (j.status !== 'running' && now - j.createdAt > PLAN_JOB_TTL_MS) planJobs.delete(id)
+  }
+}
+function startPlanJob(origin: string, destination: string, lambda: number) {
+  const id = 'plan_' + Date.now() + '_' + ++planJobSeq
+  const job: PlanJob = { id, status: 'running', phase: '路线与数据准备中', createdAt: Date.now() }
+  planJobs.set(id, job)
+  const outRel = `output/plan_${id}.json`
+  const outAbs = join(__dirname, outRel)
+  const tsxCli = join(__dirname, 'node_modules', 'tsx', 'dist', 'cli.mjs')
+  const child = spawn(process.execPath, [
+    tsxCli, join('scripts', 'dynamic_plan.ts'), origin, destination,
+    `--lambda=${lambda}`, `--out=${outRel}`,
+  ], { cwd: __dirname })
+  let err = ''
+  child.stdout.on('data', (d: Buffer) => {
+    const m = d.toString('utf8').match(/\[plan\]\s*(.+)/)
+    if (m) job.phase = m[1].trim().slice(0, 80)
+  })
+  child.stderr.on('data', (d: Buffer) => (err += d.toString('utf8')))
+  child.on('close', (code: number) => {
+    if (code === 0) {
+      try {
+        job.result = JSON.parse(fsRead(outAbs, 'utf8'))
+        job.status = 'done'
+        job.phase = '完成'
+      } catch (e: any) {
+        job.status = 'error'
+        job.error = '读取规划结果失败: ' + (e?.message || e)
+      }
+    } else {
+      job.status = 'error'
+      job.error = (err || 'tsx exit ' + code).slice(0, 400)
+    }
+  })
+  child.on('error', (e: Error) => {
+    job.status = 'error'
+    job.error = e.message
+  })
+  return job
+}
+
 function startDemJob(origin: string, destination: string, index: number, departureTime?: string) {
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
   const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
@@ -380,6 +437,31 @@ export default defineConfig({
               if (job) job.status = 'cancelled'
               sweepDemJobs()
               return send(res, 200, { ok: true })
+            }
+            // ===== 动态规划：路线 + 车速 + 氢电双补能 DP =====
+            if (path === '/plan/start' && req.method === 'POST') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const origin = payload.origin || ''
+              const destination = payload.destination || ''
+              const lambda = Number(payload.lambda ?? 100)
+              if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
+              sweepPlanJobs()
+              const job = startPlanJob(origin, destination, lambda)
+              return send(res, 200, { ok: true, jobId: job.id })
+            }
+            if (path === '/plan/status') {
+              const id = url.searchParams.get('jobId') || ''
+              const job = planJobs.get(id)
+              if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
+              return send(res, 200, { ok: true, status: job.status, phase: job.phase, error: job.error })
+            }
+            if (path === '/plan/result') {
+              const id = url.searchParams.get('jobId') || ''
+              const job = planJobs.get(id)
+              if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
+              if (job.status !== 'done') return send(res, 200, { ok: false, status: job.status, msg: job.error || '任务未完成' })
+              return send(res, 200, { ok: true, ...(job.result as object) })
             }
             // ===== 可插拔模型 / 评测集 API（2026-08-28；写操作需上传口令） =====
             const checkUploadAuth = () => {

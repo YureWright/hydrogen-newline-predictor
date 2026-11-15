@@ -6,6 +6,7 @@ import { DistributionBarsMemo, LineAreaChartMemo, StackedBarMemo } from './Chart
 import MarkdownLight from './MarkdownLight'
 import HydrogenHowItWorks from './HydrogenHowItWorks'
 import ReportPanel from './ReportPanel'
+import DynamicPlanPanel from './DynamicPlanPanel'
 import { fetchJson } from '../lib/fetchJson'
 
 /** 单次停车时长估计（s）：按段主导行为类型——收费站最久、路口/匝道/转弯依次递减；巡航/背景路口取 30s。
@@ -181,13 +182,14 @@ const PHASE_TO_STEP: Record<string, number> = {
   route: 0, dem: 1, 'osm-query': 2, 'osm-match': 2, weather: 3, compute: 4,
 }
 
-type ResultTab = 'overview' | 'table' | 'hydrogen' | 'ai' | 'report'
+type ResultTab = 'overview' | 'table' | 'hydrogen' | 'ai' | 'report' | 'plan'
 const TAB_LABELS: { key: ResultTab; label: string; icon: string }[] = [
   { key: 'overview', label: '数据概览', icon: '📊' },
   { key: 'table', label: '数据表格', icon: '📋' },
   { key: 'hydrogen', label: '氢耗预测', icon: '⚡' },
   { key: 'ai', label: 'AI 评估', icon: '🤖' },
-{ key: 'report', label: '报告导出', icon: '📄' },
+  { key: 'report', label: '报告导出', icon: '📄' },
+  { key: 'plan', label: '动态规划', icon: '🧭' },
 ]
 
 export default function SegmentsPanel({ origin, destination, routeIndex, candidate, onHighlight, onEnterAnalysis, isFullPage, originName, destinationName }: {
@@ -1430,6 +1432,15 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           departureTime={departureTime}
           vehicle={vehicle}
           fixedLoadT={fixedLoadT}
+        />
+      )}
+
+      {resultTab === 'plan' && (
+        <DynamicPlanPanel
+          origin={origin}
+          destination={destination}
+          originName={originName}
+          destinationName={destinationName}
         />
       )}
 

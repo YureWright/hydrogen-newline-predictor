@@ -118,7 +118,7 @@ async function main() {
   routes.forEach((r, ri) => {
     r.segments.forEach((s, si) => {
       const level = String(s.roadLevel || 'other') as any
-      const cap = Math.min(TRUCK_SPEED_MAX[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
+      const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
       SPEEDS.filter((v) => v <= cap).forEach((v) => {
         batch.push({
           distanceKm: s.distanceKm,
