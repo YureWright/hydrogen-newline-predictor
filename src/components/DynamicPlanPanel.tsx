@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LineAreaChartMemo } from './Charts'
+import MapView, { type MapPoint } from './MapView'
 import { fetchJson } from '../lib/fetchJson'
 
 interface Props {
@@ -23,6 +24,8 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
   const [phase, setPhase] = useState('')
   const [plan, setPlan] = useState<any>(null)
   const [error, setError] = useState('')
+  const [sortKey, setSortKey] = useState<string>('index')
+  const [sortDesc, setSortDesc] = useState(false)
   const timer = useRef<number>(0)
   const autoStarted = useRef(false)
 
@@ -87,6 +90,50 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
       })()
     : []
 
+  const mapFrom: MapPoint | null = plan?.route?.from
+    ? (() => {
+        const [lng, lat] = String(plan.route.from).split(',').map(Number)
+        return { name: originName || '起点', lng, lat }
+      })()
+    : null
+  const mapTo: MapPoint | null = plan?.route?.to
+    ? (() => {
+        const [lng, lat] = String(plan.route.to).split(',').map(Number)
+        return { name: destinationName || '终点', lng, lat }
+      })()
+    : null
+  const mapCandidate: any = plan?.route?.polyline
+    ? {
+        distanceKm: plan.route.distanceKm,
+        durationH: plan.route.durationH,
+        tollsYuan: plan.route.tollsYuan,
+        tollDistanceKm: 0,
+        highwayRatio: 0,
+        avgSpeedKmh: plan.route.distanceKm / Math.max(plan.route.durationH, 0.01),
+        traffic: { smoothKm: 0, slowKm: 0, congestedKm: 0, severeKm: 0, unknownKm: 0, congestionRatio: 0, totalKm: plan.route.distanceKm },
+        polyline: plan.route.polyline,
+        topRoads: plan.route.topRoads || [],
+        stepsCount: 0,
+      }
+    : null
+
+  const sortedSegs = (() => {
+    if (!plan?.speedPlan) return []
+    const arr = [...plan.speedPlan]
+    arr.sort((a: any, b: any) => {
+      const va = a[sortKey], vb = b[sortKey]
+      if (va == null || vb == null) return va == null ? 1 : -1
+      const r = typeof va === 'string' ? String(va).localeCompare(String(vb), 'zh') : Number(va) - Number(vb)
+      return sortDesc ? -r : r
+    })
+    return arr
+  })()
+  const sortArrow = (k: string) => (sortKey === k ? (sortDesc ? ' ↓' : ' ↑') : '')
+  const clickSort = (k: string) => {
+    if (sortKey === k) setSortDesc(!sortDesc)
+    else { setSortKey(k); setSortDesc(false) }
+  }
+
   return (
     <div className="plan-panel">
       <div className="panel-title">🧭 动态规划 · 路线 / 车速 / 氢电双补能</div>
@@ -131,6 +178,22 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
             <div className="stat-card"><b>{plan.stops?.length ?? 0}</b><span>补能次数</span></div>
           </div>
 
+          {mapCandidate && mapFrom && mapTo && (
+            <div className="plan-map">
+              <h4>路线走向（起点 → 终点）</h4>
+              <div className="map-box">
+                <MapView
+                  routes={[mapCandidate]}
+                  selectedIndex={0}
+                  onSelect={() => {}}
+                  from={mapFrom}
+                  to={mapTo}
+                  stations={[]}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="chart-card chart-wide">
             <h4>车速规划（逐段经济车速 km/h）</h4>
             <LineAreaChartMemo
@@ -141,6 +204,44 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
               series={[{ label: '建议车速', color: '#3ae3ff', points: speedPts }]}
               height={260}
             />
+          </div>
+
+          <div className="table-card">
+            <div className="table-head">分段建议速度（点击表头排序）</div>
+            <div className="table-scroll">
+              <table className="seg-table">
+                <thead>
+                  <tr>
+                    <th className="sortable" onClick={() => clickSort('index')}>段{sortArrow('index')}</th>
+                    <th>道路</th>
+                    <th className="sortable" onClick={() => clickSort('distanceKm')}>里程km{sortArrow('distanceKm')}</th>
+                    <th className="sortable" onClick={() => clickSort('speed')}>建议车速km/h{sortArrow('speed')}</th>
+                    <th className="sortable" onClick={() => clickSort('gradePercent')}>坡度%{sortArrow('gradePercent')}</th>
+                    <th className="sortable" onClick={() => clickSort('elevationM')}>海拔m{sortArrow('elevationM')}</th>
+                    <th className="sortable" onClick={() => clickSort('temperatureC')}>温度℃{sortArrow('temperatureC')}</th>
+                    <th className="sortable" onClick={() => clickSort('windSpeedKmh')}>风速km/h{sortArrow('windSpeedKmh')}</th>
+                    <th>路况</th>
+                    <th className="sortable" onClick={() => clickSort('h2Kg')}>氢耗kg{sortArrow('h2Kg')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedSegs.map((s: any) => (
+                    <tr key={s.index}>
+                      <td>{s.index}</td>
+                      <td>{s.roadName || '—'}</td>
+                      <td>{s.distanceKm?.toFixed(2)}</td>
+                      <td><b>{s.speed}</b></td>
+                      <td>{s.gradePercent == null ? '—' : s.gradePercent.toFixed(2)}</td>
+                      <td>{s.elevationM == null ? '—' : Math.round(s.elevationM)}</td>
+                      <td>{s.temperatureC == null ? '—' : s.temperatureC.toFixed(1)}</td>
+                      <td>{s.windSpeedKmh == null ? '—' : Math.round(s.windSpeedKmh)}</td>
+                      <td>{({ smooth: '畅通', slow: '缓行', congested: '拥堵', severe: '严重', unknown: '未知' } as any)[s.trafficStatus] || s.trafficStatus || '—'}</td>
+                      <td>{s.h2Kg?.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="table-card">

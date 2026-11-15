@@ -1049,6 +1049,14 @@ body::before {
 .plan-form-hint { font-size: 12px; color: var(--txt-2); }
 .plan-form-lambda { color: var(--cyan); font-size: 13px; }
 .landing-center-btns { flex-wrap: wrap; }
+
+/* 动态规划页：路线地图 */
+.plan-map {
+  background: var(--glass); border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: 14px; margin-bottom: 16px;
+}
+.plan-map h4 { margin: 0 0 10px; font-size: 14px; color: var(--txt-2); font-weight: 500; }
+.plan-map .map-box { height: 420px; }
 /* 技术原理 双 Tab */
 .tech-tab-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .tech-tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--txt-2); padding: 8px 16px; font-size: 14px; cursor: pointer; }

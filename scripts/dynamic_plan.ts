@@ -403,7 +403,11 @@ async function main() {
     }
   }
   const out = {
-    route: { distanceKm: candidate.distanceKm, durationH: candidate.durationH, tollsYuan: candidate.tollsYuan },
+    route: {
+      distanceKm: candidate.distanceKm, durationH: candidate.durationH, tollsYuan: candidate.tollsYuan,
+      polyline: candidate.polyline, topRoads: candidate.topRoads,
+      from: origin, to: destination,
+    },
     lambda: LAMBDA,
     vehicle: V, cost: COST,
     total: {
