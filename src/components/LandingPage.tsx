@@ -3,9 +3,10 @@ import { useCallback } from 'react'
 interface Props {
   onStart: () => void
   onOpenLab: () => void
+  onOpenPlan: () => void
 }
 
-export default function LandingPage({ onStart, onOpenLab }: Props) {
+export default function LandingPage({ onStart, onOpenLab, onOpenPlan }: Props) {
   const openDocs = useCallback(() => {
     window.open('/?view=docs', '_blank')
   }, [])
@@ -65,6 +66,13 @@ export default function LandingPage({ onStart, onOpenLab }: Props) {
               <path d="M7 9h10M7 13h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
             模型工坊
+          </button>
+          <button className="landing-btn-lg landing-btn-ghost" onClick={onOpenPlan}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+              <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+            动态规划
           </button>
 
         </div>

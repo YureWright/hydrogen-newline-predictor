@@ -1033,6 +1033,22 @@ body::before {
 .plan-slider { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--txt-2); }
 .plan-slider input[type="range"] { width: 200px; accent-color: var(--cyan); }
 .plan-slider b { color: var(--cyan); font-weight: 600; }
+
+/* 动态规划独立页表单 */
+.plan-form {
+  background: var(--glass-2); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px; margin-bottom: 16px;
+}
+.plan-form-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; }
+.plan-form-row label { font-size: 13px; color: var(--txt-2); min-width: 32px; }
+.plan-form-row input:not([type="range"]) {
+  flex: 1; min-width: 220px; background: #0e1526; border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 12px; color: #fff; font-size: 13px;
+}
+.plan-form-row input[type="range"] { width: 220px; accent-color: var(--cyan); }
+.plan-form-hint { font-size: 12px; color: var(--txt-2); }
+.plan-form-lambda { color: var(--cyan); font-size: 13px; }
+.landing-center-btns { flex-wrap: wrap; }
 /* 技术原理 双 Tab */
 .tech-tab-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .tech-tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--txt-2); padding: 8px 16px; font-size: 14px; cursor: pointer; }

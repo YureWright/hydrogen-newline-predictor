@@ -4,9 +4,10 @@ import RouteCard from './components/RouteCard'
 import SegmentsPanel from './components/SegmentsPanel'
 import LandingPage from './components/LandingPage'
 import ModelLab from './components/ModelLab'
+import DynamicPlanPage from './components/DynamicPlanPage'
 import type { RouteCandidate, H2Station } from './route/types'
 
-type AppView = 'landing' | 'predict' | 'lab'
+type AppView = 'landing' | 'predict' | 'lab' | 'plan'
 type PredictStep = 'query' | 'analysis'
 
 interface GeoResult { ok: boolean; name?: string; location?: string; source?: string; msg?: string }
@@ -40,6 +41,7 @@ export default function App() {
   }, [])
 
   const enterLab = useCallback(() => setView('lab'), [])
+  const enterPlan = useCallback(() => setView('plan'), [])
 
   const applyHighlight = useCallback((list: Array<Array<[number, number]>>) => {
     setHighlight((prev) => (prev.length === 0 && list.length === 0 ? prev : list))
@@ -91,7 +93,11 @@ export default function App() {
   const goHome = useCallback(() => { sessionStorage.removeItem('h2-skip-landing'); setView('landing') }, [])
 
   if (view === 'landing') {
-    return <LandingPage onStart={enterPredict} onOpenLab={enterLab} />
+    return <LandingPage onStart={enterPredict} onOpenLab={enterLab} onOpenPlan={enterPlan} />
+  }
+
+  if (view === 'plan') {
+    return <DynamicPlanPage onBack={goHome} />
   }
 
   if (view === 'lab') {

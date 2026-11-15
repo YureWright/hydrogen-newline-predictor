@@ -11,17 +11,20 @@ interface Props {
   destination: string
   originName?: string
   destinationName?: string
+  initialLambda?: number
+  autoStart?: boolean
 }
 
 type Status = 'idle' | 'running' | 'done' | 'error'
 
-export default function DynamicPlanPanel({ origin, destination, originName, destinationName }: Props) {
-  const [lambda, setLambda] = useState(100)
+export default function DynamicPlanPanel({ origin, destination, originName, destinationName, initialLambda, autoStart }: Props) {
+  const [lambda, setLambda] = useState(initialLambda ?? 100)
   const [status, setStatus] = useState<Status>('idle')
   const [phase, setPhase] = useState('')
   const [plan, setPlan] = useState<any>(null)
   const [error, setError] = useState('')
   const timer = useRef<number>(0)
+  const autoStarted = useRef(false)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
@@ -65,6 +68,14 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
       setError(e?.message || String(e))
     }
   }, [origin, destination, lambda])
+
+  // 独立页面传入 autoStart 时，进入即自动开始一次
+  useEffect(() => {
+    if (autoStart && !autoStarted.current) {
+      autoStarted.current = true
+      start()
+    }
+  }, [autoStart, start])
 
   const speedPts = plan
     ? (() => {
