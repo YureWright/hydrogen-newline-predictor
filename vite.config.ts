@@ -92,7 +92,7 @@ function sweepPlanJobs() {
     if (j.status !== 'running' && now - j.createdAt > PLAN_JOB_TTL_MS) planJobs.delete(id)
   }
 }
-function startPlanJob(origin: string, destination: string, lambda: number) {
+function startPlanJob(origin: string, destination: string, lambda: number, opts: any = {}) {
   const id = 'plan_' + Date.now() + '_' + ++planJobSeq
   const job: PlanJob = { id, status: 'running', phase: '路线与数据准备中', createdAt: Date.now() }
   planJobs.set(id, job)
@@ -102,6 +102,10 @@ function startPlanJob(origin: string, destination: string, lambda: number) {
   const child = spawn(process.execPath, [
     tsxCli, join('scripts', 'dynamic_plan.ts'), origin, destination,
     `--lambda=${lambda}`, `--out=${outRel}`,
+    `--replan-at=${opts.replanAt ?? 40}`,
+    `--replan-len=${opts.replanLen ?? 50}`,
+    `--replan-speed=${opts.replanSpeed ?? 0.7}`,
+    `--replan-consume=${opts.replanConsume ?? 1}`,
   ], { cwd: __dirname })
   let err = ''
   child.stdout.on('data', (d: Buffer) => {
@@ -445,9 +449,15 @@ export default defineConfig({
               const origin = payload.origin || ''
               const destination = payload.destination || ''
               const lambda = Number(payload.lambda ?? 100)
+              const opts = {
+                replanAt: Number(payload.replanAt ?? 40),
+                replanLen: Number(payload.replanLen ?? 50),
+                replanSpeed: Number(payload.replanSpeed ?? 0.7),
+                replanConsume: Number(payload.replanConsume ?? 1),
+              }
               if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
               sweepPlanJobs()
-              const job = startPlanJob(origin, destination, lambda)
+              const job = startPlanJob(origin, destination, lambda, opts)
               return send(res, 200, { ok: true, jobId: job.id })
             }
             if (path === '/plan/status') {

@@ -1057,6 +1057,14 @@ body::before {
 }
 .plan-map h4 { margin: 0 0 10px; font-size: 14px; color: var(--txt-2); font-weight: 500; }
 .plan-map .map-box { height: 420px; }
+
+/* 实时规划司机指令卡 */
+.plan-instruction {
+  margin: 10px 0; padding: 12px 14px; border-radius: 10px;
+  background: rgba(58, 227, 255, 0.08); border: 1px solid rgba(58, 227, 255, 0.3);
+}
+.plan-instruction b { color: var(--cyan); font-size: 13px; }
+.plan-instruction p { margin: 6px 0 0; color: var(--txt); font-size: 14px; line-height: 1.7; }
 /* 技术原理 双 Tab */
 .tech-tab-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .tech-tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--txt-2); padding: 8px 16px; font-size: 14px; cursor: pointer; }

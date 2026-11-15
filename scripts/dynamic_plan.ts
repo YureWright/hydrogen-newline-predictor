@@ -44,6 +44,14 @@ const V = {
 const COST = { h2Price: 35, elecPrice: 1.2, driverRate: 60, otherPerKm: 0.5 }
 const LAMBDA = Number(process.argv.find((a) => a.startsWith('--lambda'))?.split('=')[1] ?? 100)
 const OUT_ARG = process.argv.find((a) => a.startsWith('--out='))?.split('=')[1] || 'output/dynamic_plan.json'
+const argNum = (name: string, dflt: number) => {
+  const v = process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1]
+  return v == null ? dflt : Number(v)
+}
+const REPLAN_AT_PCT = argNum('replan-at', 40)          // 触发重规划的位置（占全程 %）
+const REPLAN_LEN_KM = argNum('replan-len', 50)         // 受影响路段长度 km
+const REPLAN_SPEED_FACTOR = argNum('replan-speed', 0.7) // 限速系数（0.7 = 降 30%）
+const REPLAN_CONSUME_FACTOR = argNum('replan-consume', 1) // 能耗系数（1.1 = 多耗 10%）
 
 const SPEEDS = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
 const log = (...a: any[]) => console.log('[plan]', ...a)
@@ -344,9 +352,9 @@ async function main() {
   }
 
   // 7) 输出
-  // ---- 动态重规划演示：行至 40% 处，前方 50km 突发拥堵（限速降 30%）----
-  const s0 = totalKm * 0.4
-  const eventEnd = s0 + 50
+  // ---- 动态重规划：行至指定位置，前方路段出现偏差（限速下降 / 能耗升高）----
+  const s0 = totalKm * (REPLAN_AT_PCT / 100)
+  const eventEnd = s0 + REPLAN_LEN_KM
   let acc = 0
   const affectedIdx: number[] = []
   planSegs.forEach((s, i) => { acc += s.distanceKm; if (acc >= s0 && acc <= eventEnd) affectedIdx.push(i) })
@@ -357,7 +365,7 @@ async function main() {
     affectedIdx.forEach((si) => {
       const s = planSegs[si]
       const level = String(s.roadLevel || 'other') as any
-      const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * 0.7
+      const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * REPLAN_SPEED_FACTOR
       SPEEDS.filter((v) => v <= cap).forEach((v) => {
         reBatch.push({
           distanceKm: s.distanceKm, avgSpeedKmh: v, gradePercent: s.gradePercent, elevationM: s.elevationM,
@@ -375,8 +383,8 @@ async function main() {
       const r = rePhys[k]
       if (!r || r.h2_per_km_kg == null) return
       const s = planSegs[m.seg]
-      const h2Kg = r.h2_per_km_kg * s.distanceKm
-      const eKWh = r.E_fc ?? h2Kg * 33.3 * V.etaFc
+      const h2Kg = r.h2_per_km_kg * s.distanceKm * REPLAN_CONSUME_FACTOR
+      const eKWh = (r.E_fc ?? h2Kg * 33.3 * V.etaFc) * REPLAN_CONSUME_FACTOR
       reOpts[affectedIdx.indexOf(m.seg)].push({ v: m.v, h2Kg, eKWh, cost: h2Kg * COST.h2Price + (COST.driverRate + LAMBDA) * (s.distanceKm / m.v) })
     })
     const newPlanSegs = planSegs.map((s, i) => {
@@ -390,8 +398,26 @@ async function main() {
     const newTime = newPlanSegs.reduce((a, s) => a + s.planTimeH, 0)
     const newH2 = newPlanSegs.reduce((a, s) => a + s.planH2Kg, 0)
     const newE = newPlanSegs.reduce((a, s) => a + s.planEKWh, 0)
+    const firstIdx = affectedIdx[0]
+    const nextSeg = newPlanSegs[firstIdx]
+    const remainingKm = totalKm - s0
     replan = {
-      event: { atKm: round1(s0), lengthKm: 50, type: '拥堵', effect: '限速降 30%' },
+      event: {
+        atKm: round1(s0), lengthKm: REPLAN_LEN_KM, type: '路况偏差',
+        effect: `限速降 ${Math.round((1 - REPLAN_SPEED_FACTOR) * 100)}%` +
+          (REPLAN_CONSUME_FACTOR !== 1 ? `，能耗×${REPLAN_CONSUME_FACTOR}` : ''),
+      },
+      trigger: `行驶至 ${round1(s0)}km 时检测到前方 ${REPLAN_LEN_KM}km 路况偏差：` +
+        `限速下降 ${Math.round((1 - REPLAN_SPEED_FACTOR) * 100)}%，预计延误 ${round1((newTime - cumT) * 60)} 分钟，` +
+        `超过阈值（10 分钟），触发滚动重规划`,
+      instruction: {
+        roadName: nextSeg.roadName || '下一段',
+        speed: nextSeg.planSpeed,
+        km: nextSeg.distanceKm,
+        remainingKm: round1(remainingKm),
+        text: `下一段 ${nextSeg.roadName || ''}，保持 ${nextSeg.planSpeed} km/h；` +
+          `剩余 ${round1(remainingKm)}km，调整后预计总时长 ${round2(newTime)}h`,
+      },
       affectedSegments: affectedIdx.length,
       before: { timeH: round2(cumT), h2Kg: round2(totalH2), energyKWh: round1(totalE) },
       after: { timeH: round2(newTime), h2Kg: round2(newH2), energyKWh: round1(newE) },

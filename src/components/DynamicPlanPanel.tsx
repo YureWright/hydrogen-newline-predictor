@@ -26,6 +26,8 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState<string>('index')
   const [sortDesc, setSortDesc] = useState(false)
+  const [replanAt, setReplanAt] = useState(40)
+  const [replanSpeed, setReplanSpeed] = useState(0.7)
   const timer = useRef<number>(0)
   const autoStarted = useRef(false)
 
@@ -41,7 +43,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
       const r = await fetchJson<any>('/api/plan/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin, destination, lambda }),
+        body: JSON.stringify({ origin, destination, lambda, replanAt, replanSpeed }),
       })
       if (!r.ok) throw new Error(r.msg || '启动失败')
       const jobId = r.jobId
@@ -70,7 +72,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
       setStatus('error')
       setError(e?.message || String(e))
     }
-  }, [origin, destination, lambda])
+  }, [origin, destination, lambda, replanAt, replanSpeed])
 
   // 独立页面传入 autoStart 时，进入即自动开始一次
   useEffect(() => {
@@ -152,6 +154,18 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
           />
           <span>时间优先</span>
           <b>λ = {lambda} 元/h</b>
+        </div>
+        <div className="plan-slider">
+          <span>偏差位置</span>
+          <input type="range" min={10} max={80} step={5} value={replanAt}
+            onChange={(e) => setReplanAt(Number(e.target.value))} />
+          <b>{replanAt}%</b>
+        </div>
+        <div className="plan-slider">
+          <span>限速系数</span>
+          <input type="range" min={0.5} max={1} step={0.05} value={replanSpeed}
+            onChange={(e) => setReplanSpeed(Number(e.target.value))} />
+          <b>×{replanSpeed.toFixed(2)}</b>
         </div>
         <button className="btn-primary" onClick={start} disabled={status === 'running'}>
           {status === 'running' ? '规划中…' : status === 'done' ? '重新规划' : '开始动态规划'}
@@ -267,9 +281,14 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
 
           {plan.replan && (
             <div className="table-card">
-              <div className="table-head">
-                动态重规划演示：行驶至 {plan.replan.event.atKm} km 时，前方 {plan.replan.event.lengthKm} km 突发{plan.replan.event.type}（{plan.replan.event.effect}）
-              </div>
+              <div className="table-head">🔴 实时规划：偏差检测与滚动重规划</div>
+              {plan.replan.trigger && <p className="note">⚠️ {plan.replan.trigger}</p>}
+              {plan.replan.instruction && (
+                <div className="plan-instruction">
+                  <b>📢 司机指令</b>
+                  <p>{plan.replan.instruction.text}</p>
+                </div>
+              )}
               <div className="table-scroll">
                 <table className="seg-table">
                   <thead><tr><th>指标</th><th>原方案</th><th>重规划后</th><th>变化</th></tr></thead>
