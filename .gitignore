@@ -42,3 +42,4 @@ data/evalsets/
 data/charging_stations.geojson
 data/charging_stations.csv
 data/charging_crawl_state.json
+output/plan_*.json
