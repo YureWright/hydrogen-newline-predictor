@@ -4,6 +4,7 @@
  */
 import { useCallback, useState } from 'react'
 import DynamicPlanPanel from './DynamicPlanPanel'
+import PreferenceCalibration from './PreferenceCalibration'
 
 interface Props {
   onBack: () => void
@@ -34,6 +35,7 @@ export default function DynamicPlanPage({ onBack }: Props) {
   const [names, setNames] = useState<{ from: string; to: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [showCalib, setShowCalib] = useState(false)
 
   const submit = useCallback(async () => {
     if (!fromAddr.trim() || !toAddr.trim()) {
@@ -79,12 +81,21 @@ export default function DynamicPlanPage({ onBack }: Props) {
             <input type="range" min={0} max={300} step={10} value={lambda} onChange={(e) => setLambda(Number(e.target.value))} />
             <span className="plan-form-hint">时间优先</span>
             <b className="plan-form-lambda">λ = {lambda} 元/h</b>
+            <button className="calib-open" onClick={() => setShowCalib(true)}>🎯 偏好校准</button>
             <button className="btn-primary" onClick={submit} disabled={busy}>
               {busy ? '解析地址中…' : '开始规划'}
             </button>
           </div>
           {err && <div className="error">{err}</div>}
         </div>
+
+        {showCalib && (
+          <PreferenceCalibration
+            initialLambda={lambda}
+            onApply={(value) => { setLambda(value); setShowCalib(false) }}
+            onClose={() => setShowCalib(false)}
+          />
+        )}
 
         {origin && destination && names ? (
           <DynamicPlanPanel

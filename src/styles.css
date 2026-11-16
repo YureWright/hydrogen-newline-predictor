@@ -1065,6 +1065,30 @@ body::before {
 }
 .plan-instruction b { color: var(--cyan); font-size: 13px; }
 .plan-instruction p { margin: 6px 0 0; color: var(--txt); font-size: 14px; line-height: 1.7; }
+
+/* 偏好校准向导 */
+.calib-open { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--cyan); font-size: 12px; cursor: pointer; }
+.calib-open:hover { border-color: var(--cyan); }
+.calib-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.calib-card { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; width: min(720px, 100%); max-height: 90vh; overflow: auto; padding: 20px; color: var(--txt); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.calib-head { display: flex; justify-content: space-between; align-items: center; font-size: 18px; margin-bottom: 8px; }
+.calib-current { margin-right: auto; margin-left: 16px; font-size: 12px; color: var(--txt-2); }
+.calib-close { background: none; border: none; color: var(--txt-2); font-size: 24px; cursor: pointer; }
+.calib-tip { font-size: 13px; color: var(--txt-2); line-height: 1.7; margin-bottom: 14px; }
+.calib-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.calib-row { display: grid; grid-template-columns: 40px 1fr 1fr auto; align-items: center; gap: 8px; font-size: 12.5px; padding: 8px 10px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; }
+.calib-q { color: var(--txt-2); }
+.calib-a { color: var(--txt); }
+.calib-b { color: var(--cyan); }
+.calib-opts { display: flex; gap: 6px; }
+.calib-opt { padding: 4px 12px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: var(--txt-2); cursor: pointer; font-size: 12px; }
+.calib-opt.on { background: rgba(58, 227, 255, 0.2); border-color: var(--cyan); color: #fff; }
+.calib-cost { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12.5px; color: var(--txt-2); }
+.calib-cost label { display: flex; align-items: center; gap: 6px; }
+.calib-cost input { width: 90px; background: #0e1526; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; color: #fff; }
+.calib-result { padding: 12px 14px; border-radius: 10px; background: rgba(58, 227, 255, 0.08); border: 1px solid rgba(58, 227, 255, 0.25); font-size: 13px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.calib-final { font-size: 15px; color: var(--cyan); }
+.calib-actions { display: flex; justify-content: flex-end; gap: 10px; }
 /* 技术原理 双 Tab */
 .tech-tab-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .tech-tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--txt-2); padding: 8px 16px; font-size: 14px; cursor: pointer; }

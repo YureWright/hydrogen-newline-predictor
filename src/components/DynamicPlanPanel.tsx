@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LineAreaChartMemo } from './Charts'
 import MapView, { type MapPoint } from './MapView'
+import PreferenceCalibration from './PreferenceCalibration'
 import { fetchJson } from '../lib/fetchJson'
 
 interface Props {
@@ -29,6 +30,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
   const [replanAt, setReplanAt] = useState(40)
   const [replanSpeed, setReplanSpeed] = useState(0.7)
   const [monitor, setMonitor] = useState<any>(null)
+  const [showCalib, setShowCalib] = useState(false)
   const monTimer = useRef<number>(0)
   const monJob = useRef<string>('')
   const timer = useRef<number>(0)
@@ -194,6 +196,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
           />
           <span>时间优先</span>
           <b>λ = {lambda} 元/h</b>
+          <button className="calib-open" onClick={() => setShowCalib(true)}>🎯 偏好校准</button>
         </div>
         <div className="plan-slider">
           <span>偏差位置</span>
@@ -211,6 +214,14 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
           {status === 'running' ? '规划中…' : status === 'done' ? '重新规划' : '开始动态规划'}
         </button>
       </div>
+
+      {showCalib && (
+        <PreferenceCalibration
+          initialLambda={lambda}
+          onApply={(l) => { setLambda(l); setShowCalib(false) }}
+          onClose={() => setShowCalib(false)}
+        />
+      )}
 
       {status === 'running' && (
         <div className="progress-box">
