@@ -28,10 +28,50 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
   const [sortDesc, setSortDesc] = useState(false)
   const [replanAt, setReplanAt] = useState(40)
   const [replanSpeed, setReplanSpeed] = useState(0.7)
+  const [monitor, setMonitor] = useState<any>(null)
+  const monTimer = useRef<number>(0)
+  const monJob = useRef<string>('')
   const timer = useRef<number>(0)
   const autoStarted = useRef(false)
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
+  useEffect(() => () => window.clearTimeout(monTimer.current), [])
+
+  const startMonitor = useCallback(async (intervalSec: number) => {
+    try {
+      const r = await fetchJson<any>('/api/monitor/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin, destination, lambda, intervalSec }),
+      })
+      if (!r.ok) throw new Error(r.msg || '启动监控失败')
+      monJob.current = r.jobId
+      const tick = async () => {
+        try {
+          const s = await fetchJson<any>('/api/monitor/status?jobId=' + encodeURIComponent(monJob.current))
+          if (s.ok) setMonitor(s)
+        } catch { /* 忽略单次失败 */ }
+        monTimer.current = window.setTimeout(tick, 5000)
+      }
+      tick()
+    } catch (e: any) {
+      setError(e?.message || String(e))
+    }
+  }, [origin, destination, lambda])
+
+  const stopMonitor = useCallback(async () => {
+    window.clearTimeout(monTimer.current)
+    if (monJob.current) {
+      try {
+        await fetchJson('/api/monitor/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: monJob.current }),
+        })
+      } catch { /* ignore */ }
+    }
+    setMonitor((m: any) => (m ? { ...m, status: 'stopped' } : m))
+  }, [])
 
   const start = useCallback(async () => {
     window.clearTimeout(timer.current)
@@ -277,6 +317,50 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="table-card">
+            <div className="table-head">📡 实时监控：按时轮询高德路况，偏差自动触发重规划</div>
+            <div className="plan-controls" style={{ margin: '0 0 10px' }}>
+              <button className="btn-primary" onClick={() => startMonitor(300)} disabled={monitor?.status === 'running'}>
+                开启监控（5 分钟轮询）
+              </button>
+              <button className="btn-back" onClick={() => startMonitor(30)} disabled={monitor?.status === 'running'}>
+                演示模式（30 秒）
+              </button>
+              <button className="btn-back" onClick={stopMonitor} disabled={monitor?.status !== 'running'}>停止监控</button>
+            </div>
+            {monitor ? (
+              <>
+                <p className="note">
+                  状态：{monitor.status === 'running' ? '🟢 监控中' : '⚪ 已停止'} ｜
+                  上次轮询：{monitor.lastPollAt ? new Date(monitor.lastPollAt).toLocaleTimeString('zh-CN') : '—'} ｜
+                  轮询间隔：{monitor.intervalSec >= 60 ? Math.round(monitor.intervalSec / 60) + ' 分钟' : monitor.intervalSec + ' 秒'}
+                </p>
+                <p className="note">
+                  基线：{monitor.baseline.distanceKm}km / {monitor.baseline.durationH}h ｜
+                  当前：{monitor.current.distanceKm}km / {monitor.current.durationH}h ｜
+                  偏差阈值：{monitor.thresholdMin} 分钟
+                </p>
+                <div className="table-scroll" style={{ maxHeight: 240 }}>
+                  <table className="seg-table">
+                    <thead><tr><th>时间</th><th>类型</th><th>事件</th></tr></thead>
+                    <tbody>
+                      {monitor.events.slice().reverse().map((e: any, i: number) => (
+                        <tr key={i}>
+                          <td>{e.time}</td>
+                          <td>{e.type === 'deviation' ? '⚠️ 偏差' : e.type === 'replan' ? '🔁 重规划' : 'ℹ️ 正常'}</td>
+                          <td>{e.message}</td>
+                        </tr>
+                      ))}
+                      {monitor.events.length === 0 && <tr><td colSpan={3}>等待首次轮询…</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="note">点击「开启监控」后，系统每 5 分钟拉取一次高德实时路况；若预计延误超过 10 分钟，自动触发重规划。</p>
+            )}
           </div>
 
           {plan.replan && (

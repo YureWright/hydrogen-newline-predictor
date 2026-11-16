@@ -135,6 +135,84 @@ function startPlanJob(origin: string, destination: string, lambda: number, opts:
   return job
 }
 
+/* ===== 实时监控：每 N 秒轮询高德路况，偏差超阈值自动触发重规划 ===== */
+interface MonitorEvent {
+  time: string
+  type: 'info' | 'deviation' | 'replan'
+  message: string
+  deltaMin?: number
+}
+interface MonitorJob {
+  id: string
+  status: 'running' | 'stopped'
+  origin: string
+  destination: string
+  lambda: number
+  intervalSec: number
+  baselineDurationH: number
+  baselineDistanceKm: number
+  currentDurationH: number
+  currentDistanceKm: number
+  events: MonitorEvent[]
+  lastPollAt: number
+  nextPollAt: number
+  lastReplanJobId?: string
+  timer?: ReturnType<typeof setTimeout>
+  createdAt: number
+}
+const monitorJobs = new Map<string, MonitorJob>()
+let monitorSeq = 0
+const DEVIATION_THRESHOLD_MIN = 10
+
+function startMonitorJob(origin: string, destination: string, lambda: number, intervalSec: number) {
+  const id = 'mon_' + Date.now() + '_' + ++monitorSeq
+  const job: MonitorJob = {
+    id, status: 'running', origin, destination, lambda, intervalSec,
+    baselineDurationH: 0, baselineDistanceKm: 0, currentDurationH: 0, currentDistanceKm: 0,
+    events: [], lastPollAt: 0, nextPollAt: Date.now(), createdAt: Date.now(),
+  }
+  monitorJobs.set(id, job)
+  const nowText = () => new Date().toLocaleTimeString('zh-CN')
+  const poll = async () => {
+    if (job.status !== 'running') return
+    try {
+      // noCache：绕过 10 分钟路线缓存，保证轮询拿到最新路况
+      const plan = await fetchRoutePlan(origin, destination, { noCache: true })
+      const cur = plan.routes[0]
+      if (!cur) throw new Error('无可用路线')
+      job.currentDurationH = cur.durationH
+      job.currentDistanceKm = cur.distanceKm
+      if (!job.baselineDurationH) {
+        job.baselineDurationH = cur.durationH
+        job.baselineDistanceKm = cur.distanceKm
+        job.events.push({ time: nowText(), type: 'info', message: `基线建立：${cur.distanceKm}km / ${cur.durationH}h` })
+      } else {
+        const deltaMin = (cur.durationH - job.baselineDurationH) * 60
+        if (deltaMin >= DEVIATION_THRESHOLD_MIN) {
+          job.events.push({
+            time: nowText(), type: 'deviation', deltaMin: Number(deltaMin.toFixed(1)),
+            message: `路况恶化：预计延误 +${deltaMin.toFixed(1)} 分钟（当前 ${cur.durationH.toFixed(2)}h vs 基线 ${job.baselineDurationH.toFixed(2)}h），超过阈值 ${DEVIATION_THRESHOLD_MIN} 分钟`,
+          })
+          // 自动触发重规划（异步后台跑，避免阻塞轮询）
+          const pj = startPlanJob(origin, destination, lambda, { replanAt: 20, replanSpeed: 0.7 })
+          job.lastReplanJobId = pj.id
+          job.events.push({ time: nowText(), type: 'replan', message: `已自动触发重规划（任务 ${pj.id}）` })
+        } else {
+          job.events.push({ time: nowText(), type: 'info', message: `路况正常：延误 ${deltaMin.toFixed(1)} 分钟（阈值 ${DEVIATION_THRESHOLD_MIN} 分钟）` })
+        }
+      }
+      job.lastPollAt = Date.now()
+    } catch (e: any) {
+      job.events.push({ time: nowText(), type: 'info', message: '轮询失败：' + (e?.message || e) })
+    }
+    if (job.events.length > 60) job.events.splice(0, job.events.length - 60)
+    job.nextPollAt = Date.now() + intervalSec * 1000
+    if (job.status === 'running') job.timer = setTimeout(poll, intervalSec * 1000)
+  }
+  poll()
+  return job
+}
+
 function startDemJob(origin: string, destination: string, index: number, departureTime?: string) {
   const id = 'dem_' + Date.now() + '_' + ++demJobSeq
   const job: DemJob = { id, status: 'running', phase: 'route', done: 0, total: 0, cached: 0, createdAt: Date.now() }
@@ -472,6 +550,40 @@ export default defineConfig({
               if (!job) return send(res, 200, { ok: false, msg: '任务不存在或已过期' })
               if (job.status !== 'done') return send(res, 200, { ok: false, status: job.status, msg: job.error || '任务未完成' })
               return send(res, 200, { ok: true, ...(job.result as object) })
+            }
+            // ===== 实时监控：每 N 秒轮询路况，偏差超阈值自动重规划 =====
+            if (path === '/monitor/start' && req.method === 'POST') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const origin = payload.origin || ''
+              const destination = payload.destination || ''
+              if (!origin || !destination) return send(res, 400, { ok: false, msg: '缺少 origin/destination' })
+              const intervalSec = Math.max(10, Number(payload.intervalSec ?? 300))
+              const job = startMonitorJob(origin, destination, Number(payload.lambda ?? 100), intervalSec)
+              return send(res, 200, { ok: true, jobId: job.id, intervalSec })
+            }
+            if (path === '/monitor/status') {
+              const id = url.searchParams.get('jobId') || ''
+              const job = monitorJobs.get(id)
+              if (!job) return send(res, 200, { ok: false, msg: '监控任务不存在或已过期' })
+              return send(res, 200, {
+                ok: true, status: job.status, intervalSec: job.intervalSec,
+                baseline: { durationH: job.baselineDurationH, distanceKm: job.baselineDistanceKm },
+                current: { durationH: job.currentDurationH, distanceKm: job.currentDistanceKm },
+                lastPollAt: job.lastPollAt, nextPollAt: job.nextPollAt,
+                events: job.events, lastReplanJobId: job.lastReplanJobId || null,
+                thresholdMin: DEVIATION_THRESHOLD_MIN,
+              })
+            }
+            if (path === '/monitor/stop' && req.method === 'POST') {
+              let payload: any = {}
+              try { payload = JSON.parse((await readBody(req)) || '{}') } catch { /* ignore */ }
+              const job = monitorJobs.get(payload.jobId || '')
+              if (job) {
+                job.status = 'stopped'
+                if (job.timer) clearTimeout(job.timer)
+              }
+              return send(res, 200, { ok: true })
             }
             // ===== 可插拔模型 / 评测集 API（2026-08-28；写操作需上传口令） =====
             const checkUploadAuth = () => {

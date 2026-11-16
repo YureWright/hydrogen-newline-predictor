@@ -36,11 +36,11 @@ const PLAN_TTL_MS = 10 * 60 * 1000
 export async function fetchRawPaths(
   origin: string,
   destination: string,
-  opts: { strategy?: number } = {},
+  opts: { strategy?: number; noCache?: boolean } = {},
 ): Promise<AmapRawPath[]> {
   const strategy = opts.strategy ?? 10
   const cacheKey = origin + '|' + destination + '|' + strategy
-  const hit = planCache.get(cacheKey)
+  const hit = opts.noCache ? undefined : planCache.get(cacheKey)
   if (hit && Date.now() - hit.time < PLAN_TTL_MS) return hit.paths
 
   const key = getAmapKey()
@@ -93,7 +93,7 @@ export function pathToCandidate(path: AmapRawPath): RouteCandidate {
 export async function fetchRoutePlan(
   origin: string,
   destination: string,
-  opts: { strategy?: number } = {},
+  opts: { strategy?: number; noCache?: boolean } = {},
 ): Promise<RoutePlan> {
   const paths = await fetchRawPaths(origin, destination, opts)
   return {
