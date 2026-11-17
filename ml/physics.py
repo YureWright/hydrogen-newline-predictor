@@ -226,6 +226,7 @@ def predict_segment(seg):
       "t_h": round(t_h, 4),
       "eta_fc": round(eta_fc, 3),
       "E_fc": round(E_fc, 2),
+      "E_fc_raw": E_fc,
       "m_H2": round(m_H2, 4),
       # 结果（与 ML 输出同字段，方便前端复用）
       "N_stops": round(N_stops, 2),
@@ -235,6 +236,7 @@ def predict_segment(seg):
       "E_stop_kwh": round(E_stop_kwh, 4),
       "m_H2_stop": round(m_H2_stop, 4),
       "h2_per_km_kg": round(m_H2 / L, 4) if L > 0 else 0,
+      "h2_per_km_kg_raw": (m_H2 / L) if L > 0 else 0,
       "h2_per_100km_kg": round(m_H2 / L * 100.0, 2) if L > 0 else 0,
       "h2_kg": round(m_H2, 3),
       "grade_missing": grade_missing,

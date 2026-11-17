@@ -182,7 +182,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
     <div className="plan-panel">
       <div className="panel-title">🧭 动态规划 · 路线 / 车速 / 氢电双补能</div>
       <p className="note">
-        按你的时间—费用偏好，逐段计算经济车速，并在加氢站与充电站之间做双补能动态规划（含绕行与充电时间）。
+        按你的时间—费用偏好，用 5 → 1 → 0.2 km/h 分层搜索逐段计算经济车速，并在加氢站与充电站之间做双补能动态规划（含绕行与充电时间）。
         规划约需 30~90 秒（沿线 DEM、天气与物理仿真）。
       </p>
 
@@ -260,7 +260,7 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
           )}
 
           <div className="chart-card chart-wide">
-            <h4>车速规划（逐段经济车速 km/h）</h4>
+            <h4>车速规划（逐段经济车速，精度 0.2 km/h）</h4>
             <LineAreaChartMemo
               points={speedPts}
               color="#3ae3ff"

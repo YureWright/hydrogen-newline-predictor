@@ -15,7 +15,8 @@
     "enrich": "tsx scripts/enrich-route.ts",
     "verify:split": "tsx scripts/verify-split.ts",
     "verify:osm": "tsx scripts/verify-osm.ts",
-    "verify:weather": "tsx scripts/verify-weather.ts"
+    "verify:weather": "tsx scripts/verify-weather.ts",
+    "verify:speed": "tsx scripts/verify-speed-search.ts"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

@@ -15,6 +15,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import {
+  SPEED_SEARCH, coarseSpeedGrid, fineSpeedGrid, refineSpeedGrid, cheapestSpeed,
+} from '../src/optimization/speedSearch'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
@@ -53,8 +56,14 @@ const REPLAN_LEN_KM = argNum('replan-len', 50)         // 受影响路段长度 
 const REPLAN_SPEED_FACTOR = argNum('replan-speed', 0.7) // 限速系数（0.7 = 降 30%）
 const REPLAN_CONSUME_FACTOR = argNum('replan-consume', 1) // 能耗系数（1.1 = 多耗 10%）
 
-const SPEEDS = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
 const log = (...a: any[]) => console.log('[plan]', ...a)
+
+interface SpeedOption {
+  v: number
+  h2Kg: number
+  eKWh: number
+  cost: number
+}
 
 // ---------- 工具 ----------
 async function geocode(addr: string): Promise<string> {
@@ -85,6 +94,112 @@ function runPhysics(segments: any[]): Promise<any[]> {
     child.stdin.write(JSON.stringify({ departure_hour: 9, segments }))
     child.stdin.end()
   })
+}
+
+/**
+ * 对指定路段执行 5 → 1 → 0.2 km/h 分层搜索。
+ * 每个「路段 + 速度」只调用一次物理模型，后续阶段复用缓存。
+ */
+async function optimizeSegmentSpeeds(
+  segments: any[],
+  indexes: number[],
+  capFor: (segment: any) => number,
+  consumeFactor = 1,
+): Promise<Map<number, SpeedOption>> {
+  const caps = new Map<number, number>()
+  const cache = new Map<number, Map<string, SpeedOption>>()
+  for (const index of indexes) {
+    caps.set(index, Math.max(1, capFor(segments[index])))
+    cache.set(index, new Map())
+  }
+
+  const cacheKey = (v: number) => v.toFixed(2)
+  const bestOf = (index: number): SpeedOption | null =>
+    cheapestSpeed([...(cache.get(index)?.values() ?? [])])
+
+  const evaluate = async (grids: Map<number, number[]>, stage: string) => {
+    const batch: any[] = []
+    const meta: Array<{ seg: number; v: number }> = []
+    for (const [index, speeds] of grids) {
+      const s = segments[index]
+      const level = String(s.roadLevel || 'other') as any
+      for (const v of speeds) {
+        if (cache.get(index)?.has(cacheKey(v))) continue
+        batch.push({
+          distanceKm: s.distanceKm,
+          avgSpeedKmh: v,
+          gradePercent: s.gradePercent,
+          elevationM: s.elevationM,
+          temperatureC: s.temperatureC ?? 20,
+          massKg: V.massKg,
+          windSpeedKmh: s.windSpeedKmh ?? 0,
+          windAffects: false,
+          roadLevel: level,
+          crr: V.crr,
+          cd: V.cd,
+          frontArea: V.frontArea,
+          eta_mt: V.etaMt,
+          p_fc_min: V.pFcMin,
+          p_fc_max: V.pFcMax,
+          p_bat_max: V.pBatMax,
+          eta_fc: V.etaFc,
+          p_aux0: V.pAux0,
+          k_t: V.kT,
+        })
+        meta.push({ seg: index, v })
+      }
+    }
+    if (batch.length === 0) return
+    log(`车速${stage}：物理仿真 ${batch.length} 组...`)
+    const results = await runPhysics(batch)
+    meta.forEach((request, k) => {
+      const result = results[k]
+      const rawH2PerKm = result?.h2_per_km_kg_raw ?? result?.h2_per_km_kg
+      if (rawH2PerKm == null) return
+      const s = segments[request.seg]
+      const h2Kg = Number(rawH2PerKm) * s.distanceKm * consumeFactor
+      const rawE = result?.E_fc_raw ?? result?.E_fc ?? h2Kg * 33.3 * V.etaFc
+      const eKWh = Number(rawE) * consumeFactor
+      const cost =
+        h2Kg * COST.h2Price +
+        (COST.driverRate + LAMBDA) * (s.distanceKm / request.v)
+      cache.get(request.seg)!.set(cacheKey(request.v), {
+        v: request.v,
+        h2Kg,
+        eKWh,
+        cost,
+      })
+    })
+  }
+
+  // 第一层：完整可行区间 5 km/h 粗扫，确定粗网格上的全局最低点。
+  await evaluate(
+    new Map(indexes.map((index) => [index, coarseSpeedGrid(caps.get(index)!)])),
+    '粗扫 5 km/h',
+  )
+
+  // 第二层：围绕粗扫最优点左右 5 km/h，按 1 km/h 加密。
+  const fineGrids = new Map<number, number[]>()
+  for (const index of indexes) {
+    const best = bestOf(index)
+    if (best) fineGrids.set(index, fineSpeedGrid(best.v, caps.get(index)!))
+  }
+  await evaluate(fineGrids, '加密 1 km/h')
+
+  // 第三层：围绕 1 km/h 最优点左右 1 km/h，按 0.2 km/h 精修。
+  const refineGrids = new Map<number, number[]>()
+  for (const index of indexes) {
+    const best = bestOf(index)
+    if (best) refineGrids.set(index, refineSpeedGrid(best.v, caps.get(index)!))
+  }
+  await evaluate(refineGrids, '精修 0.2 km/h')
+
+  const optimized = new Map<number, SpeedOption>()
+  for (const index of indexes) {
+    const best = bestOf(index)
+    if (best) optimized.set(index, best)
+  }
+  return optimized
 }
 
 function haversine(a: [number, number], b: [number, number]): number {
@@ -140,41 +255,20 @@ async function main() {
   const segs = wx.segments
   log(`天气：${wx.provider}，匹配 ${wx.sampled} 段`)
 
-  // 3) 逐段车速扫描（物理模型）
-  const batch: any[] = []
-  const meta: Array<{ seg: number; v: number }> = []
-  segs.forEach((s, si) => {
+  // 3) 逐段经济车速：5 → 1 → 0.2 km/h 分层搜索（物理模型）
+  log(`经济车速分层搜索：${SPEED_SEARCH.coarseStepKmh} → ${SPEED_SEARCH.fineStepKmh} → ${SPEED_SEARCH.refineStepKmh} km/h`)
+  const speedCap = (s: any) => {
     const level = String(s.roadLevel || 'other') as any
-    const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
-    SPEEDS.filter((v) => v <= cap).forEach((v) => {
-      batch.push({
-        distanceKm: s.distanceKm, avgSpeedKmh: v, gradePercent: s.gradePercent, elevationM: s.elevationM,
-        temperatureC: s.temperatureC ?? 20, massKg: V.massKg, windSpeedKmh: s.windSpeedKmh ?? 0,
-        windAffects: false, roadLevel: level, crr: V.crr, cd: V.cd, frontArea: V.frontArea,
-        eta_mt: V.etaMt, p_fc_min: V.pFcMin, p_fc_max: V.pFcMax, p_bat_max: V.pBatMax,
-        eta_fc: V.etaFc, p_aux0: V.pAux0, k_t: V.kT,
-      })
-      meta.push({ seg: si, v })
-    })
-  })
-  log(`物理仿真 ${batch.length} 组（段×车速）...`)
-  const phys = await runPhysics(batch)
-
-  // 每段选经济车速
-  const perSegOpts: Array<Array<{ v: number; h2Kg: number; eKWh: number; cost: number }>> = segs.map(() => [])
-  meta.forEach((m, k) => {
-    const r = phys[k]
-    if (!r || r.h2_per_km_kg == null) return
-    const s = segs[m.seg]
-    const h2Kg = r.h2_per_km_kg * s.distanceKm
-    const eKWh = r.E_fc ?? h2Kg * 33.3 * V.etaFc
-    const cost = h2Kg * COST.h2Price + (COST.driverRate + LAMBDA) * (s.distanceKm / m.v)
-    perSegOpts[m.seg].push({ v: m.v, h2Kg, eKWh, cost })
-  })
-
+    return Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40))
+  }
+  const optimizedSpeeds = await optimizeSegmentSpeeds(
+    segs,
+    segs.map((_, i) => i),
+    speedCap,
+  )
   const planSegs = segs.map((s, i) => {
-    const opts = perSegOpts[i]
-    const best = opts.reduce((a, b) => (b.cost < a.cost ? b : a))
+    const best = optimizedSpeeds.get(i)
+    if (!best) throw new Error(`第 ${i + 1} 段没有可用经济车速`)
     return { ...s, planSpeed: best.v, planH2Kg: best.h2Kg, planEKWh: best.eKWh, planTimeH: s.distanceKm / best.v }
   })
 
@@ -360,39 +454,19 @@ async function main() {
   planSegs.forEach((s, i) => { acc += s.distanceKm; if (acc >= s0 && acc <= eventEnd) affectedIdx.push(i) })
   let replan: any = null
   if (affectedIdx.length > 0) {
-    const reBatch: any[] = []
-    const reMeta: Array<{ seg: number; v: number }> = []
-    affectedIdx.forEach((si) => {
-      const s = planSegs[si]
+    const replanCap = (s: any) => {
       const level = String(s.roadLevel || 'other') as any
-      const cap = Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * REPLAN_SPEED_FACTOR
-      SPEEDS.filter((v) => v <= cap).forEach((v) => {
-        reBatch.push({
-          distanceKm: s.distanceKm, avgSpeedKmh: v, gradePercent: s.gradePercent, elevationM: s.elevationM,
-          temperatureC: s.temperatureC ?? 20, massKg: V.massKg, windSpeedKmh: s.windSpeedKmh ?? 0,
-          windAffects: false, roadLevel: level, crr: V.crr, cd: V.cd, frontArea: V.frontArea,
-          eta_mt: V.etaMt, p_fc_min: V.pFcMin, p_fc_max: V.pFcMax, p_bat_max: V.pBatMax,
-          eta_fc: V.etaFc, p_aux0: V.pAux0, k_t: V.kT,
-        })
-        reMeta.push({ seg: si, v })
-      })
-    })
-    const rePhys = await runPhysics(reBatch)
-    const reOpts: Array<Array<{ v: number; h2Kg: number; eKWh: number; cost: number }>> = affectedIdx.map(() => [])
-    reMeta.forEach((m, k) => {
-      const r = rePhys[k]
-      if (!r || r.h2_per_km_kg == null) return
-      const s = planSegs[m.seg]
-      const h2Kg = r.h2_per_km_kg * s.distanceKm * REPLAN_CONSUME_FACTOR
-      const eKWh = (r.E_fc ?? h2Kg * 33.3 * V.etaFc) * REPLAN_CONSUME_FACTOR
-      reOpts[affectedIdx.indexOf(m.seg)].push({ v: m.v, h2Kg, eKWh, cost: h2Kg * COST.h2Price + (COST.driverRate + LAMBDA) * (s.distanceKm / m.v) })
-    })
+      return Math.min((TRUCK_SPEED_MAX as any)[level] ?? 80, Math.max(s.avgSpeedKmh * 1.1, 40)) * REPLAN_SPEED_FACTOR
+    }
+    const replanSpeeds = await optimizeSegmentSpeeds(
+      planSegs,
+      affectedIdx,
+      replanCap,
+      REPLAN_CONSUME_FACTOR,
+    )
     const newPlanSegs = planSegs.map((s, i) => {
-      const k = affectedIdx.indexOf(i)
-      if (k < 0) return s
-      const opts = reOpts[k]
-      if (!opts.length) return s
-      const best = opts.reduce((a, b) => (b.cost < a.cost ? b : a))
+      const best = replanSpeeds.get(i)
+      if (!best) return s
       return { ...s, planSpeed: best.v, planH2Kg: best.h2Kg, planEKWh: best.eKWh, planTimeH: s.distanceKm / best.v }
     })
     const newTime = newPlanSegs.reduce((a, s) => a + s.planTimeH, 0)
@@ -436,6 +510,14 @@ async function main() {
     },
     lambda: LAMBDA,
     vehicle: V, cost: COST,
+    optimization: {
+      speedSearch: {
+        strategy: 'coarse-to-fine-local-refinement',
+        coarseStepKmh: SPEED_SEARCH.coarseStepKmh,
+        fineStepKmh: SPEED_SEARCH.fineStepKmh,
+        refineStepKmh: SPEED_SEARCH.refineStepKmh,
+      },
+    },
     total: {
       km: totalKm, timeH: cumT, energyKWh: totalE, h2Kg: totalH2,
       h2Per100km: totalH2 / totalKm * 100,
@@ -444,7 +526,7 @@ async function main() {
       chargeH, travelH,
     },
     speedPlan: planSegs.map((s) => ({
-      index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, speed: s.planSpeed,
+      index: s.index, roadName: s.roadName, distanceKm: s.distanceKm, speed: round1(s.planSpeed),
       gradePercent: s.gradePercent, elevationM: s.elevationM, temperatureC: s.temperatureC,
       windSpeedKmh: s.windSpeedKmh, trafficStatus: s.trafficStatus, h2Kg: s.planH2Kg,
     })),
