@@ -781,7 +781,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
     const phaseText = progress?.phase === 'dem' && total > 0
       ? `下载高程瓦片 ${done}/${total}（已缓存 ${progress.cached}）`
       : progress?.phase === 'osm-query' && total > 0
-        ? `查询 OSM 真实路网… 分块 ${Math.min(done + 1, total)}/${total}`
+        ? `查询 OSM 真实路网… 分块 ${Math.min(done + 1, total)}/${total}（最多等待 8 秒）`
         : (PHASE_TEXT[progress?.phase || ''] || '处理中…')
     // 整个测算是多阶段串行的：每换一个阶段进度条都会从 0 重来。没有"第几步"提示时，
     // 用户会把"归零重填"误读成卡死。这里把当前阶段映射到固定步骤序列，明确告诉他还在推进。
@@ -822,7 +822,7 @@ export default function SegmentsPanel({ origin, destination, routeIndex, candida
           </div>
           <div className="progress-sub">
             {progress?.phase === 'osm-query'
-              ? `已用 ${runElapsed}s · OSM 公共镜像较慢属正常，同路线二次测算走缓存秒级`
+              ? `已用 ${runElapsed}s · OSM 超时会立即用规则推断替代，不会阻塞后续测算`
               : total > 0 ? `${pct}% · 首次下载后本地缓存，同路线重复测算秒级` : '正在准备数据…'}
           </div>
           <button className="btn-cancel" onClick={backToSelect}>取消</button>

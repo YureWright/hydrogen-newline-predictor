@@ -132,7 +132,7 @@
 4. **标签映射**：`osmTagsToRoadLevel()` 用 highway 标签 + ref/name 编号给出 RoadLevel；
 5. **兜底**：Overpass 不可用 / 无匹配 → 保留规则推断值（`roadSource='rule'`），OSM 只"升级"不"误伤"；匝道/收费站/服务区等行为段保持规则推断（其路名指向所连接的干线，OSM 却常把这些短连接段标成 *_link/service 会错误降级）。
 
-**数据源与可靠性**：Overpass API（免 Key，ODbL 许可）。公共镜像限流/超时频繁，模块内置 4 镜像 failover + 30s 单次超时 + 空结果重试 + 5 分钟墙钟预算，结果磁盘缓存 `data/osm-cache/`（gitignore，同一走廊二次运行秒回）。OSM 覆盖不到的路段自动退回规则推断——两种来源在 UI 上以徽标区分（OSM 徽标 / 无徽标=规则推断）。
+**数据源与可靠性**：Overpass API（免 Key，ODbL 许可）。公共镜像限流/超时频繁，模块采用 4 镜像并行竞速，单分块总超时 8 秒，整条路线 OSM 预算 20 秒；首个分块失败立即停止查询并保留规则推断，不阻塞天气与氢耗测算。成功结果磁盘缓存到 `data/osm-cache/`（gitignore，同一走廊二次运行秒回）。OSM 覆盖不到的路段自动退回规则推断——两种来源在 UI 上以徽标区分（OSM 徽标 / 无徽标=规则推断）。
 
 验证：`npm run verify:osm`（纯函数映射 11 项 + 真实线路集成，需 AMAP_KEY + 网络）。
 

@@ -17,8 +17,8 @@
  *   ④ 无匹配 / 服务不可用 → 保留规则推断值（roadSource='rule'）。
  *
  * 数据源：Overpass API（免 Key）。公共镜像限流严重，本模块：
- *   - 4 镜像 failover + 20s 单次超时 + 空结果换镜像重试；
- *   - 请求间间隔 + 5 分钟墙钟预算（超时停止查询，已匹配走廊保留）；
+ *   - 4 镜像并行竞速 + 8s 总超时，首个有效结果胜出；
+ *   - 首次分块失败立即停止 OSM 查询，保留规则推断，不阻塞后续测算；
  *   - 结果磁盘缓存到 data/osm-cache/（gitignore），同一走廊二次运行秒回。
  *
  * 坐标系：路线折线已由 GCJ-02 逆转换到 WGS-84（coords.ts，残差 <10m），与 OSM 同系，
@@ -57,9 +57,9 @@ export interface OsmRoadOptions {
   queryStepM?: number
   /** 请求间间隔 ms（默认 800，公共镜像限流） */
   delayMs?: number
-  /** 全部 OSM 查询的墙钟预算 ms（默认 300000=5 分钟，超时停止查询并保留已完成走廊） */
+  /** 全部 OSM 查询的墙钟预算 ms（默认 20000=20 秒，超时停止查询并保留已完成走廊） */
   queryBudgetMs?: number
-  /** 单次 Overpass 客户端超时 ms（默认 20000；服务端 [timeout] 比它短 5 秒，避免算完了客户端已经放弃） */
+  /** 单块 Overpass 并行查询总超时 ms（默认 8000；超时立即回退规则推断） */
   timeoutMs?: number
   /** 取消信号：返回 true 时立即停止并保留已完成结果 */
   shouldCancel?: () => boolean
@@ -220,9 +220,8 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-/** 单个走廊分块的 Overpass 查询（镜像 failover + 退避 + 空结果换镜像）
- * 公共镜像很不可靠：连接级丢包（fetch failed）、429/406 限流、超时、空响应都可能发生，
- * 单轮内依次尝试 4 个镜像，0 条路视为可疑继续换镜像；全失败由外层连续失败计数提前止损。 */
+/** 单个走廊分块的 Overpass 查询：4 个镜像并行竞速，第一个有效结果胜出。
+ * 任何镜像超时都不会拖住其他镜像；总超时后立即抛错，由外层保留规则推断。 */
 async function queryOverpassChunk(
   polyline: Array<[number, number]>,
   bufferM: number,
@@ -232,65 +231,76 @@ async function queryOverpassChunk(
   const around = polyline
     .map(([lng, lat]) => lat.toFixed(6) + ',' + lng.toFixed(6))
     .join(',')
-  // 服务端预算必须短于客户端超时：客户端先放弃的话，服务端还会把查询算完，
-  // 既拿不到结果又白白占镜像配额。预留 5 秒给网络往返。
-  const serverTimeoutS = Math.max(10, Math.floor(timeoutMs / 1000) - 5)
+  // 服务端预算必须短于客户端总超时，避免客户端已放弃但镜像继续占用查询配额。
+  const serverTimeoutS = Math.max(3, Math.floor(timeoutMs / 1000) - 2)
   const q =
     '[out:json][timeout:' + serverTimeoutS + '];way["highway"~"' + HIGHWAY_FILTER + '"]' +
     '(around:' + bufferM + ',' + around + ');out tags geom;'
-  let lastErr: string = ''
-  // 单轮 4 镜像 failover（公共服务器慢，2 轮会把 5 分钟预算烧光）
-  for (const ep of OVERPASS_ENDPOINTS) {
-      try {
-        const ctrl = new AbortController()
-        const t = setTimeout(() => ctrl.abort(), timeoutMs)
-        const r = await fetch(ep, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': UA,
-          },
-          body: new URLSearchParams({ data: q }).toString(),
-          signal: ctrl.signal,
-        })
-        clearTimeout(t)
-        if (r.status === 429 || r.status === 406 || r.status === 504) {
-          lastErr = 'HTTP ' + r.status
-          await sleep(2000)
-          continue // 限流/网关错误 → 换镜像
-        }
-        if (!r.ok) {
-          lastErr = 'HTTP ' + r.status
-          continue
-        }
-        const text = await r.text()
-        const j = JSON.parse(text) as { elements?: Array<{ type?: string; id?: number; tags?: Record<string, string>; geometry?: Array<{ lat: number; lon: number }> }> }
-        if (!Array.isArray(j.elements)) {
-          lastErr = 'overpass 无 elements'
-          continue
-        }
-        const ways: OsmWay[] = []
-        for (const el of j.elements) {
-          if (el.type !== 'way' || !el.id || !el.tags || !Array.isArray(el.geometry)) continue
-          ways.push({
-            id: el.id,
-            tags: el.tags,
-            geometry: el.geometry.map((g) => [g.lon, g.lat] as [number, number]),
-          })
-        }
-        if (ways.length === 0) {
-          // 0 条路很可疑（哪怕乡间也有路），可能是服务器异常；记录并换镜像重试
-          lastErr = '空结果（0 条路）'
-          await sleep(1500)
-          continue
-        }
-        return ways
-      } catch (e: any) {
-        lastErr = e.message || String(e)
-        await sleep(1500)
-      }
+  return new Promise<OsmWay[]>((resolve, reject) => {
+    const controller = new AbortController()
+    const errors: string[] = []
+    let pending = OVERPASS_ENDPOINTS.length
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      controller.abort()
+      reject(new Error('Overpass 查询总超时（' + timeoutMs + 'ms）'))
+    }, timeoutMs)
+
+    const finishError = () => {
+      if (settled || pending > 0) return
+      settled = true
+      clearTimeout(timer)
+      reject(new Error('Overpass 查询超时/失败: ' + (errors[errors.length - 1] || '无有效响应')))
     }
-  throw new Error('Overpass 全部镜像失败: ' + lastErr)
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      ;(async () => {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': UA,
+            },
+            body: new URLSearchParams({ data: q }).toString(),
+            signal: controller.signal,
+          })
+          if (!response.ok) throw new Error('HTTP ' + response.status)
+          const payload = JSON.parse(await response.text()) as {
+            elements?: Array<{
+              type?: string
+              id?: number
+              tags?: Record<string, string>
+              geometry?: Array<{ lat: number; lon: number }>
+            }>
+          }
+          if (!Array.isArray(payload.elements)) throw new Error('无 elements')
+          const ways: OsmWay[] = []
+          for (const element of payload.elements) {
+            if (element.type !== 'way' || !element.id || !element.tags || !Array.isArray(element.geometry)) continue
+            ways.push({
+              id: element.id,
+              tags: element.tags,
+              geometry: element.geometry.map((point) => [point.lon, point.lat] as [number, number]),
+            })
+          }
+          if (ways.length === 0) throw new Error('空结果')
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          controller.abort() // 取消未完成的镜像请求，避免继续占网络和公共配额
+          resolve(ways)
+        } catch (error: any) {
+          errors.push(endpoint + ': ' + (error?.message || String(error)))
+        } finally {
+          pending -= 1
+          finishError()
+        }
+      })()
+    }
+  })
 }
 
 /* ============================ 缓存 ============================ */
@@ -558,10 +568,12 @@ export async function enrichSegmentsWithOsmRoads(
   const waysByChunk: Array<{ key: string; ways: OsmWay[] }> = []
   const merged = new Map<number, OsmWay>()
   const tQueryStart = Date.now()
-  const queryBudgetMs = opts.queryBudgetMs ?? 300000 // 5 分钟墙钟预算，超时停止查询并保留已完成走廊
+  const queryBudgetMs = opts.queryBudgetMs ?? 20000 // 20 秒总预算，超时停止查询并保留已完成走廊
+  const queryTimeoutMs = opts.timeoutMs ?? 8000
   let consecutiveFails = 0
   for (let ci = 0; ci < chunks.length; ci++) {
-    if (Date.now() - tQueryStart > queryBudgetMs) {
+    const remainingBudgetMs = queryBudgetMs - (Date.now() - tQueryStart)
+    if (remainingBudgetMs <= 0) {
       console.warn('[osm] 查询超过墙钟预算，停止后续分块（已匹配走廊保留）')
       break
     }
@@ -569,14 +581,14 @@ export async function enrichSegmentsWithOsmRoads(
     const key = chunkCacheKey(chunks[ci], bufferM)
     opts.onProgress?.({ phase: 'osm-query', done: ci, total: chunks.length })
     const cached = useCache ? loadCache(cacheDir, key) : null
-    let ways: OsmWay[]
+    let ways: OsmWay[] = []
     if (cached) {
       ways = cached
       consecutiveFails = 0 // 缓存命中说明这条走廊有数据，不是"服务不可用"
       console.log('[osm] 分块 ' + (ci + 1) + '/' + chunks.length + ' 缓存命中（' + cached.length + ' 条路）')
     } else {
       try {
-        ways = await queryOverpassChunk(chunks[ci], bufferM, opts.timeoutMs ?? 20000)
+        ways = await queryOverpassChunk(chunks[ci], bufferM, Math.min(queryTimeoutMs, remainingBudgetMs))
         result.queries += 1
         // 只有非空结果才写缓存：空结果很可能是服务器异常，写缓存会把"无路"永久固化
         if (useCache && ways.length > 0) saveCache(cacheDir, key, ways)
@@ -585,12 +597,11 @@ export async function enrichSegmentsWithOsmRoads(
       } catch (e) {
         console.warn('[osm] 分块 ' + (ci + 1) + '/' + chunks.length + ' Overpass 查询失败，保留规则推断:', (e as Error).message)
         consecutiveFails += 1
-        // 连续两个分块都查不到（服务器宕/限流）→ 提前结束，不再浪费预算
-        if (consecutiveFails >= 2) {
-          console.warn('[osm] 连续 ' + consecutiveFails + ' 个分块失败，判定 Overpass 不可用，提前结束（已匹配走廊保留）')
+        // 首次失败即判定服务不可用：道路等级只是增强项，规则推断已足够继续测算。
+        if (consecutiveFails >= 1) {
+          console.warn('[osm] 查询失败，立即停止 OSM 并改用规则推断（已匹配走廊保留）')
           break
         }
-        continue
       }
       if (delayMs > 0) await sleep(delayMs)
     }
