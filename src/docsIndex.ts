@@ -63,7 +63,7 @@ export const DOC_GROUPS: DocGroup[] = [
     { id: 'truck-speed', title: '重卡车速对齐方案（货车系数）', globKey: DOCS + '/重卡车速对齐方案.md', kind: 'md', hint: '预测速度对齐训练数据重卡画像；将来接入高德货车路径规划服务替换系数' },
     { id: 'decision-opt', title: '智能决策与优化算法设计（偏好驱动）', globKey: DOCS + '/智能决策优化算法设计.md', kind: 'md', hint: '时间-费用偏好 → Pareto前沿 + 分段经济车速 + 氢电双补能DP + 动态重规划；含官网车辆参数与本地启动说明' },
     { id: 'dynamic-plan', title: '动态规划模块设计（路线·车速·双补能·实时重规划）', globKey: DOCS + '/动态规划模块设计.md', kind: 'md', hint: '已实现模块：规划内核流程、车速优化、氢电双补能DP、动态重规划、实时监控轮询、API与前端交互、实测结果与限制' },
-    { id: 'preference-survey', title: '氢能重卡用户「时间—费用偏好」量表问卷', globKey: DOCS + '/偏好量表问卷.md', kind: 'md', hint: '情景选择法 + 李克特量表 + 运营成本法，三种方法测出时间价值 λ（元/小时），含计分规则与示例' },
+    { id: 'preference-survey', title: '氢能重卡用户「时间—费用偏好」量表问卷', globKey: DOCS + '/偏好量表问卷.md', kind: 'md', hint: '前端已实现情景选择与 8 题李克特快速量表；含反向计分、运营成本校验、λ 计算规则与示例' },
   ] },
   { group: '知识库 · 总览与科普', items: [
     { id: 'kb00', title: '00 · 总览与阅读入口', globKey: KB + '/00_总览与阅读入口.md', kind: 'md' },
