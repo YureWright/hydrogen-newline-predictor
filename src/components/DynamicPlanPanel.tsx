@@ -243,9 +243,9 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
             <div className="stat-card"><b>{plan.stops?.length ?? 0}</b><span>补能次数</span></div>
           </div>
 
-          {mapCandidate && mapFrom && mapTo && (
-            <div className="plan-map">
-              <h4>路线走向（起点 → 终点）</h4>
+          <div className="plan-map">
+            <h4>路线走向（起点 → 终点）</h4>
+            {mapCandidate && mapFrom && mapTo ? (
               <div className="map-box">
                 <MapView
                   routes={[mapCandidate]}
@@ -256,8 +256,10 @@ export default function DynamicPlanPanel({ origin, destination, originName, dest
                   stations={[]}
                 />
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="map-empty">本次规划结果缺少路线几何数据，请重新规划或换一组起终点。</div>
+            )}
+          </div>
 
           <div className="chart-card chart-wide">
             <h4>车速规划（逐段经济车速，精度 0.2 km/h）</h4>

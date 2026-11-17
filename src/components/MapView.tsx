@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import { wgs84ToGcj02 } from '../route/coords'
 import type { RouteCandidate, H2Station } from '../route/types'
 
-const TILE_URL = 'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'
+const TILE_URL = 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'
+const TILE_SUBDOMAINS = ['1', '2', '3', '4']
 
 export interface MapPoint { name: string; lng: number; lat: number }
 
@@ -50,15 +51,37 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
   const mapRef = useRef<L.Map | null>(null)
   const baseRef = useRef<L.LayerGroup | null>(null)
   const hlRef = useRef<L.LayerGroup | null>(null)
+  const [tileFailed, setTileFailed] = useState(false)
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return
     const map = L.map(divRef.current, { zoomControl: true, attributionControl: false, minZoom: 3, maxZoom: 18 })
-    L.tileLayer(TILE_URL, { maxZoom: 18 }).addTo(map)
+    const tiles = L.tileLayer(TILE_URL, { maxZoom: 18, subdomains: TILE_SUBDOMAINS }).addTo(map)
+    tiles.on('load', () => setTileFailed(false))
+    tiles.on('tileerror', () => setTileFailed(true))
     baseRef.current = L.layerGroup().addTo(map)
     hlRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
+
+    // 页面切页、弹窗或响应式布局后，Leaflet 首次拿到 0 尺寸会留下空白地图。
+    const resize = () => {
+      if (mapRef.current) map.invalidateSize({ animate: false })
+    }
+    let resizeTimer = 0
+    const raf = window.requestAnimationFrame(() => {
+      resize()
+      resizeTimer = window.setTimeout(resize, 120)
+    })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize)
+    observer?.observe(divRef.current)
+
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(resizeTimer)
+      observer?.disconnect()
+      map.remove()
+      mapRef.current = null
+    }
   }, [])
 
   // 基础层：路线 + 起终点 + 加氢站（只在路线/选中/站点变化时重画——571 个 marker 很贵，不能跟着勾选高亮一起刷）
@@ -129,5 +152,10 @@ export default function MapView({ routes, selectedIndex, onSelect, from, to, sta
     }
   }, [highlight, routes])
 
-  return <div ref={divRef} style={{ height: '100%', width: '100%' }} />
+  return (
+    <div className="map-view-root">
+      <div ref={divRef} style={{ height: '100%', width: '100%' }} />
+      {tileFailed && <div className="map-tile-warning">底图瓦片加载受影响，路线仍可查看；可稍后重试</div>}
+    </div>
+  )
 }

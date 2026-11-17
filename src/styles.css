@@ -405,6 +405,13 @@ body::before {
 
 /* ================= 地图 ================= */
 .map-box { overflow: hidden; height: 640px; background: var(--bg-3); padding: 0; }
+.map-view-root { position: relative; width: 100%; height: 100%; }
+.map-tile-warning {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  z-index: 500; max-width: calc(100% - 32px); padding: 7px 12px; border-radius: 8px;
+  background: rgba(10, 14, 26, 0.88); border: 1px solid rgba(255, 181, 71, 0.45);
+  color: var(--amber); font-size: 12px; text-align: center; pointer-events: none;
+}
 /* 高德底图是亮色的：反相 + 转回色相 = 深色底图，且不影响 GCJ-02 坐标对齐
    （换 CartoDB 暗色瓦片会因为坐标系不同导致整体偏移几百米） */
 .map-box .leaflet-tile-pane {
@@ -1057,6 +1064,11 @@ body::before {
 }
 .plan-map h4 { margin: 0 0 10px; font-size: 14px; color: var(--txt-2); font-weight: 500; }
 .plan-map .map-box { height: 420px; }
+.map-empty {
+  min-height: 160px; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; background: var(--bg-3); color: var(--txt-2);
+  font-size: 13px; text-align: center; padding: 20px;
+}
 
 /* 实时规划司机指令卡 */
 .plan-instruction {
